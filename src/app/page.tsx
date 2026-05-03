@@ -317,7 +317,7 @@ function CrewPanel(props: {
   }
 
   return (
-    <section className={`panel ${props.collapsed ? "collapsedPanel" : ""}`}>
+    <section className={`panel faction-${slugifyForMatch(props.faction)} ${props.collapsed ? "collapsedPanel" : ""}`}>
       <div className="panelHeader">
         <h2>{props.title}</h2>
         <span>

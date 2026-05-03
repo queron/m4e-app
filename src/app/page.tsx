@@ -1,0 +1,709 @@
+"use client";
+
+import { useEffect, useMemo, useState } from "react";
+import type { CardCatalog, MatchupAnalysis, ModelCard, RecommendationPath } from "@/lib/types";
+import { STRATEGY_POOLS } from "@/lib/strategy-pools";
+
+type PathKind = "available" | "optimal";
+
+const DEFAULT_POINT_LIMIT = 50;
+const INTERNAL_MODEL_LIMIT = 99;
+
+export default function Home() {
+  const [catalog, setCatalog] = useState<CardCatalog | null>(null);
+  const [playerFaction, setPlayerFaction] = useState("");
+  const [opponentFaction, setOpponentFaction] = useState("");
+  const [playerMasterId, setPlayerMasterId] = useState("");
+  const [opponentMasterId, setOpponentMasterId] = useState("");
+  const [ownedModelIds, setOwnedModelIds] = useState<string[]>([]);
+  const [opponentModelIds, setOpponentModelIds] = useState<string[]>([]);
+  const [pointLimit, setPointLimit] = useState(DEFAULT_POINT_LIMIT);
+  const [strategyPoolId, setStrategyPoolId] = useState(STRATEGY_POOLS[0].id);
+  const [strategyId, setStrategyId] = useState(STRATEGY_POOLS[0].strategies[0].id);
+  const [pathKind, setPathKind] = useState<PathKind>("available");
+  const [collectionSearch, setCollectionSearch] = useState("");
+  const [opponentSearch, setOpponentSearch] = useState("");
+  const [analysis, setAnalysis] = useState<MatchupAnalysis | null>(null);
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [setupCollapsed, setSetupCollapsed] = useState(false);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    fetch("/api/cards")
+      .then((response) => response.json())
+      .then((data: CardCatalog) => {
+        setCatalog(data);
+        setPlayerFaction(data.factions[0] ?? "");
+        setOpponentFaction(data.factions[1] ?? data.factions[0] ?? "");
+      })
+      .catch(() => setError("Card data could not be loaded."));
+  }, []);
+
+  const playerMasters = useMemo(
+    () => catalog?.masters.filter((model) => model.faction === playerFaction) ?? [],
+    [catalog, playerFaction]
+  );
+  const opponentMasters = useMemo(
+    () => catalog?.masters.filter((model) => model.faction === opponentFaction) ?? [],
+    [catalog, opponentFaction]
+  );
+
+  const playerMaster = useMemo(
+    () => catalog?.models.find((model) => model.id === playerMasterId),
+    [catalog, playerMasterId]
+  );
+  const opponentMaster = useMemo(
+    () => catalog?.models.find((model) => model.id === opponentMasterId),
+    [catalog, opponentMasterId]
+  );
+
+  useEffect(() => {
+    setPlayerMasterId(playerMasters[0]?.id ?? "");
+    setOwnedModelIds([]);
+    setAnalysis(null);
+  }, [playerMasters]);
+
+  useEffect(() => {
+    setOpponentMasterId(opponentMasters[0]?.id ?? "");
+    setOpponentModelIds([]);
+    setAnalysis(null);
+  }, [opponentMasters]);
+
+  const playerPool = useMemo(() => {
+    if (!catalog || !playerMaster) return [];
+    const masterKeywords = new Set(playerMaster.strategicKeywords.map((keyword) => keyword.toLowerCase()));
+    return catalog.models
+      .filter((model) => !model.isMaster && model.cost > 0)
+      .filter(
+        (model) =>
+          model.faction === playerFaction ||
+          model.strategicKeywords.some((keyword) => masterKeywords.has(keyword.toLowerCase()))
+      )
+      .filter((model) => matchesSearch(model, collectionSearch));
+  }, [catalog, playerFaction, playerMaster, collectionSearch]);
+
+  const opponentPool = useMemo(() => {
+    if (!catalog || !opponentMaster) return [];
+    const masterKeywords = new Set(opponentMaster.strategicKeywords.map((keyword) => keyword.toLowerCase()));
+    return catalog.models
+      .filter((model) => !model.isMaster && model.cost > 0)
+      .filter(
+        (model) =>
+          model.faction === opponentFaction ||
+          model.strategicKeywords.some((keyword) => masterKeywords.has(keyword.toLowerCase()))
+      )
+      .filter((model) => matchesSearch(model, opponentSearch));
+  }, [catalog, opponentFaction, opponentMaster, opponentSearch]);
+
+  const selectedPath = analysis?.paths[pathKind];
+  const strategyPool = STRATEGY_POOLS.find((pool) => pool.id === strategyPoolId) ?? STRATEGY_POOLS[0];
+  const strategy = strategyPool.strategies.find((candidate) => candidate.id === strategyId) ?? strategyPool.strategies[0];
+
+  async function analyze() {
+    if (!playerMasterId || !opponentMasterId) return;
+    setIsAnalyzing(true);
+    setError("");
+    try {
+      const response = await fetch("/api/analyze", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          playerFaction,
+          playerMasterId,
+          opponentFaction,
+          opponentMasterId,
+          ownedModelIds,
+          opponentModelIds,
+          pointLimit,
+          strategyPoolId,
+          strategyId,
+          modelLimit: INTERNAL_MODEL_LIMIT
+        })
+      });
+      const payload = await response.json();
+      if (!response.ok) throw new Error(payload.error ?? "Analysis failed.");
+      setAnalysis(payload);
+      setPathKind("available");
+      setSetupCollapsed(true);
+    } catch (currentError) {
+      setError(currentError instanceof Error ? currentError.message : "Analysis failed.");
+    } finally {
+      setIsAnalyzing(false);
+    }
+  }
+
+  if (!catalog) {
+    return (
+      <main className="shell">
+        <section className="loading">Loading Malifaux card pool...</section>
+      </main>
+    );
+  }
+
+  return (
+    <main className="shell">
+      <header className="topbar">
+        <div>
+          <p className="eyebrow">Malifaux 4E</p>
+          <h1>Crew Optimizer</h1>
+        </div>
+      </header>
+
+      {error ? <div className="error">{error}</div> : null}
+
+      <section className="panel matchPanel">
+        <div className="panelHeader">
+          <h2>Match</h2>
+          <span>{strategy.name}</span>
+        </div>
+        <div className="matchGrid">
+          <label>
+            Strategy Pool
+            <select
+              value={strategyPoolId}
+              onChange={(event) => {
+                const nextPool = STRATEGY_POOLS.find((pool) => pool.id === event.target.value) ?? STRATEGY_POOLS[0];
+                setStrategyPoolId(nextPool.id);
+                setStrategyId(nextPool.strategies[0].id);
+              }}
+            >
+              {STRATEGY_POOLS.map((pool) => (
+                <option key={pool.id} value={pool.id}>
+                  {pool.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label>
+            Strategy
+            <select value={strategyId} onChange={(event) => setStrategyId(event.target.value)}>
+              {strategyPool.strategies.map((poolStrategy) => (
+                <option key={poolStrategy.id} value={poolStrategy.id}>
+                  {poolStrategy.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label>
+            Soulstones
+            <input value={pointLimit} min={1} max={150} type="number" onChange={(event) => setPointLimit(Number(event.target.value))} />
+          </label>
+          <button className="primary" onClick={analyze} disabled={isAnalyzing || !playerMasterId || !opponentMasterId}>
+            {isAnalyzing ? "Analyzing" : "Analyze"}
+          </button>
+        </div>
+        <p className="matchSummary">{strategy.summary}</p>
+      </section>
+
+      <section className="plannerGrid">
+        <CrewPanel
+          title="Player"
+          factions={catalog.factions}
+          faction={playerFaction}
+          setFaction={setPlayerFaction}
+          masters={playerMasters}
+          master={playerMaster}
+          allModels={catalog.models}
+          masterId={playerMasterId}
+          setMasterId={setPlayerMasterId}
+          pool={playerPool}
+          selectedIds={ownedModelIds}
+          setSelectedIds={setOwnedModelIds}
+          search={collectionSearch}
+          setSearch={setCollectionSearch}
+          selectionLabel="Owned"
+          collapsed={setupCollapsed}
+          setCollapsed={setSetupCollapsed}
+        />
+        <CrewPanel
+          title="Opponent"
+          factions={catalog.factions}
+          faction={opponentFaction}
+          setFaction={setOpponentFaction}
+          masters={opponentMasters}
+          master={opponentMaster}
+          allModels={catalog.models}
+          masterId={opponentMasterId}
+          setMasterId={setOpponentMasterId}
+          pool={opponentPool}
+          selectedIds={opponentModelIds}
+          setSelectedIds={setOpponentModelIds}
+          search={opponentSearch}
+          setSearch={setOpponentSearch}
+          selectionLabel="Seen"
+          collapsed={setupCollapsed}
+          setCollapsed={setSetupCollapsed}
+        />
+      </section>
+
+      {analysis ? (
+        <section className="analysisGrid">
+          <div className="analysisColumn">
+            <CrewAnalysisCard
+              title="My Crew"
+              subtitle={`${analysis.playerCrew.primaryKeywords.join(", ")} - ${analysis.match.strategy?.name ?? "No strategy"}`}
+              playstyle={analysis.playerCrew.playstyle}
+              strengths={analysis.playerCrew.strengths}
+              vulnerabilities={analysis.playerCrew.vulnerabilities}
+            />
+            <RecommendationPanel pathKind={pathKind} setPathKind={setPathKind} selectedPath={selectedPath} />
+          </div>
+          <div className="analysisColumn">
+            <CrewAnalysisCard
+              title="Opponent Crew"
+              subtitle={`${analysis.opponentCrew.primaryKeywords.join(", ")} - ${analysis.match.strategy?.name ?? "No strategy"}`}
+              playstyle={analysis.opponentCrew.plan}
+              strengths={analysis.opponentCrew.pressurePoints}
+              vulnerabilities={analysis.playerCrew.vulnerabilities}
+              strengthTitle="Likely Pressure"
+              vulnerabilityTitle="Your Pressure Points"
+            />
+            <LikelyCrewPanel models={analysis.opponentCrew.likelyModels} />
+          </div>
+        </section>
+      ) : (
+        <section className="emptyState">
+          Pick both masters, mark the models you own, add known opposing models, then run the matchup.
+        </section>
+      )}
+    </main>
+  );
+}
+
+function CrewPanel(props: {
+  title: string;
+  factions: string[];
+  faction: string;
+  setFaction: (value: string) => void;
+  masters: ModelCard[];
+  master?: ModelCard;
+  allModels: ModelCard[];
+  masterId: string;
+  setMasterId: (value: string) => void;
+  pool: ModelCard[];
+  selectedIds: string[];
+  setSelectedIds: (value: string[]) => void;
+  search: string;
+  setSearch: (value: string) => void;
+  selectionLabel: string;
+  collapsed: boolean;
+  setCollapsed: (value: boolean) => void;
+}) {
+  const selected = new Set(props.selectedIds);
+  const selectedCounts = countSelectedIds(props.selectedIds);
+  const mandatoryModels = getMandatoryModelsForMaster(props.master, props.allModels);
+  const mandatoryIds = new Set(mandatoryModels.map((entry) => entry.model.id));
+  const selectedModels = props.selectedIds
+    .map((id) => props.allModels.find((model) => model.id === id))
+    .filter(Boolean) as ModelCard[];
+  const requiredSoulstones = mandatoryModels.reduce((sum, entry) => sum + entry.model.cost * entry.quantity, 0);
+  const selectedSoulstones = selectedModels.reduce((sum, model) => sum + model.cost, 0);
+  const totalSoulstones = requiredSoulstones + selectedSoulstones;
+  const sections = groupModelsForMaster(
+    props.pool.filter((model) => !mandatoryIds.has(model.id)),
+    props.master,
+    props.faction,
+    mandatoryModels
+  );
+
+  function toggle(id: string) {
+    props.setSelectedIds(selected.has(id) ? props.selectedIds.filter((item) => item !== id) : [...props.selectedIds, id]);
+  }
+
+  function setModelQuantity(model: ModelCard, quantity: number) {
+    const clampedQuantity = Math.max(1, Math.min(model.maxCopies, quantity));
+    const withoutModel = props.selectedIds.filter((id) => id !== model.id);
+    props.setSelectedIds([...withoutModel, ...Array.from({ length: clampedQuantity }, () => model.id)]);
+  }
+
+  return (
+    <section className={`panel ${props.collapsed ? "collapsedPanel" : ""}`}>
+      <div className="panelHeader">
+        <h2>{props.title}</h2>
+        <span>
+          {mandatoryModels.reduce((sum, entry) => sum + entry.quantity, 0)} required / {props.selectedIds.length} selected / {totalSoulstones}ss
+        </span>
+      </div>
+      <div className="spendSummary">
+        <span>Required {requiredSoulstones}ss</span>
+        <span>Selected {selectedSoulstones}ss</span>
+        <strong>Total {totalSoulstones}ss</strong>
+        {props.collapsed ? (
+          <button className="subtleButton" type="button" onClick={() => props.setCollapsed(false)}>
+            Edit
+          </button>
+        ) : null}
+      </div>
+      {props.collapsed ? (
+        <div className="collapsedSummary">
+          <strong>{props.faction}</strong>
+          <span>{props.master?.name ?? "No master selected"}</span>
+        </div>
+      ) : (
+        <>
+      <div className="formGrid">
+        <label>
+          Faction
+          <select value={props.faction} onChange={(event) => props.setFaction(event.target.value)}>
+            {props.factions.map((faction) => (
+              <option key={faction} value={faction}>
+                {faction}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label>
+          Master
+          <select
+            value={props.masterId}
+            onChange={(event) => {
+              props.setMasterId(event.target.value);
+              props.setSelectedIds([]);
+            }}
+          >
+            {props.masters.map((master) => (
+              <option key={master.id} value={master.id}>
+                {master.name}
+              </option>
+            ))}
+          </select>
+        </label>
+      </div>
+      <input
+        className="search"
+        value={props.search}
+        placeholder="Filter models, abilities, keywords"
+        onChange={(event) => props.setSearch(event.target.value)}
+      />
+      <div className="modelList">
+        {sections.map((section) => (
+          <div className="modelSection" key={section.title}>
+            <div className="modelSectionHeader">
+              <h3>{section.title}</h3>
+              <span>{section.models.length}</span>
+            </div>
+            {section.models.length > 0 ? (
+              expandSectionEntries(section.models).map((entry, index) => (
+                <ModelRow
+                  key={`${section.title}-${entry.model.id}-${index}`}
+                  model={entry.model}
+                  selected={entry.forced || selected.has(entry.model.id)}
+                  selectedQuantity={entry.forced ? 1 : selectedCounts.get(entry.model.id) ?? 0}
+                  selectionLabel={entry.forced ? "Required" : props.selectionLabel}
+                  onToggle={entry.forced ? undefined : () => toggle(entry.model.id)}
+                  onQuantityChange={entry.forced ? undefined : (quantity) => setModelQuantity(entry.model, quantity)}
+                  forced={entry.forced}
+                />
+              ))
+            ) : (
+              <div className="modelSectionEmpty">No matching models</div>
+            )}
+          </div>
+        ))}
+      </div>
+        </>
+      )}
+    </section>
+  );
+}
+
+function ModelRow({
+  model,
+  selected,
+  selectedQuantity,
+  selectionLabel,
+  onToggle,
+  onQuantityChange,
+  forced = false
+}: {
+  model: ModelCard;
+  selected: boolean;
+  selectedQuantity: number;
+  selectionLabel: string;
+  onToggle?: () => void;
+  onQuantityChange?: (quantity: number) => void;
+  forced?: boolean;
+}) {
+  const canSetQuantity = selected && !forced && model.maxCopies > 1;
+
+  return (
+    <div className={`modelRow ${selected ? "selected" : ""} ${forced ? "forced" : ""}`}>
+      <button className="check" onClick={onToggle} type="button" disabled={forced}>
+        {selected ? "x" : ""}
+      </button>
+      <span className="modelMain">
+        <strong>{model.name}</strong>
+        <small>
+          {model.cost}ss - {model.keywords.join(", ")}
+        </small>
+        <small>{model.abilities.slice(0, 2).map((ability) => ability.name).join("; ") || "No parsed abilities"}</small>
+      </span>
+      <span className="stats">
+        Df {model.statBlock.defense} / Wp {model.statBlock.willpower} / Sp {model.statBlock.speed}
+      </span>
+      {canSetQuantity ? (
+        <span className="quantityControl">
+          <button type="button" onClick={() => onQuantityChange?.(selectedQuantity - 1)} disabled={selectedQuantity <= 1}>
+            -
+          </button>
+          <label>
+            Qty
+            <input
+              type="number"
+              min={1}
+              max={model.maxCopies}
+              value={selectedQuantity}
+              onChange={(event) => onQuantityChange?.(Number(event.target.value))}
+            />
+          </label>
+          <button type="button" onClick={() => onQuantityChange?.(selectedQuantity + 1)} disabled={selectedQuantity >= model.maxCopies}>
+            +
+          </button>
+        </span>
+      ) : null}
+      <span className="pill">{selectionLabel}</span>
+    </div>
+  );
+}
+
+function CrewAnalysisCard({
+  title,
+  subtitle,
+  playstyle,
+  strengths,
+  vulnerabilities,
+  strengthTitle = "Effective Into",
+  vulnerabilityTitle = "Vulnerable To"
+}: {
+  title: string;
+  subtitle: string;
+  playstyle: string;
+  strengths: string[];
+  vulnerabilities: string[];
+  strengthTitle?: string;
+  vulnerabilityTitle?: string;
+}) {
+  return (
+    <section className="panel analysisPanel">
+      <div className="panelHeader">
+        <h2>{title}</h2>
+        <span>{subtitle}</span>
+      </div>
+      <article className="summaryBlock">
+        <h3>Playstyle</h3>
+        <p>{playstyle}</p>
+      </article>
+      <article className="summaryBlock">
+        <h3>{strengthTitle}</h3>
+        <ul>{strengths.map((item, index) => <li key={`${strengthTitle}-${index}-${item}`}>{item}</li>)}</ul>
+      </article>
+      <article className="summaryBlock">
+        <h3>{vulnerabilityTitle}</h3>
+        <ul>{vulnerabilities.map((item, index) => <li key={`${vulnerabilityTitle}-${index}-${item}`}>{item}</li>)}</ul>
+      </article>
+    </section>
+  );
+}
+
+function RecommendationPanel({
+  pathKind,
+  setPathKind,
+  selectedPath
+}: {
+  pathKind: PathKind;
+  setPathKind: (value: PathKind) => void;
+  selectedPath?: RecommendationPath;
+}) {
+  if (!selectedPath) return null;
+
+  return (
+    <section className="panel recommendationPanel">
+      <div className="panelHeader">
+        <div>
+          <h2>Recommendations</h2>
+          <span>
+            {selectedPath.totalCost}ss hired / {selectedPath.remainingPoints}ss open
+          </span>
+        </div>
+        <div className="segment">
+          <button className={pathKind === "available" ? "active" : ""} onClick={() => setPathKind("available")}>
+            Available
+          </button>
+          <button className={pathKind === "optimal" ? "active" : ""} onClick={() => setPathKind("optimal")}>
+            Optimal
+          </button>
+        </div>
+      </div>
+
+      {!selectedPath.validation.legal ? (
+        <div className="warning">{selectedPath.validation.issues.join(" ")}</div>
+      ) : null}
+
+      <div className="recommendationList">
+        {selectedPath.models.map((recommendation) => (
+          <article className="recommendation" key={recommendation.model.id}>
+            <div className="recHeader">
+              <div>
+                <h3>{recommendation.model.name}</h3>
+                <p>
+                  {recommendation.model.cost}ss - {recommendation.role} - score {recommendation.score}
+                </p>
+              </div>
+              <span className={recommendation.owned ? "ownedBadge" : "missingBadge"}>
+                {recommendation.owned ? "Owned" : "Not owned"}
+              </span>
+            </div>
+            <div className="scoreGrid">
+              <span>Master {recommendation.scoreBreakdown.masterAbilities}</span>
+              <span>Synergy {recommendation.scoreBreakdown.crewSynergy}</span>
+              <span>Matchup {recommendation.scoreBreakdown.compositionMatchup}</span>
+            </div>
+            <RecSection title="Right Pick" items={recommendation.why} />
+            <RecSection title="Relevant Skills, Abilities, Triggers" items={recommendation.relevantTech} />
+            <RecSection title="Priority Targets" items={recommendation.priorityTargets} />
+            <RecSection title="Allied Synergies" items={recommendation.alliedSynergies} />
+          </article>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function LikelyCrewPanel({ models }: { models: MatchupAnalysis["opponentCrew"]["likelyModels"] }) {
+  return (
+    <section className="panel recommendationPanel">
+      <div className="panelHeader">
+        <div>
+          <h2>Likely Crew Members</h2>
+          <span>{models.reduce((sum, recommendation) => sum + recommendation.model.cost, 0)}ss likely package</span>
+        </div>
+      </div>
+
+      <div className="recommendationList">
+        {models.map((recommendation) => (
+          <article className="recommendation" key={recommendation.model.id}>
+            <div className="recHeader">
+              <div>
+                <h3>{recommendation.model.name}</h3>
+                <p>
+                  {recommendation.model.cost}ss - {recommendation.role} - likelihood {recommendation.score}
+                </p>
+              </div>
+              <span className="ownedBadge">Likely</span>
+            </div>
+            <div className="scoreGrid twoScores">
+              <span>Synergy {recommendation.scoreBreakdown.crewSynergy}</span>
+              <span>Role {recommendation.scoreBreakdown.compositionMatchup}</span>
+            </div>
+            <RecSection title="Why They Are Likely" items={recommendation.why} />
+            <RecSection title="Relevant Tech" items={recommendation.relevantTech} />
+            <RecSection title="Crew Synergies" items={recommendation.alliedSynergies} />
+          </article>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function RecSection({ title, items }: { title: string; items: string[] }) {
+  return (
+    <div className="recSection">
+      <h4>{title}</h4>
+      <ul>{items.map((item, index) => <li key={`${title}-${index}-${item}`}>{item}</li>)}</ul>
+    </div>
+  );
+}
+
+function matchesSearch(model: ModelCard, search: string): boolean {
+  const query = search.trim().toLowerCase();
+  if (!query) return true;
+  return [model.name, model.faction, model.keywords.join(" "), model.textIndex].join(" ").toLowerCase().includes(query);
+}
+
+type ModelSectionEntry = {
+  model: ModelCard;
+  quantity: number;
+  forced: boolean;
+};
+
+function groupModelsForMaster(
+  pool: ModelCard[],
+  master: ModelCard | undefined,
+  faction: string,
+  mandatoryModels: Array<{ model: ModelCard; quantity: number }>
+) {
+  const masterKeywords = new Set(master?.strategicKeywords.map((keyword) => keyword.toLowerCase()) ?? []);
+  const isKeywordModel = (model: ModelCard) =>
+    model.strategicKeywords.some((keyword) => masterKeywords.has(keyword.toLowerCase()));
+  const isVersatile = (model: ModelCard) => model.keywords.some((keyword) => keyword.toLowerCase() === "versatile");
+
+  const keywordModels = pool.filter(isKeywordModel).sort(sortModels);
+  const versatileModels = pool.filter((model) => !isKeywordModel(model) && isVersatile(model)).sort(sortModels);
+  const factionModels = pool
+    .filter((model) => !isKeywordModel(model) && !isVersatile(model) && model.faction === faction)
+    .sort(sortModels);
+
+  return [
+    { title: "Leader & Totem", models: mandatoryModels.map((entry) => ({ ...entry, forced: true })) },
+    { title: "Keyword Models", models: keywordModels.map(toSectionEntry) },
+    { title: "Versatile Models", models: versatileModels.map(toSectionEntry) },
+    { title: "Faction Models", models: factionModels.map(toSectionEntry) }
+  ];
+}
+
+function getMandatoryModelsForMaster(master: ModelCard | undefined, pool: ModelCard[]) {
+  if (!master) return [];
+  const masterKeywords = new Set(master.strategicKeywords.map((keyword) => keyword.toLowerCase()));
+  const leaderQuantity = master.leaderModelCount || 1;
+  const mandatory = [{ model: master, quantity: leaderQuantity }];
+
+  if (master.id === "special-master-viktoria-chambers-ashes-and-blood") {
+    return mandatory;
+  }
+
+  const totems = pool
+    .filter((model) => model.isTotem && model.faction === master.faction)
+    .filter((model) => model.strategicKeywords.some((keyword) => masterKeywords.has(keyword.toLowerCase())))
+    .sort(sortModels)
+    .filter((model, index, candidates) => {
+      if (candidates.length <= 1) return true;
+      const masterText = slugifyForMatch(`${master.name} ${master.sourceFile} ${master.rulesText} ${master.textIndex}`);
+      const matchedTotems = candidates.filter((candidate) => masterText.includes(slugifyForMatch(candidate.name)));
+      return matchedTotems.length === 0 || matchedTotems.some((candidate) => candidate.id === model.id);
+    })
+    .map((model) => ({ model, quantity: 1 }));
+
+  return [...mandatory, ...totems];
+}
+
+function sortModels(a: ModelCard, b: ModelCard): number {
+  return a.name.localeCompare(b.name) || a.cost - b.cost;
+}
+
+function toSectionEntry(model: ModelCard): ModelSectionEntry {
+  return { model, quantity: 1, forced: false };
+}
+
+function countSelectedIds(ids: string[]): Map<string, number> {
+  return ids.reduce((counts, id) => {
+    counts.set(id, (counts.get(id) ?? 0) + 1);
+    return counts;
+  }, new Map<string, number>());
+}
+
+function expandSectionEntries(entries: ModelSectionEntry[]): ModelSectionEntry[] {
+  return entries.flatMap((entry) =>
+    Array.from({ length: Math.max(1, entry.quantity) }, () => ({
+      ...entry,
+      quantity: 1
+    }))
+  );
+}
+
+function slugifyForMatch(value: string): string {
+  return value
+    .toLowerCase()
+    .replace(/&/g, " and ")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}

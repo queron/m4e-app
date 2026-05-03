@@ -1,0 +1,215 @@
+import type { Strategy } from "./strategy-pools";
+
+export type CardType = "unit" | "crew" | "upgrade" | "unknown";
+
+export type RawAbility = {
+  name: string;
+  text?: string;
+};
+
+export type RawTrigger = {
+  condition?: string;
+  name: string;
+  effect?: string;
+};
+
+export type RawAction = {
+  name: string;
+  type?: "attack" | "tactical" | string;
+  range?: string;
+  stat?: string;
+  resist?: string;
+  targetNumber?: string;
+  damage?: string;
+  effect?: string;
+  triggers?: RawTrigger[];
+};
+
+export type RawCard = {
+  sourceFile: string;
+  cardType: CardType;
+  faction?: string;
+  copyId?: string;
+  name: string;
+  keywords?: string[];
+  cost?: number | string;
+  statBlock?: {
+    defense?: number;
+    speed?: number;
+    willpower?: number;
+    size?: number;
+  };
+  abilities?: RawAbility[];
+  abilitiesGranted?: RawAbility[];
+  actions?: RawAction[];
+  rulesText?: string;
+};
+
+export type ModelCard = {
+  id: string;
+  cardType: "unit";
+  name: string;
+  faction: string;
+  sourceFile: string;
+  keywords: string[];
+  traits: string[];
+  strategicKeywords: string[];
+  cost: number;
+  isFree: boolean;
+  isMaster: boolean;
+  isTotem: boolean;
+  isUnique: boolean;
+  maxCopies: number;
+  leaderModelCount: number;
+  statBlock: {
+    defense: number;
+    speed: number;
+    willpower: number;
+    size: number;
+  };
+  abilities: RawAbility[];
+  actions: RawAction[];
+  rulesText: string;
+  textIndex: string;
+  tacticalTags: TacticalTag[];
+};
+
+export type CrewCard = {
+  id: string;
+  cardType: "crew";
+  name: string;
+  faction: string;
+  masterHint: string;
+  keywordHint: string;
+  sourceFile: string;
+  abilities: RawAbility[];
+  actions: RawAction[];
+  rulesText: string;
+  tacticalTags: TacticalTag[];
+};
+
+export type UpgradeCard = {
+  id: string;
+  cardType: "upgrade";
+  name: string;
+  faction: string;
+  sourceFile: string;
+  abilitiesGranted: RawAbility[];
+  rulesText: string;
+  tacticalTags: TacticalTag[];
+};
+
+export type CardCatalog = {
+  factions: string[];
+  models: ModelCard[];
+  masters: ModelCard[];
+  crewCards: CrewCard[];
+  upgrades: UpgradeCard[];
+};
+
+export type TacticalTag =
+  | "damage"
+  | "burst"
+  | "armor"
+  | "incorporeal"
+  | "healing"
+  | "mobility"
+  | "placement"
+  | "scheme"
+  | "marker"
+  | "control"
+  | "cardPressure"
+  | "stunned"
+  | "slow"
+  | "staggered"
+  | "injured"
+  | "burning"
+  | "poison"
+  | "antiArmor"
+  | "antiTrigger"
+  | "summon"
+  | "demise"
+  | "ranged"
+  | "melee"
+  | "willpowerAttack"
+  | "defenseAttack"
+  | "speedAttack"
+  | "sizeAttack"
+  | "soulstone";
+
+export type PlannerInput = {
+  playerFaction: string;
+  playerMasterId: string;
+  opponentFaction: string;
+  opponentMasterId: string;
+  ownedModelIds: string[];
+  opponentModelIds: string[];
+  pointLimit: number;
+  modelLimit?: number;
+  strategyPoolId?: string;
+  strategyId?: string;
+};
+
+export type CrewValidation = {
+  legal: boolean;
+  totalCost: number;
+  pointLimit: number;
+  modelCount: number;
+  modelLimit: number;
+  issues: string[];
+};
+
+export type RecommendationPath = {
+  kind: "available" | "optimal";
+  totalCost: number;
+  remainingPoints: number;
+  validation: CrewValidation;
+  models: ModelRecommendation[];
+};
+
+export type ModelRecommendation = {
+  model: ModelCard;
+  owned: boolean;
+  score: number;
+  role: string;
+  scoreBreakdown: {
+    masterAbilities: number;
+    crewSynergy: number;
+    compositionMatchup: number;
+  };
+  why: string[];
+  relevantTech: string[];
+  priorityTargets: string[];
+  alliedSynergies: string[];
+};
+
+export type MatchupAnalysis = {
+  generatedAt: string;
+  match: {
+    strategy?: Strategy;
+    strategyPoolId?: string;
+    pointLimit: number;
+  };
+  playerCrew: {
+    master?: ModelCard;
+    crewCard?: CrewCard;
+    faction: string;
+    primaryKeywords: string[];
+    strengths: string[];
+    vulnerabilities: string[];
+    playstyle: string;
+  };
+  opponentCrew: {
+    master?: ModelCard;
+    crewCard?: CrewCard;
+    faction: string;
+    primaryKeywords: string[];
+    plan: string;
+    pressurePoints: string[];
+    likelyModels: ModelRecommendation[];
+  };
+  paths: {
+    available: RecommendationPath;
+    optimal: RecommendationPath;
+  };
+};

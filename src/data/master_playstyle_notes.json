@@ -1,0 +1,14 @@
+{
+  "Viktoria Chambers, Ashes And Blood": {
+    "gamePlan": "Push a fast melee threat profile and force the opponent to respect sudden damage projection.",
+    "tableJobs": ["Threaten priority targets", "Punish isolated models", "Use mobility to pivot between scoring lanes"],
+    "pressureVectors": ["melee", "mobility", "damage"],
+    "commonRisks": ["Can overextend if support and scoring pieces fall behind", "Needs a plan for control and denial crews"]
+  },
+  "Pandora, Tyrant Torn": {
+    "gamePlan": "Apply willpower and control pressure while forcing awkward activation and positioning choices.",
+    "tableJobs": ["Control enemy tempo", "Punish clustered models", "Deny simple scoring routes"],
+    "pressureVectors": ["willpowerAttack", "control", "stunned"],
+    "commonRisks": ["Can struggle if the opponent ignores the control bubble", "Needs protection from direct damage spikes"]
+  }
+}

@@ -530,6 +530,63 @@ select option {
   line-height: 1.4;
 }
 
+.masterProfilePair {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.masterProfileDisclosure {
+  margin: 12px 0 0;
+  border: 1px solid var(--line-2);
+  border-radius: var(--radius-md);
+  background: rgba(15, 12, 10, 0.3);
+  padding: 10px 12px;
+}
+
+.masterProfileDisclosure summary {
+  color: var(--accent);
+  cursor: pointer;
+  font-family: Inter, Arial, sans-serif;
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.masterProfileBody {
+  display: grid;
+  gap: 10px;
+}
+
+.masterProfileBody p {
+  margin: 0;
+  color: var(--parchment-2);
+  line-height: 1.45;
+}
+
+.masterProfileBody h3 {
+  margin: 0 0 5px;
+  color: var(--accent);
+  font-family: Inter, Arial, sans-serif;
+  font-size: 0.75rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.masterProfileBody ul {
+  display: grid;
+  gap: 5px;
+  margin: 0;
+  padding-left: 18px;
+}
+
+.masterProfileBody li {
+  color: var(--parchment-2);
+  line-height: 1.35;
+}
+
 .resultTabs {
   grid-column: 1 / -1;
   display: inline-grid;
@@ -2097,6 +2154,7 @@ li + li {
   .formGrid,
   .listControls,
   .briefGrid,
+  .masterProfilePair,
   .setupStepper,
   .scoreGrid {
     grid-template-columns: 1fr;

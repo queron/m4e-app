@@ -351,6 +351,7 @@ export default function Home() {
   const selectedPath = analysis?.paths[pathKind];
   const strategyPool = STRATEGY_POOLS.find((pool) => pool.id === strategyPoolId) ?? STRATEGY_POOLS[0];
   const strategy = strategyPool.strategies.find((candidate) => candidate.id === strategyId) ?? strategyPool.strategies[0];
+  const schemePool = SCHEME_POOLS.find((pool) => pool.id === schemePoolId) ?? SCHEME_POOLS[0];
   const canAnalyze = Boolean(playerMasterId && opponentMasterId);
   const analyzeButtonLabel = isAnalyzing ? "Analyzing..." : analysis ? "Analyze again" : "Analyze";
   const analyzeReadiness = buildAnalyzeReadiness({
@@ -578,6 +579,7 @@ export default function Home() {
                 const nextPool = STRATEGY_POOLS.find((pool) => pool.id === event.target.value) ?? STRATEGY_POOLS[0];
                 setStrategyPoolId(nextPool.id);
                 setStrategyId(nextPool.strategies[0].id);
+                setSchemePoolId(nextPool.schemePoolId);
               }}
             >
               {STRATEGY_POOLS.map((pool) => (
@@ -602,7 +604,7 @@ export default function Home() {
             <select value={schemePoolId} onChange={(event) => setSchemePoolId(event.target.value)}>
               {SCHEME_POOLS.map((pool) => (
                 <option key={pool.id} value={pool.id}>
-                  {pool.name}
+                  {pool.incomplete ? `${pool.name} - incomplete` : pool.name}
                 </option>
               ))}
             </select>
@@ -621,6 +623,9 @@ export default function Home() {
           <button className="subtleButton" type="button" onClick={clearCollection}>Clear collection</button>
         </div>
         <p className="matchSummary">{strategy.summary}</p>
+        {schemePool.incomplete ? (
+          <div className="warning">Scheme data for {schemePool.name} is incomplete, so scheme pairings are intentionally limited.</div>
+        ) : null}
         <HelpDisclosure
           className="matchHint"
           label={analyzeReadiness.status}

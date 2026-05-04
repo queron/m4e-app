@@ -23,6 +23,7 @@ export type StrategyPool = {
   id: string;
   name: string;
   source: string;
+  schemePoolId: string;
   strategies: Strategy[];
 };
 
@@ -31,6 +32,7 @@ export const STRATEGY_POOLS: StrategyPool[] = [
     id: "gg-zero",
     name: "Gaining Grounds Zero",
     source: "M4E current Gaining Grounds packet",
+    schemePoolId: "gg-zero",
     strategies: [
       {
         id: "plant-explosives",
@@ -62,6 +64,7 @@ export const STRATEGY_POOLS: StrategyPool[] = [
     id: "m3e-gg1",
     name: "Gaining Grounds Season One",
     source: "M3E Season One legacy packet",
+    schemePoolId: "m3e-gg1-incomplete",
     strategies: [
       {
         id: "symbols-of-authority-gg1",
@@ -93,6 +96,7 @@ export const STRATEGY_POOLS: StrategyPool[] = [
     id: "m3e-gg2",
     name: "Gaining Grounds Season Two",
     source: "M3E Season Two legacy packet",
+    schemePoolId: "m3e-gg2-incomplete",
     strategies: [
       {
         id: "symbols-of-authority-gg2",
@@ -124,6 +128,7 @@ export const STRATEGY_POOLS: StrategyPool[] = [
     id: "m3e-gg3",
     name: "Gaining Grounds Season Three",
     source: "M3E Season Three legacy packet",
+    schemePoolId: "m3e-gg3-incomplete",
     strategies: [
       {
         id: "cursed-objects-gg3",
@@ -155,6 +160,7 @@ export const STRATEGY_POOLS: StrategyPool[] = [
     id: "gg4-legacy",
     name: "Gaining Grounds Season Four",
     source: "M3E Season Four legacy packet",
+    schemePoolId: "gg4-legacy",
     strategies: [
       {
         id: "plant-explosives-gg4",

@@ -78,6 +78,12 @@ const SHARE_PARAM = "setup";
 type ModelSortMode = "name" | "costAsc" | "costDesc" | "role";
 type RoleFilter = "all" | "beater" | "scheme" | "support" | "anchor" | "control";
 type RecommendationSortMode = "fit" | "cost" | "role" | "name" | "owned";
+type AnalyzeReadiness = {
+  status: string;
+  detail: string;
+  emptyState: string;
+  disabledButtonLabel: string;
+};
 
 const ROLE_FILTERS: Array<{ label: string; value: RoleFilter }> = [
   { label: "All roles", value: "all" },
@@ -87,6 +93,59 @@ const ROLE_FILTERS: Array<{ label: string; value: RoleFilter }> = [
   { label: "Anchor", value: "anchor" },
   { label: "Control", value: "control" }
 ];
+
+function buildAnalyzeReadiness({
+  hasPlayerMaster,
+  hasOpponentMaster,
+  collectionCount
+}: {
+  hasPlayerMaster: boolean;
+  hasOpponentMaster: boolean;
+  collectionCount: number;
+}): AnalyzeReadiness {
+  if (!hasPlayerMaster && !hasOpponentMaster) {
+    return {
+      status: "Choose both masters",
+      detail: "Select your master and the opposing master to enable matchup analysis.",
+      emptyState: "Choose both masters to analyze. Marking collection models is optional and only constrains Available recommendations.",
+      disabledButtonLabel: "Choose both masters"
+    };
+  }
+
+  if (!hasPlayerMaster) {
+    return {
+      status: "Choose your master",
+      detail: "Select your master to enable matchup analysis.",
+      emptyState: "Choose your master to analyze. Opponent intel can stay limited to faction and master.",
+      disabledButtonLabel: "Choose your master"
+    };
+  }
+
+  if (!hasOpponentMaster) {
+    return {
+      status: "Choose opponent master",
+      detail: "Select the opposing master to enable matchup analysis.",
+      emptyState: "Choose the opponent master to analyze. Expected opposing models can be added later.",
+      disabledButtonLabel: "Choose opponent master"
+    };
+  }
+
+  if (collectionCount === 0) {
+    return {
+      status: "Ready: masters only",
+      detail: "Ready: using full legal pool because no collection models are marked.",
+      emptyState: "Ready to analyze with masters only. Available recommendations will use the full legal pool.",
+      disabledButtonLabel: "Analyze"
+    };
+  }
+
+  return {
+    status: "Ready: collection marked",
+    detail: "Ready: Available recommendations use your marked collection.",
+    emptyState: "Ready to analyze. Available recommendations will use your marked collection.",
+    disabledButtonLabel: "Analyze"
+  };
+}
 
 export default function Home() {
   const [catalog, setCatalog] = useState<CardCatalog | null>(null);
@@ -293,13 +352,11 @@ export default function Home() {
   const strategy = strategyPool.strategies.find((candidate) => candidate.id === strategyId) ?? strategyPool.strategies[0];
   const canAnalyze = Boolean(playerMasterId && opponentMasterId);
   const analyzeButtonLabel = isAnalyzing ? "Analyzing..." : analysis ? "Analyze again" : "Analyze";
-  const stickySetupStatus = !playerMasterId && !opponentMasterId
-    ? "Choose both masters"
-    : !playerMasterId
-      ? "Choose your master"
-      : !opponentMasterId
-        ? "Choose opponent master"
-        : `${pointLimit}ss matchup ready`;
+  const analyzeReadiness = buildAnalyzeReadiness({
+    hasPlayerMaster: Boolean(playerMasterId),
+    hasOpponentMaster: Boolean(opponentMasterId),
+    collectionCount: ownedModelIds.length
+  });
   const playerRequiredModels = useMemo(
     () => (catalog && playerMaster ? getMandatoryModelsForMaster(playerMaster, catalog.models) : []),
     [catalog, playerMaster]
@@ -565,8 +622,8 @@ export default function Home() {
         <p className="matchSummary">{strategy.summary}</p>
         <HelpDisclosure
           className="matchHint"
-          label="Analyze with masters only"
-          text="You can run analysis with just both masters selected, then refine Available results by marking models in your collection."
+          label={analyzeReadiness.status}
+          text={analyzeReadiness.detail}
         />
       </section>
 
@@ -768,15 +825,17 @@ export default function Home() {
         </ResultsErrorBoundary>
       ) : (
         <section className="emptyState">
-          Choose match context, identify the opposing master, mark your collection if you want Available recommendations, then run the matchup.
+          {analyzeReadiness.emptyState}
         </section>
       )}
 
       <aside className="stickyAnalyzeBar" aria-label="Analysis actions">
         <div>
-          <strong>{stickySetupStatus}</strong>
+          <strong>{analyzeReadiness.status}</strong>
           <span>
-            {playerMaster?.name ?? "No player master"} vs {opponentMaster?.name ?? "no opponent master"} - {strategy.name}
+            {canAnalyze
+              ? analyzeReadiness.detail
+              : `${playerMaster?.name ?? "No player master"} vs ${opponentMaster?.name ?? "no opponent master"} - ${strategy.name}`}
           </span>
         </div>
         <div className="stickyAnalyzeActions">
@@ -786,7 +845,7 @@ export default function Home() {
             </button>
           ) : null}
           <button className="primary" type="button" onClick={analyze} disabled={isAnalyzing || !canAnalyze}>
-            {canAnalyze ? analyzeButtonLabel : "Choose both masters"}
+            {canAnalyze ? analyzeButtonLabel : analyzeReadiness.disabledButtonLabel}
           </button>
         </div>
       </aside>

@@ -669,6 +669,39 @@ select option {
   line-height: 1.45;
 }
 
+.schemePairings {
+  margin-top: 14px;
+}
+
+.schemePairings h3 {
+  margin-bottom: 10px;
+  color: var(--accent);
+}
+
+.schemePairingGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.schemePairingGrid article {
+  display: grid;
+  gap: 7px;
+  border: 1px solid var(--line-2);
+  border-radius: var(--radius-md);
+  background: rgba(15, 12, 10, 0.36);
+  padding: 12px;
+}
+
+.schemePairingGrid strong {
+  color: var(--parchment);
+}
+
+.schemePairingGrid small {
+  color: var(--parchment-2);
+  line-height: 1.35;
+}
+
 .postAnalyzeSummary .subtleButton {
   align-self: center;
   min-width: 120px;
@@ -2122,6 +2155,10 @@ li + li {
   }
 
   .schemeWatchlistGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .schemePairingGrid {
     grid-template-columns: 1fr;
   }
 

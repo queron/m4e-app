@@ -228,6 +228,7 @@ export type MatchupAnalysis = {
     pointLimit: number;
   };
   schemeWatchlist?: SchemeWatchlist;
+  recommendedSchemePairs?: SchemePairRecommendation[];
   matchupBrief: MatchupBrief;
   playerCrew: {
     master?: ModelCard;
@@ -268,4 +269,12 @@ export type SchemeWatchlistItem = {
 export type SchemeWatchlist = {
   goodForPlayer: SchemeWatchlistItem[];
   opponentThreats: SchemeWatchlistItem[];
+};
+
+export type SchemePairRecommendation = {
+  schemes: [Scheme, Scheme];
+  rationale: string;
+  requiredJobs: string[];
+  opponentWatchout: string;
+  confidence: "High" | "Medium" | "Low";
 };

@@ -649,7 +649,6 @@ function ModelRow({
           <RulesIcon iconKey="soulstone" /> {model.cost} - {renderKeywordSummary(model)}
         </small>
         <small>{model.abilities.slice(0, 2).map((ability) => ability.name).join("; ") || "No parsed abilities"}</small>
-        <span className="actionPreview">{model.actions.slice(0, 2).map((action) => <ActionChip key={`${model.id}-${action.name}`} action={action} />)}</span>
       </span>
       <span className="stats statChips">
         <StatChip iconKey="defense" value={model.statBlock.defense} />
@@ -811,13 +810,13 @@ function RecommendationPanel({
                 Strategy/Matchup Fit {recommendation.scoreBreakdown.compositionMatchup}
               </span>
             </div>
-            <RecSection title="Right Pick" items={recommendation.why} />
-            <RecSection title="Strategy Fit" items={strategyReasons(recommendation.why, strategyName)} />
-            <RecSection title="Why This Ranked Here" items={recommendation.trace} />
-            <RecSection title="Curated Notes" items={recommendation.curatedNotes} />
-            <RecSection title="Relevant Skills, Abilities, Triggers" items={recommendation.relevantTech} />
-            <RecSection title="Priority Targets" items={recommendation.priorityTargets} />
-            <RecSection title="Allied Synergies" items={recommendation.alliedSynergies} />
+            <RecSection title="Why Pick" items={recommendation.why} />
+            <RecSection title="Strategy" items={strategyReasons(recommendation.why, strategyName)} />
+            <RecSection title="Score Trace" items={recommendation.trace} />
+            <RecSection title="Notes" items={recommendation.curatedNotes} />
+            <RecSection title="Key Tech" items={recommendation.relevantTech} />
+            <RecSection title="Targets" items={recommendation.priorityTargets} />
+            <RecSection title="Synergy" items={recommendation.alliedSynergies} />
           </article>
         ))}
       </div>
@@ -902,6 +901,8 @@ function SavedDraftsPanel({
   drafts: SavedDraft[];
   setDrafts: (drafts: SavedDraft[] | ((drafts: SavedDraft[]) => SavedDraft[])) => void;
 }) {
+  const [expanded, setExpanded] = useState(false);
+
   if (drafts.length === 0) return null;
 
   async function copyDraft(draft: SavedDraft) {
@@ -914,20 +915,26 @@ function SavedDraftsPanel({
         <h2>
           <RulesIcon iconKey="draft" /> Saved Drafts
         </h2>
-        <span>{drafts.length} local</span>
+        <button className="subtleButton" type="button" onClick={() => setExpanded((current) => !current)}>
+          {expanded ? "Hide" : `Show ${drafts.length}`}
+        </button>
       </div>
-      <div className="draftList">
-        {drafts.map((draft) => (
-          <div className="draftRow" key={draft.id}>
-            <span>
-              <strong>{draft.name}</strong>
-              <small>{draft.totalCost}ss - {new Date(draft.createdAt).toLocaleDateString()}</small>
-            </span>
-            <button className="subtleButton" type="button" onClick={() => copyDraft(draft)}>Copy</button>
-            <button className="subtleButton" type="button" onClick={() => setDrafts(drafts.filter((item) => item.id !== draft.id))}>Delete</button>
-          </div>
-        ))}
-      </div>
+      {expanded ? (
+        <div className="draftList">
+          {drafts.map((draft) => (
+            <div className="draftRow" key={draft.id}>
+              <span>
+                <strong>{draft.name}</strong>
+                <small>{draft.totalCost}ss - {new Date(draft.createdAt).toLocaleDateString()}</small>
+              </span>
+              <button className="subtleButton" type="button" onClick={() => copyDraft(draft)}>Copy</button>
+              <button className="subtleButton" type="button" onClick={() => setDrafts(drafts.filter((item) => item.id !== draft.id))}>Delete</button>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <p className="panelHint">Saved locally for later planning. Expand only when you need an older draft.</p>
+      )}
     </section>
   );
 }
@@ -944,7 +951,7 @@ function LikelyCrewPanel({
       <div className="panelHeader">
         <div>
           <h2>
-            <RulesIcon iconKey="prediction" /> Likely Crew Members
+            <RulesIcon iconKey="prediction" /> Opponent Picks
           </h2>
           <span><RulesIcon iconKey="soulstone" /> {models.reduce((sum, recommendation) => sum + recommendation.hireCost, 0)} likely package</span>
         </div>
@@ -967,17 +974,21 @@ function LikelyCrewPanel({
                   <RulesIcon iconKey="soulstone" /> {formatRecommendationCost(recommendation)} - {recommendation.role} - likelihood {recommendation.score}
                 </p>
               </div>
-              <span className="ownedBadge">Predicted</span>
+              <span className="badgeGroup">
+                <span className="ownedBadge">Predicted</span>
+                <span className={`confidenceBadge confidence-${recommendation.confidence.toLowerCase()}`}>
+                  {recommendation.confidence}
+                </span>
+              </span>
             </div>
-            <p className="confidenceBand">{recommendation.confidence} confidence prediction</p>
             <div className="scoreGrid twoScores">
               <span>Synergy {recommendation.scoreBreakdown.crewSynergy}</span>
               <span>Role {recommendation.scoreBreakdown.compositionMatchup}</span>
             </div>
-            <RecSection title="Why They Are Likely" items={recommendation.why} />
-            <RecSection title="Confidence Basis" items={recommendation.trace} />
-            <RecSection title="Relevant Tech" items={recommendation.relevantTech} />
-            <RecSection title="Crew Synergies" items={recommendation.alliedSynergies} />
+            <RecSection title="Why Likely" items={recommendation.why} />
+            <RecSection title="Basis" items={recommendation.trace} />
+            <RecSection title="Key Tech" items={recommendation.relevantTech} />
+            <RecSection title="Synergy" items={recommendation.alliedSynergies} />
           </article>
         ))}
       </div>

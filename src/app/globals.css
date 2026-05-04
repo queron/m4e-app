@@ -950,6 +950,97 @@ select option {
   grid-column: 2;
 }
 
+.titleCompareCallout {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border: 1px solid rgba(196, 154, 70, 0.28);
+  border-radius: var(--radius-md);
+  background: rgba(196, 154, 70, 0.075);
+  padding: 12px;
+  margin-bottom: 12px;
+}
+
+.titleCompareCallout strong,
+.titleComparison h3,
+.titleComparisonCard > .modelNameButton {
+  color: var(--parchment);
+}
+
+.titleCompareCallout p,
+.titleComparisonHeader p,
+.titleNamePart {
+  margin: 4px 0 0;
+  color: var(--muted);
+  line-height: 1.4;
+}
+
+.titleComparison {
+  display: grid;
+  gap: 12px;
+  border: 1px solid var(--line-2);
+  border-radius: var(--radius-md);
+  background: rgba(15, 12, 10, 0.32);
+  padding: 12px;
+  margin-bottom: 14px;
+}
+
+.titleComparison h3 {
+  margin: 0;
+  font-family: Inter, Arial, sans-serif;
+  font-size: 0.86rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.titleComparisonGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+  gap: 10px;
+}
+
+.titleComparisonCard {
+  display: grid;
+  gap: 10px;
+  border: 1px solid var(--line-2);
+  border-left: 3px solid rgba(196, 154, 70, 0.34);
+  border-radius: var(--radius-sm);
+  background: rgba(20, 16, 12, 0.66);
+  padding: 12px;
+}
+
+.titleComparisonCard.selectedTitleCard {
+  border-color: rgba(142, 154, 114, 0.5);
+  border-left-color: #8e9a72;
+  background: rgba(47, 90, 69, 0.18);
+}
+
+.titleCardTopline,
+.titleStats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.titleComparisonBlock {
+  display: grid;
+  gap: 5px;
+}
+
+.titleComparisonBlock strong {
+  color: var(--accent);
+  font-family: Inter, Arial, sans-serif;
+  font-size: 0.72rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.titleComparisonBlock li {
+  color: var(--parchment-2);
+  line-height: 1.4;
+}
+
 .collapsedPanel {
   box-shadow: none;
 }
@@ -2428,6 +2519,10 @@ li + li {
   .expectedSuggestions .subtleButton {
     grid-column: 1;
     width: fit-content;
+  }
+
+  .titleCompareCallout {
+    display: grid;
   }
 
   .modalBackdrop {

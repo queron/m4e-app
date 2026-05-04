@@ -652,6 +652,25 @@ li + li {
   font-size: 0.82rem;
 }
 
+.panelHint,
+.confidenceBand {
+  margin: -4px 0 12px;
+  color: var(--muted);
+  line-height: 1.45;
+}
+
+.confidenceBand {
+  display: inline-block;
+  border: 1px solid rgba(142, 154, 114, 0.42);
+  border-radius: 999px;
+  background: rgba(47, 90, 69, 0.24);
+  color: #cfddb3;
+  padding: 4px 9px;
+  font-family: Inter, Arial, sans-serif;
+  font-size: 0.72rem;
+  font-weight: 900;
+}
+
 .scoreGrid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);

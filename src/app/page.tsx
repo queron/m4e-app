@@ -578,6 +578,9 @@ function LikelyCrewPanel({ models }: { models: MatchupAnalysis["opponentCrew"]["
           <span>{models.reduce((sum, recommendation) => sum + recommendation.model.cost, 0)}ss likely package</span>
         </div>
       </div>
+      <p className="panelHint">
+        Predictions are estimates based on keyword fit, role coverage, strategy needs, and point efficiency. They are not confirmed opponent selections.
+      </p>
 
       <div className="recommendationList">
         {models.map((recommendation) => (
@@ -589,8 +592,9 @@ function LikelyCrewPanel({ models }: { models: MatchupAnalysis["opponentCrew"]["
                   {recommendation.model.cost}ss - {recommendation.role} - likelihood {recommendation.score}
                 </p>
               </div>
-              <span className="ownedBadge">Likely</span>
+              <span className="ownedBadge">Predicted</span>
             </div>
+            <p className="confidenceBand">{confidenceLabel(recommendation.score)} confidence prediction</p>
             <div className="scoreGrid twoScores">
               <span>Synergy {recommendation.scoreBreakdown.crewSynergy}</span>
               <span>Role {recommendation.scoreBreakdown.compositionMatchup}</span>
@@ -603,6 +607,12 @@ function LikelyCrewPanel({ models }: { models: MatchupAnalysis["opponentCrew"]["
       </div>
     </section>
   );
+}
+
+function confidenceLabel(score: number): "High" | "Medium" | "Low" {
+  if (score >= 12) return "High";
+  if (score >= 8) return "Medium";
+  return "Low";
 }
 
 function RecSection({ title, items }: { title: string; items: string[] }) {

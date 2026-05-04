@@ -5,6 +5,7 @@ import type { ErrorInfo, ReactNode } from "react";
 import type { KeyboardEvent as ReactKeyboardEvent } from "react";
 import {
   BadgeQuestionMark,
+  AlertTriangle,
   BookOpen,
   Brain,
   CircleDot,
@@ -28,7 +29,7 @@ import {
   Waves,
   X
 } from "lucide-react";
-import type { CardCatalog, CrewCard, MatchupAnalysis, ModelCard, ModelRecommendation, RecommendationPath, SynergyGroup, TacticalTag } from "@/lib/types";
+import type { CardCatalog, CrewCard, MatchupAnalysis, ModelCard, ModelRecommendation, RecommendationPath, SynergyGroup, TacticalTag, VulnerabilityFlag } from "@/lib/types";
 import masterPlaystyleNotes from "@/data/master_playstyle_notes.json";
 import { SCHEME_POOLS } from "@/lib/scheme-pools";
 import { STRATEGY_POOLS } from "@/lib/strategy-pools";
@@ -354,6 +355,10 @@ export default function Home() {
   const opponentCrewCard = useMemo(
     () => findCrewCardForSelectedMaster(opponentMaster, catalog),
     [catalog, opponentMaster]
+  );
+  const selectedModelVulnerabilityFlags = useMemo(
+    () => selectedModel && analysis ? analysis.vulnerabilityFlags[selectedModel.id] ?? [] : [],
+    [analysis, selectedModel]
   );
   const playerMasterProfile = useMemo(
     () => buildMasterProfile(playerMaster, playerCrewCard),
@@ -930,7 +935,7 @@ export default function Home() {
         </div>
       </aside>
 
-      {selectedModel ? <StatCardModal model={selectedModel} onClose={closeSelectedModel} /> : null}
+      {selectedModel ? <StatCardModal model={selectedModel} vulnerabilityFlags={selectedModelVulnerabilityFlags} onClose={closeSelectedModel} /> : null}
     </main>
   );
 }
@@ -1598,6 +1603,7 @@ function MatchupBriefPanel({ brief }: { brief: MatchupAnalysis["matchupBrief"] }
         <BriefColumn title="Watch for" items={brief.watchFor} />
         <BriefColumn title="Answer with" items={brief.answerWith} />
         <BriefColumn title="Priority hires" items={brief.priorityHires} />
+        {brief.matchupRisks.length > 0 ? <BriefColumn title="Matchup risks" items={brief.matchupRisks} /> : null}
       </div>
     </section>
   );
@@ -1777,6 +1783,11 @@ function RecommendationPanel({
                   </p>
                 </div>
                 <span className="badgeGroup">
+                  {recommendation.vulnerabilityFlags.length > 0 ? (
+                    <span className="riskBadge" title={riskTitle(recommendation.vulnerabilityFlags)}>
+                      <AlertTriangle aria-hidden="true" /> Risk
+                    </span>
+                  ) : null}
                   <span className={recommendation.owned ? "ownedBadge" : "missingBadge"}>
                     {recommendation.owned ? "Owned" : "Not owned"}
                   </span>
@@ -1838,6 +1849,7 @@ function RecommendationPanel({
               {expandedModelId === recommendation.model.id ? (
                 <>
                   <RecSection title="How to Use" items={modelUseNotes(recommendation, strategyName, plan)} />
+                  <RecSection title="Matchup Risks" items={riskFlagNotes(recommendation.vulnerabilityFlags)} />
                   <RecSection title="Key Tech" items={recommendation.relevantTech} />
                   <RecSection title="Targets" items={recommendation.priorityTargets} />
                   <RecSection title="Synergy" items={recommendation.alliedSynergies} />
@@ -2260,6 +2272,10 @@ function recommendationChips(recommendation: ModelRecommendation): Array<{ label
       title: "How strongly this pick addresses the selected strategy and matchup demands."
     },
     { label: hireKindLabel(recommendation), title: recommendation.hireReason },
+    ...recommendation.vulnerabilityFlags.slice(0, 1).map((flag) => ({
+      label: `Risk: ${flag.label}`,
+      title: flag.summary
+    })),
     ...topTacticalTags(recommendation.model.tacticalTags).map((tag) => ({
       label: tacticalTagLabel(tag),
       title: `Detected tactical tag: ${tacticalTagLabel(tag)}.`
@@ -2272,7 +2288,10 @@ function recommendationPlan(recommendation: ModelRecommendation, strategyName?: 
   const strategyLine = strategyReasons(recommendation.why, strategyName)[0];
   const tableJob = strategyLine
     ?? `Use it as ${articleFor(recommendation.role)} ${recommendation.role} to cover ${formatVisibleTags(topTacticalTags(recommendation.model.tacticalTags))}.`;
-  const tradeoff = recommendation.hireTax > 0
+  const riskTradeoff = recommendation.vulnerabilityFlags.find((flag) => flag.severity === "High") ?? recommendation.vulnerabilityFlags[0];
+  const tradeoff = riskTradeoff
+    ? riskTradeoff.summary
+    : recommendation.hireTax > 0
     ? recommendation.hireReason
     : !recommendation.owned
       ? "Not in the marked collection, so it only appears on the Optimal path."
@@ -2281,6 +2300,17 @@ function recommendationPlan(recommendation: ModelRecommendation, strategyName?: 
         : undefined;
 
   return { why, tableJob, tradeoff };
+}
+
+function riskTitle(flags: VulnerabilityFlag[]): string {
+  return flags.map((flag) => `${flag.label}: ${flag.summary}`).join(" ");
+}
+
+function riskFlagNotes(flags: VulnerabilityFlag[]): string[] {
+  return flags.map((flag) => {
+    const causes = flag.causedBy.length ? ` Caused by ${flag.causedBy.slice(0, 2).join("; ")}.` : "";
+    return `${flag.label} (${flag.severity}): ${flag.summary}${causes}`;
+  });
 }
 
 function formatVisibleTags(tags: TacticalTag[]) {
@@ -2405,7 +2435,7 @@ function articleFor(value: string): "a" | "an" {
   return /^[aeiou]/i.test(value) ? "an" : "a";
 }
 
-function StatCardModal({ model, onClose }: { model: ModelCard; onClose: () => void }) {
+function StatCardModal({ model, vulnerabilityFlags, onClose }: { model: ModelCard; vulnerabilityFlags: VulnerabilityFlag[]; onClose: () => void }) {
   const dialogRef = useRef<HTMLElement | null>(null);
   const closeButtonRef = useRef<HTMLButtonElement | null>(null);
 
@@ -2488,6 +2518,23 @@ function StatCardModal({ model, onClose }: { model: ModelCard; onClose: () => vo
             <StatBlockItem iconKey="speed" label="Speed" value={model.statBlock.speed} />
             <StatBlockItem iconKey="size" label="Size" value={model.statBlock.size} />
           </div>
+
+          {vulnerabilityFlags.length > 0 ? (
+            <section className="statCardSection riskSection">
+              <h3>Matchup Risks</h3>
+              <div className="rulesList">
+                {vulnerabilityFlags.map((flag) => (
+                  <div className="rulesEntry riskEntry" key={flag.id}>
+                    <strong>
+                      <AlertTriangle aria-hidden="true" /> {flag.label} <span>{flag.severity}</span>
+                    </strong>
+                    <p>{flag.summary}</p>
+                    {flag.causedBy.length > 0 ? <p>Caused by {flag.causedBy.slice(0, 3).join("; ")}.</p> : null}
+                  </div>
+                ))}
+              </div>
+            </section>
+          ) : null}
 
           <section className="statCardSection">
             <h3>Abilities</h3>

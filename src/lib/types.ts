@@ -217,6 +217,15 @@ export type ModelRecommendation = {
   relevantTech: string[];
   priorityTargets: string[];
   alliedSynergies: string[];
+  vulnerabilityFlags: VulnerabilityFlag[];
+};
+
+export type VulnerabilityFlag = {
+  id: "lowWp" | "conditionExposure" | "markerDenial" | "lowMobility";
+  label: string;
+  severity: "High" | "Medium" | "Low";
+  summary: string;
+  causedBy: string[];
 };
 
 export type MatchupAnalysis = {
@@ -230,6 +239,7 @@ export type MatchupAnalysis = {
   schemeWatchlist?: SchemeWatchlist;
   recommendedSchemePairs?: SchemePairRecommendation[];
   matchupBrief: MatchupBrief;
+  vulnerabilityFlags: Record<string, VulnerabilityFlag[]>;
   playerCrew: {
     master?: ModelCard;
     crewCard?: CrewCard;
@@ -259,6 +269,7 @@ export type MatchupBrief = {
   watchFor: string[];
   answerWith: string[];
   priorityHires: string[];
+  matchupRisks: string[];
 };
 
 export type SchemeWatchlistItem = {

@@ -1440,6 +1440,26 @@ select option {
   white-space: nowrap;
 }
 
+.riskBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  border: 1px solid rgba(201, 106, 58, 0.62);
+  border-radius: 999px;
+  background: rgba(110, 31, 42, 0.34);
+  color: #f0b781;
+  padding: 6px 9px;
+  font-family: Inter, Arial, sans-serif;
+  font-size: 0.76rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.riskBadge svg {
+  width: 0.9em;
+  height: 0.9em;
+}
+
 .confidence-medium {
   border-color: rgba(196, 154, 70, 0.5);
   background: rgba(196, 154, 70, 0.18);
@@ -1642,6 +1662,13 @@ li + li {
   font-size: 0.72rem;
   font-weight: 700;
   line-height: 1.2;
+}
+
+.recChip[title*="risk"],
+.recChip[title*="Risk"] {
+  border-color: rgba(201, 106, 58, 0.48);
+  background: rgba(110, 31, 42, 0.24);
+  color: #f0c5c9;
 }
 
 .panelHint {
@@ -2097,6 +2124,27 @@ li + li {
   margin: 5px 0 0;
   color: var(--parchment-2);
   line-height: 1.52;
+}
+
+.riskEntry strong {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.riskEntry strong svg {
+  width: 1em;
+  height: 1em;
+  color: #f0b781;
+}
+
+.riskEntry strong span {
+  border: 1px solid rgba(201, 106, 58, 0.45);
+  border-radius: 999px;
+  color: #f0b781;
+  padding: 2px 6px;
+  font-family: Inter, Arial, sans-serif;
+  font-size: 0.68rem;
 }
 
 .actionCardHeader {

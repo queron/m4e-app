@@ -741,6 +741,7 @@ function RecommendationPanel({
   onExportPlan: (path: RecommendationPath) => void;
   onOpenModel: (model: ModelCard) => void;
 }) {
+  const [expandedModelId, setExpandedModelId] = useState<string | null>(null);
   if (!selectedPath) return null;
 
   return (
@@ -795,8 +796,13 @@ function RecommendationPanel({
                   <RulesIcon iconKey="soulstone" /> {formatRecommendationCost(recommendation)} - {recommendation.role} - score {recommendation.score}
                 </p>
               </div>
-              <span className={recommendation.owned ? "ownedBadge" : "missingBadge"}>
-                <RulesIcon iconKey={recommendation.owned ? "collection" : "prediction"} /> {recommendation.owned ? "Owned" : "Not owned"}
+              <span className="badgeGroup">
+                <span className={recommendation.owned ? "ownedBadge" : "missingBadge"}>
+                  <RulesIcon iconKey={recommendation.owned ? "collection" : "prediction"} /> {recommendation.owned ? "Owned" : "Not owned"}
+                </span>
+                <span className={`confidenceBadge confidence-${recommendation.confidence.toLowerCase()}`}>
+                  {recommendation.confidence}
+                </span>
               </span>
             </div>
             {recommendation.why[0] ? <p className="topReason">Top reason: {recommendation.why[0]}</p> : null}
@@ -811,13 +817,24 @@ function RecommendationPanel({
                 <RulesIcon iconKey="strategy" /> Strategy/Matchup Fit {recommendation.scoreBreakdown.compositionMatchup}
               </span>
             </div>
-            <RecSection title="Right Pick" items={recommendation.why} />
-            <RecSection title="Strategy Fit" items={strategyReasons(recommendation.why, strategyName)} />
-            <RecSection title="Why This Ranked Here" items={recommendation.trace} />
-            <RecSection title="Curated Notes" items={recommendation.curatedNotes} />
-            <RecSection title="Relevant Skills, Abilities, Triggers" items={recommendation.relevantTech} />
-            <RecSection title="Priority Targets" items={recommendation.priorityTargets} />
-            <RecSection title="Allied Synergies" items={recommendation.alliedSynergies} />
+            <button
+              className="detailsButton"
+              type="button"
+              aria-expanded={expandedModelId === recommendation.model.id}
+              onClick={() => setExpandedModelId((current) => (current === recommendation.model.id ? null : recommendation.model.id))}
+            >
+              {expandedModelId === recommendation.model.id ? "Hide details" : "Details"}
+            </button>
+            {expandedModelId === recommendation.model.id ? (
+              <>
+                <RecSection title="How to Use" items={modelUseNotes(recommendation, strategyName)} />
+                <RecSection title="Key Tech" items={recommendation.relevantTech} />
+                <RecSection title="Targets" items={recommendation.priorityTargets} />
+                <RecSection title="Synergy" items={recommendation.alliedSynergies} />
+                <RecSection title="Score Trace" items={recommendation.trace} />
+                <RecSection title="Notes" items={recommendation.curatedNotes} />
+              </>
+            ) : null}
           </article>
         ))}
       </div>
@@ -939,6 +956,8 @@ function LikelyCrewPanel({
   models: MatchupAnalysis["opponentCrew"]["likelyModels"];
   onOpenModel: (model: ModelCard) => void;
 }) {
+  const [expandedModelId, setExpandedModelId] = useState<string | null>(null);
+
   return (
     <section className="panel recommendationPanel">
       <div className="panelHeader">
@@ -967,17 +986,34 @@ function LikelyCrewPanel({
                   <RulesIcon iconKey="soulstone" /> {formatRecommendationCost(recommendation)} - {recommendation.role} - likelihood {recommendation.score}
                 </p>
               </div>
-              <span className="ownedBadge"><RulesIcon iconKey="prediction" /> Predicted</span>
+              <span className="badgeGroup">
+                <span className="ownedBadge"><RulesIcon iconKey="prediction" /> Predicted</span>
+                <span className={`confidenceBadge confidence-${recommendation.confidence.toLowerCase()}`}>
+                  {recommendation.confidence}
+                </span>
+              </span>
             </div>
-            <p className="confidenceBand">{recommendation.confidence} confidence prediction</p>
             <div className="scoreGrid twoScores">
               <span><RulesIcon iconKey="keyword" /> Synergy {recommendation.scoreBreakdown.crewSynergy}</span>
               <span><RulesIcon iconKey="score" /> Role {recommendation.scoreBreakdown.compositionMatchup}</span>
             </div>
-            <RecSection title="Why They Are Likely" items={recommendation.why} />
-            <RecSection title="Confidence Basis" items={recommendation.trace} />
-            <RecSection title="Relevant Tech" items={recommendation.relevantTech} />
-            <RecSection title="Crew Synergies" items={recommendation.alliedSynergies} />
+            <button
+              className="detailsButton"
+              type="button"
+              aria-expanded={expandedModelId === recommendation.model.id}
+              onClick={() => setExpandedModelId((current) => (current === recommendation.model.id ? null : recommendation.model.id))}
+            >
+              {expandedModelId === recommendation.model.id ? "Hide details" : "Details"}
+            </button>
+            {expandedModelId === recommendation.model.id ? (
+              <>
+                <RecSection title="How to Use" items={recommendation.why} />
+                <RecSection title="Key Tech" items={recommendation.relevantTech} />
+                <RecSection title="Synergy" items={recommendation.alliedSynergies} />
+                <RecSection title="Score Trace" items={recommendation.trace} />
+                <RecSection title="Notes" items={recommendation.curatedNotes} />
+              </>
+            ) : null}
           </article>
         ))}
       </div>
@@ -994,6 +1030,22 @@ function confidenceLabel(score: number): "High" | "Medium" | "Low" {
 function formatRecommendationCost(recommendation: ModelRecommendation): string {
   if (recommendation.hireTax <= 0) return `${recommendation.hireCost}ss`;
   return `${recommendation.hireCost}ss (${recommendation.printedCost}+${recommendation.hireTax})`;
+}
+
+function modelUseNotes(recommendation: ModelRecommendation, strategyName?: string): string[] {
+  return uniqueItems([
+    ...recommendation.why,
+    ...strategyReasons(recommendation.why, strategyName),
+    `${recommendation.model.name} should play as ${articleFor(recommendation.role)} ${recommendation.role}.`
+  ]);
+}
+
+function uniqueItems(items: string[]): string[] {
+  return Array.from(new Set(items.filter(Boolean)));
+}
+
+function articleFor(value: string): "a" | "an" {
+  return /^[aeiou]/i.test(value) ? "an" : "a";
 }
 
 function StatCardModal({ model, onClose }: { model: ModelCard; onClose: () => void }) {

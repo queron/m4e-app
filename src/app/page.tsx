@@ -584,10 +584,17 @@ function RecommendationPanel({
                 {recommendation.owned ? "Owned" : "Not owned"}
               </span>
             </div>
+            {recommendation.why[0] ? <p className="topReason">Top reason: {recommendation.why[0]}</p> : null}
             <div className="scoreGrid">
-              <span>Master {recommendation.scoreBreakdown.masterAbilities}</span>
-              <span>Synergy {recommendation.scoreBreakdown.crewSynergy}</span>
-              <span>Matchup {recommendation.scoreBreakdown.compositionMatchup}</span>
+              <span title="How directly this pick addresses the opposing master and master-specific pressure.">
+                Master Counter {recommendation.scoreBreakdown.masterAbilities}
+              </span>
+              <span title="How well this pick works with your leader, keyword, and available allied models.">
+                Crew Synergy {recommendation.scoreBreakdown.crewSynergy}
+              </span>
+              <span title="How well this pick addresses the strategy, opponent composition, roles, and table demands.">
+                Strategy/Matchup Fit {recommendation.scoreBreakdown.compositionMatchup}
+              </span>
             </div>
             <RecSection title="Right Pick" items={recommendation.why} />
             <RecSection title="Strategy Fit" items={strategyReasons(recommendation.why, strategyName)} />

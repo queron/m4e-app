@@ -238,6 +238,13 @@ export default function Home() {
 
       {analysis ? (
         <section className="analysisGrid">
+          <div className="strategyContext">
+            <div>
+              <h2>{analysis.match.strategy?.name ?? strategy.name}</h2>
+              <p>{analysis.match.strategy?.summary ?? strategy.summary}</p>
+            </div>
+            <span>{strategyPool.name}</span>
+          </div>
           <div className="analysisColumn">
             <CrewAnalysisCard
               title="My Crew"
@@ -246,7 +253,12 @@ export default function Home() {
               strengths={analysis.playerCrew.strengths}
               vulnerabilities={analysis.playerCrew.vulnerabilities}
             />
-            <RecommendationPanel pathKind={pathKind} setPathKind={setPathKind} selectedPath={selectedPath} />
+            <RecommendationPanel
+              pathKind={pathKind}
+              setPathKind={setPathKind}
+              selectedPath={selectedPath}
+              strategyName={analysis.match.strategy?.name}
+            />
           </div>
           <div className="analysisColumn">
             <CrewAnalysisCard
@@ -508,11 +520,13 @@ function CrewAnalysisCard({
 function RecommendationPanel({
   pathKind,
   setPathKind,
-  selectedPath
+  selectedPath,
+  strategyName
 }: {
   pathKind: PathKind;
   setPathKind: (value: PathKind) => void;
   selectedPath?: RecommendationPath;
+  strategyName?: string;
 }) {
   if (!selectedPath) return null;
 
@@ -559,6 +573,7 @@ function RecommendationPanel({
               <span>Matchup {recommendation.scoreBreakdown.compositionMatchup}</span>
             </div>
             <RecSection title="Right Pick" items={recommendation.why} />
+            <RecSection title="Strategy Fit" items={strategyReasons(recommendation.why, strategyName)} />
             <RecSection title="Relevant Skills, Abilities, Triggers" items={recommendation.relevantTech} />
             <RecSection title="Priority Targets" items={recommendation.priorityTargets} />
             <RecSection title="Allied Synergies" items={recommendation.alliedSynergies} />
@@ -606,12 +621,20 @@ function LikelyCrewPanel({ models }: { models: MatchupAnalysis["opponentCrew"]["
 }
 
 function RecSection({ title, items }: { title: string; items: string[] }) {
+  if (items.length === 0) return null;
+
   return (
     <div className="recSection">
       <h4>{title}</h4>
       <ul>{items.map((item, index) => <li key={`${title}-${index}-${item}`}>{item}</li>)}</ul>
     </div>
   );
+}
+
+function strategyReasons(items: string[], strategyName?: string): string[] {
+  if (!strategyName) return [];
+  const strategyNeedle = strategyName.toLowerCase();
+  return items.filter((item) => item.toLowerCase().includes(strategyNeedle));
 }
 
 function matchesSearch(model: ModelCard, search: string): boolean {

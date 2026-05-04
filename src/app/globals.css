@@ -225,6 +225,42 @@ select option {
   margin-top: 16px;
 }
 
+.strategyContext {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 16px;
+  border: 1px solid rgba(176, 138, 60, 0.42);
+  border-radius: 8px;
+  background:
+    linear-gradient(90deg, rgba(176, 138, 60, 0.13), transparent 62%),
+    #17130f;
+  padding: 14px 16px;
+  box-shadow: var(--shadow);
+}
+
+.strategyContext h2 {
+  margin-bottom: 4px;
+}
+
+.strategyContext p {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.45;
+}
+
+.strategyContext span {
+  flex: 0 0 auto;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--accent);
+  padding: 5px 10px;
+  font-family: Inter, Arial, sans-serif;
+  font-size: 0.74rem;
+  font-weight: 900;
+}
+
 .analysisColumn {
   display: grid;
   gap: 16px;

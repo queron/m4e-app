@@ -237,6 +237,13 @@ select option {
   margin-bottom: 14px;
 }
 
+.updateStatus {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
 .matchHint,
 .infoCallout {
   margin: 10px 0 0;

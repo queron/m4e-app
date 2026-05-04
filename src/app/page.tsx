@@ -741,6 +741,7 @@ function RecommendationPanel({
   onExportPlan: (path: RecommendationPath) => void;
   onOpenModel: (model: ModelCard) => void;
 }) {
+  const [expandedModelId, setExpandedModelId] = useState<string | null>(null);
   if (!selectedPath) return null;
 
   return (
@@ -811,13 +812,25 @@ function RecommendationPanel({
                 <RulesIcon iconKey="strategy" /> Strategy/Matchup Fit {recommendation.scoreBreakdown.compositionMatchup}
               </span>
             </div>
-            <RecSection title="Right Pick" items={recommendation.why} />
-            <RecSection title="Strategy Fit" items={strategyReasons(recommendation.why, strategyName)} />
-            <RecSection title="Why This Ranked Here" items={recommendation.trace} />
-            <RecSection title="Curated Notes" items={recommendation.curatedNotes} />
-            <RecSection title="Relevant Skills, Abilities, Triggers" items={recommendation.relevantTech} />
-            <RecSection title="Priority Targets" items={recommendation.priorityTargets} />
-            <RecSection title="Allied Synergies" items={recommendation.alliedSynergies} />
+            <button
+              className="detailsButton"
+              type="button"
+              aria-expanded={expandedModelId === recommendation.model.id}
+              onClick={() => setExpandedModelId((current) => (current === recommendation.model.id ? null : recommendation.model.id))}
+            >
+              {expandedModelId === recommendation.model.id ? "Hide details" : "Details"}
+            </button>
+            {expandedModelId === recommendation.model.id ? (
+              <>
+                <RecSection title="Right Pick" items={recommendation.why} />
+                <RecSection title="Strategy Fit" items={strategyReasons(recommendation.why, strategyName)} />
+                <RecSection title="Why This Ranked Here" items={recommendation.trace} />
+                <RecSection title="Curated Notes" items={recommendation.curatedNotes} />
+                <RecSection title="Relevant Skills, Abilities, Triggers" items={recommendation.relevantTech} />
+                <RecSection title="Priority Targets" items={recommendation.priorityTargets} />
+                <RecSection title="Allied Synergies" items={recommendation.alliedSynergies} />
+              </>
+            ) : null}
           </article>
         ))}
       </div>
@@ -939,6 +952,8 @@ function LikelyCrewPanel({
   models: MatchupAnalysis["opponentCrew"]["likelyModels"];
   onOpenModel: (model: ModelCard) => void;
 }) {
+  const [expandedModelId, setExpandedModelId] = useState<string | null>(null);
+
   return (
     <section className="panel recommendationPanel">
       <div className="panelHeader">
@@ -974,10 +989,22 @@ function LikelyCrewPanel({
               <span><RulesIcon iconKey="keyword" /> Synergy {recommendation.scoreBreakdown.crewSynergy}</span>
               <span><RulesIcon iconKey="score" /> Role {recommendation.scoreBreakdown.compositionMatchup}</span>
             </div>
-            <RecSection title="Why They Are Likely" items={recommendation.why} />
-            <RecSection title="Confidence Basis" items={recommendation.trace} />
-            <RecSection title="Relevant Tech" items={recommendation.relevantTech} />
-            <RecSection title="Crew Synergies" items={recommendation.alliedSynergies} />
+            <button
+              className="detailsButton"
+              type="button"
+              aria-expanded={expandedModelId === recommendation.model.id}
+              onClick={() => setExpandedModelId((current) => (current === recommendation.model.id ? null : recommendation.model.id))}
+            >
+              {expandedModelId === recommendation.model.id ? "Hide details" : "Details"}
+            </button>
+            {expandedModelId === recommendation.model.id ? (
+              <>
+                <RecSection title="Why They Are Likely" items={recommendation.why} />
+                <RecSection title="Confidence Basis" items={recommendation.trace} />
+                <RecSection title="Relevant Tech" items={recommendation.relevantTech} />
+                <RecSection title="Crew Synergies" items={recommendation.alliedSynergies} />
+              </>
+            ) : null}
           </article>
         ))}
       </div>

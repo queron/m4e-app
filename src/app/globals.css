@@ -1053,6 +1053,17 @@ li + li {
   grid-template-columns: repeat(2, 1fr);
 }
 
+.detailsButton {
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: rgba(15, 12, 10, 0.62);
+  color: var(--accent);
+  padding: 6px 12px;
+  font-family: Inter, Arial, sans-serif;
+  font-size: 0.76rem;
+  font-weight: 900;
+}
+
 .recSection {
   border-top: 1px solid var(--line-2);
   padding-top: 10px;

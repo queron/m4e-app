@@ -152,6 +152,15 @@ export type PlannerInput = {
   schemePoolId?: string;
 };
 
+export type ModelEvaluationInput = {
+  playerMasterId: string;
+  opponentMasterId: string;
+  modelId: string;
+  opponentModelIds?: string[];
+  strategyPoolId?: string;
+  strategyId?: string;
+};
+
 export type CrewValidation = {
   legal: boolean;
   totalCost: number;
@@ -226,6 +235,25 @@ export type VulnerabilityFlag = {
   severity: "High" | "Medium" | "Low";
   summary: string;
   causedBy: string[];
+};
+
+export type ModelMatchupEvaluation = {
+  modelId: string;
+  legal: boolean;
+  hireReason: string;
+  hireCost: number;
+  printedCost: number;
+  hireTax: number;
+  fit?: {
+    band: "High" | "Medium" | "Low";
+    score: number;
+    role: string;
+  };
+  whyHelps: string[];
+  struggleNotes: string[];
+  strategyContribution: string[];
+  duplicateValue?: string;
+  vulnerabilityFlags: VulnerabilityFlag[];
 };
 
 export type MatchupAnalysis = {

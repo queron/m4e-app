@@ -12,6 +12,8 @@ import { getStrategy, type Strategy } from "./strategy-pools";
 import type {
   CrewCard,
   MatchupAnalysis,
+  ModelEvaluationInput,
+  ModelMatchupEvaluation,
   ModelCard,
   ModelRecommendation,
   PlannerInput,
@@ -150,6 +152,99 @@ export function analyzeMatchup(input: PlannerInput): MatchupAnalysis {
       available: availablePath,
       optimal: optimalPath
     }
+  };
+}
+
+export function evaluateModelMatchup(input: ModelEvaluationInput): ModelMatchupEvaluation {
+  const catalog = getCatalog();
+  const model = catalog.models.find((candidate) => candidate.id === input.modelId);
+  const playerMaster = catalog.models.find((candidate) => candidate.id === input.playerMasterId);
+  const opponentMaster = catalog.models.find((candidate) => candidate.id === input.opponentMasterId);
+
+  if (!model) {
+    return {
+      modelId: input.modelId,
+      legal: false,
+      hireReason: "Model was not found in the card catalog.",
+      hireCost: 0,
+      printedCost: 0,
+      hireTax: 0,
+      whyHelps: [],
+      struggleNotes: ["Open a parsed stat card before evaluating matchup fit."],
+      strategyContribution: [],
+      vulnerabilityFlags: []
+    };
+  }
+
+  const playerCrewCard = findCrewCardForMaster(playerMaster);
+  const opponentCrewCard = findCrewCardForMaster(opponentMaster);
+  const opponentModels = (input.opponentModelIds ?? [])
+    .map((id) => catalog.models.find((candidate) => candidate.id === id))
+    .filter(Boolean) as ModelCard[];
+  const opponentCrew = [opponentMaster, ...opponentModels].filter(Boolean) as ModelCard[];
+  const opponentPressure = buildOpponentPressureContext(opponentMaster, opponentCrewCard, opponentCrew);
+  const hireDetails = getHireDetails(playerMaster, model);
+
+  if (!playerMaster || !opponentMaster) {
+    return {
+      modelId: model.id,
+      legal: false,
+      hireReason: "Select both masters before evaluating matchup fit.",
+      hireCost: hireDetails.hireCost,
+      printedCost: hireDetails.printedCost,
+      hireTax: hireDetails.tax,
+      whyHelps: [],
+      struggleNotes: ["The app needs both leaders to judge legality, opposing pressure, and matchup role."],
+      strategyContribution: [],
+      vulnerabilityFlags: []
+    };
+  }
+
+  if (!hireDetails.legal || model.isMaster || model.cost <= 0) {
+    return {
+      modelId: model.id,
+      legal: false,
+      hireReason: model.isMaster ? "Masters cannot be hired as normal matchup tech picks." : hireDetails.reason,
+      hireCost: hireDetails.hireCost,
+      printedCost: hireDetails.printedCost,
+      hireTax: hireDetails.tax,
+      whyHelps: [],
+      struggleNotes: [model.isMaster ? "Choose this title as your leader instead of adding it as a model pick." : hireDetails.reason],
+      strategyContribution: [],
+      vulnerabilityFlags: detectVulnerabilityFlags(model, opponentPressure)
+    };
+  }
+
+  const strategy = getStrategy(input.strategyPoolId, input.strategyId);
+  const scored = scoreModel(model, playerMaster, playerCrewCard, opponentMaster, opponentCrewCard, opponentCrew, opponentPressure, strategy);
+  const strategyFit = scoreStrategyFit(model, strategy);
+  const score = Math.round(scored.score);
+  const risks = scored.vulnerabilityFlags.map((flag) => `${flag.label}: ${flag.summary}`);
+
+  return {
+    modelId: model.id,
+    legal: true,
+    hireReason: hireDetails.reason,
+    hireCost: hireDetails.hireCost,
+    printedCost: hireDetails.printedCost,
+    hireTax: hireDetails.tax,
+    fit: {
+      band: confidenceFromScore(score),
+      score,
+      role: scored.role
+    },
+    whyHelps: uniqueSentences(scored.why).slice(0, 4),
+    struggleNotes: uniqueSentences([
+      ...risks,
+      hireDetails.tax > 0 ? `${model.name} pays +${hireDetails.tax}ss as an out-of-keyword hire, so it must justify the premium.` : "",
+      scored.scoreBreakdown.crewSynergy <= 4 ? `${model.name} has limited direct keyword or crew-card synergy with ${playerMaster.name}.` : ""
+    ]).slice(0, 4),
+    strategyContribution: uniqueSentences([
+      ...strategyFit.reasons,
+      `${model.name} is best treated as a ${scored.role} in this matchup.`
+    ]).slice(0, 4),
+    duplicateValue: duplicateGuidance(model, scored),
+    vulnerabilityFlags: scored.vulnerabilityFlags
   };
 }
 
@@ -622,6 +717,26 @@ function summarizeVulnerabilityThemes(recommendations: ModelRecommendation[]): s
     .sort((left, right) => right.count - left.count || left.label.localeCompare(right.label))
     .slice(0, 3)
     .map((item) => `${item.label}: ${item.count} recommended pick${item.count === 1 ? "" : "s"} flagged; caused by ${uniqueSentences(item.causedBy).slice(0, 2).join("; ")}.`);
+}
+
+function duplicateGuidance(model: ModelCard, scored: ScoredModel): string | undefined {
+  if (model.maxCopies <= 1) return undefined;
+
+  const role = scored.role;
+  const strongRepeatRole = ["scheme runner", "beater", "control"].includes(role);
+  const pressureTags = scored.model.tacticalTags.filter((tag) =>
+    ["damage", "scheme", "mobility", "control", "marker", "ranged"].includes(tag)
+  );
+
+  if (scored.score >= 24 && strongRepeatRole) {
+    return `A second copy can be justified when you want redundant ${role} pressure; ${formatTags(pressureTags.slice(0, 3))} scales well across multiple activations.`;
+  }
+
+  if (scored.score >= 14) {
+    return `A second copy is playable, but check whether the crew still has enough distinct scoring, support, and answer pieces before doubling down.`;
+  }
+
+  return `Extra copies look like diminishing returns in this setup; prefer one copy unless the scenario specifically rewards repeated ${role} pieces.`;
 }
 
 function scoreAgainstMaster(model: ModelCard, opponentMaster?: ModelCard, opponentCrewCard?: CrewCard) {

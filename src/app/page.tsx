@@ -890,6 +890,7 @@ function RecommendationPanel({
                 </span>
               </span>
             </div>
+            {recommendation.hireTax > 0 ? <p className="topReason">Adjusted cost: {recommendation.hireReason}</p> : null}
             {recommendation.why[0] ? <p className="topReason">Top reason: {recommendation.why[0]}</p> : null}
             <div className="scoreGrid">
               <span title="How directly this pick addresses the opposing master and master-specific pressure.">
@@ -952,7 +953,7 @@ function DraftCrewPanel({
       ...requiredModels.map((entry) => `${entry.quantity}x ${entry.model.name} (${entry.model.cost}ss)`),
       "",
       "Draft hires:",
-      ...path.models.map((recommendation) => `${recommendation.model.name} (${formatRecommendationCost(recommendation)}) - ${recommendation.role}`)
+      ...path.models.map(formatExportHireLine)
     ];
     await navigator.clipboard.writeText(lines.join("\n"));
     setCopied(true);
@@ -1187,6 +1188,11 @@ function confidenceLabel(score: number): "High" | "Medium" | "Low" {
 function formatRecommendationCost(recommendation: ModelRecommendation): string {
   if (recommendation.hireTax <= 0) return `${recommendation.hireCost}ss`;
   return `${recommendation.hireCost}ss (${recommendation.printedCost}+${recommendation.hireTax})`;
+}
+
+function formatExportHireLine(recommendation: ModelRecommendation): string {
+  const reason = recommendation.hireTax > 0 ? ` - ${recommendation.hireReason}` : "";
+  return `${recommendation.model.name} (${formatRecommendationCost(recommendation)}) - ${recommendation.role}${reason}`;
 }
 
 function modelUseNotes(recommendation: ModelRecommendation, strategyName?: string): string[] {
@@ -1622,7 +1628,7 @@ function buildDraftSummary(
     ...requiredModels.map((entry) => `${entry.quantity}x ${entry.model.name} (${entry.model.cost}ss)`),
     "",
     "Draft hires:",
-    ...path.models.map((recommendation) => `${recommendation.model.name} (${formatRecommendationCost(recommendation)}) - ${recommendation.role}`),
+    ...path.models.map(formatExportHireLine),
     "",
     "Planning notes:",
     ...path.models.slice(0, 5).map((recommendation) => `- ${recommendation.model.name}: ${recommendation.why[0] ?? recommendation.hireReason}`)

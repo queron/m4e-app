@@ -272,6 +272,15 @@ export default function Home() {
   const selectedPath = analysis?.paths[pathKind];
   const strategyPool = STRATEGY_POOLS.find((pool) => pool.id === strategyPoolId) ?? STRATEGY_POOLS[0];
   const strategy = strategyPool.strategies.find((candidate) => candidate.id === strategyId) ?? strategyPool.strategies[0];
+  const canAnalyze = Boolean(playerMasterId && opponentMasterId);
+  const analyzeButtonLabel = isAnalyzing ? "Analyzing..." : analysis ? "Analyze again" : "Analyze";
+  const stickySetupStatus = !playerMasterId && !opponentMasterId
+    ? "Choose both masters"
+    : !playerMasterId
+      ? "Choose your master"
+      : !opponentMasterId
+        ? "Choose opponent master"
+        : `${pointLimit}ss matchup ready`;
   const playerRequiredModels = useMemo(
     () => (catalog && playerMaster ? getMandatoryModelsForMaster(playerMaster, catalog.models) : []),
     [catalog, playerMaster]
@@ -494,7 +503,7 @@ export default function Home() {
             <input value={pointLimit} min={1} max={150} type="number" onChange={(event) => setPointLimit(Number(event.target.value))} />
           </label>
           <button className="primary" onClick={analyze} disabled={isAnalyzing || !playerMasterId || !opponentMasterId}>
-            {isAnalyzing ? "Analyzing" : "Analyze"}
+            {analyzeButtonLabel}
           </button>
         </div>
         <div className="actionBar">
@@ -689,6 +698,25 @@ export default function Home() {
           Pick both masters, mark the models you own, add known opposing models, then run the matchup.
         </section>
       )}
+
+      <aside className="stickyAnalyzeBar" aria-label="Analysis actions">
+        <div>
+          <strong>{stickySetupStatus}</strong>
+          <span>
+            {playerMaster?.name ?? "No player master"} vs {opponentMaster?.name ?? "no opponent master"} - {strategy.name}
+          </span>
+        </div>
+        <div className="stickyAnalyzeActions">
+          {analysis && setupCollapsed ? (
+            <button className="subtleButton" type="button" onClick={() => setSetupCollapsed(false)}>
+              Edit setup
+            </button>
+          ) : null}
+          <button className="primary" type="button" onClick={analyze} disabled={isAnalyzing || !canAnalyze}>
+            {canAnalyze ? analyzeButtonLabel : "Choose both masters"}
+          </button>
+        </div>
+      </aside>
 
       {selectedModel ? <StatCardModal model={selectedModel} onClose={closeSelectedModel} /> : null}
     </main>

@@ -23,7 +23,8 @@ import {
   Sparkles,
   Swords,
   Target,
-  Waves
+  Waves,
+  X
 } from "lucide-react";
 import type { CardCatalog, MatchupAnalysis, ModelCard, RecommendationPath } from "@/lib/types";
 import { STRATEGY_POOLS } from "@/lib/strategy-pools";
@@ -60,6 +61,7 @@ export default function Home() {
   const [analysis, setAnalysis] = useState<MatchupAnalysis | null>(null);
   const [analyzedCollectionCount, setAnalyzedCollectionCount] = useState(0);
   const [draftPath, setDraftPath] = useState<RecommendationPath | null>(null);
+  const [selectedModel, setSelectedModel] = useState<ModelCard | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [setupCollapsed, setSetupCollapsed] = useState(false);
   const [error, setError] = useState("");
@@ -263,6 +265,7 @@ export default function Home() {
           selectedCountLabel="collection"
           collapsed={setupCollapsed}
           setCollapsed={setSetupCollapsed}
+          onOpenModel={setSelectedModel}
         />
         <CrewPanel
           title="Opponent"
@@ -284,6 +287,7 @@ export default function Home() {
           selectedCountLabel="known"
           collapsed={setupCollapsed}
           setCollapsed={setSetupCollapsed}
+          onOpenModel={setSelectedModel}
         />
       </section>
 
@@ -313,8 +317,11 @@ export default function Home() {
               usedFullPool={pathKind === "available" && analyzedCollectionCount === 0}
               strategyName={analysis.match.strategy?.name}
               onUsePlan={(path) => setDraftPath(path)}
+              onOpenModel={setSelectedModel}
             />
-            {draftPath ? <DraftCrewPanel requiredModels={playerRequiredModels} path={draftPath} pointLimit={pointLimit} /> : null}
+            {draftPath ? (
+              <DraftCrewPanel requiredModels={playerRequiredModels} path={draftPath} pointLimit={pointLimit} onOpenModel={setSelectedModel} />
+            ) : null}
           </div>
           <div className="analysisColumn">
             <CrewAnalysisCard
@@ -326,7 +333,7 @@ export default function Home() {
               strengthTitle="Likely Pressure"
               vulnerabilityTitle="Your Pressure Points"
             />
-            <LikelyCrewPanel models={analysis.opponentCrew.likelyModels} />
+            <LikelyCrewPanel models={analysis.opponentCrew.likelyModels} onOpenModel={setSelectedModel} />
           </div>
         </section>
       ) : (
@@ -334,6 +341,8 @@ export default function Home() {
           Pick both masters, mark the models you own, add known opposing models, then run the matchup.
         </section>
       )}
+
+      {selectedModel ? <StatCardModal model={selectedModel} onClose={() => setSelectedModel(null)} /> : null}
     </main>
   );
 }
@@ -358,6 +367,7 @@ function CrewPanel(props: {
   selectedCountLabel: string;
   collapsed: boolean;
   setCollapsed: (value: boolean) => void;
+  onOpenModel: (model: ModelCard) => void;
 }) {
   const selected = new Set(props.selectedIds);
   const selectedCounts = countSelectedIds(props.selectedIds);
@@ -468,6 +478,7 @@ function CrewPanel(props: {
                   selectionLabel={entry.forced ? "Required" : props.selectionLabel}
                   onToggle={entry.forced ? undefined : () => toggle(entry.model.id)}
                   onQuantityChange={entry.forced ? undefined : (quantity) => setModelQuantity(entry.model, quantity)}
+                  onOpenModel={() => props.onOpenModel(entry.model)}
                   forced={entry.forced}
                 />
               ))
@@ -490,6 +501,7 @@ function ModelRow({
   selectionLabel,
   onToggle,
   onQuantityChange,
+  onOpenModel,
   forced = false
 }: {
   model: ModelCard;
@@ -498,6 +510,7 @@ function ModelRow({
   selectionLabel: string;
   onToggle?: () => void;
   onQuantityChange?: (quantity: number) => void;
+  onOpenModel: () => void;
   forced?: boolean;
 }) {
   const canSetQuantity = selected && !forced && model.maxCopies > 1;
@@ -512,7 +525,9 @@ function ModelRow({
         </button>
       )}
       <span className="modelMain">
-        <strong>{model.name}</strong>
+        <button className="modelNameButton" type="button" onClick={onOpenModel}>
+          {model.name}
+        </button>
         <small>
           <RulesIcon iconKey="soulstone" /> {model.cost} - {renderKeywordSummary(model)}
         </small>
@@ -594,7 +609,8 @@ function RecommendationPanel({
   selectedPath,
   usedFullPool,
   strategyName,
-  onUsePlan
+  onUsePlan,
+  onOpenModel
 }: {
   pathKind: PathKind;
   setPathKind: (value: PathKind) => void;
@@ -602,6 +618,7 @@ function RecommendationPanel({
   usedFullPool: boolean;
   strategyName?: string;
   onUsePlan: (path: RecommendationPath) => void;
+  onOpenModel: (model: ModelCard) => void;
 }) {
   if (!selectedPath) return null;
 
@@ -640,7 +657,11 @@ function RecommendationPanel({
           <article className="recommendation" key={recommendation.model.id}>
             <div className="recHeader">
               <div>
-                <h3>{recommendation.model.name}</h3>
+                <h3>
+                  <button className="modelNameButton recNameButton" type="button" onClick={() => onOpenModel(recommendation.model)}>
+                    {recommendation.model.name}
+                  </button>
+                </h3>
                 <p>
                   <RulesIcon iconKey="soulstone" /> {recommendation.model.cost} - {recommendation.role} - score {recommendation.score}
                 </p>
@@ -676,11 +697,13 @@ function RecommendationPanel({
 function DraftCrewPanel({
   requiredModels,
   path,
-  pointLimit
+  pointLimit,
+  onOpenModel
 }: {
   requiredModels: Array<{ model: ModelCard; quantity: number }>;
   path: RecommendationPath;
   pointLimit: number;
+  onOpenModel: (model: ModelCard) => void;
 }) {
   const [copied, setCopied] = useState(false);
   const requiredCost = requiredModels.reduce((sum, entry) => sum + entry.model.cost * entry.quantity, 0);
@@ -721,14 +744,18 @@ function DraftCrewPanel({
         <h3>Required</h3>
         {requiredModels.map((entry, index) => (
           <div className="draftRow" key={`${entry.model.id}-${index}`}>
-            <span>{entry.quantity}x {entry.model.name}</span>
+            <button className="draftModelButton" type="button" onClick={() => onOpenModel(entry.model)}>
+              {entry.quantity}x {entry.model.name}
+            </button>
             <strong><RulesIcon iconKey="soulstone" /> {entry.model.cost * entry.quantity}</strong>
           </div>
         ))}
         <h3>Recommended Hires</h3>
         {path.models.map((recommendation) => (
           <div className="draftRow" key={recommendation.model.id}>
-            <span>{recommendation.model.name}</span>
+            <button className="draftModelButton" type="button" onClick={() => onOpenModel(recommendation.model)}>
+              {recommendation.model.name}
+            </button>
             <strong><RulesIcon iconKey="soulstone" /> {recommendation.model.cost}</strong>
           </div>
         ))}
@@ -737,7 +764,13 @@ function DraftCrewPanel({
   );
 }
 
-function LikelyCrewPanel({ models }: { models: MatchupAnalysis["opponentCrew"]["likelyModels"] }) {
+function LikelyCrewPanel({
+  models,
+  onOpenModel
+}: {
+  models: MatchupAnalysis["opponentCrew"]["likelyModels"];
+  onOpenModel: (model: ModelCard) => void;
+}) {
   return (
     <section className="panel recommendationPanel">
       <div className="panelHeader">
@@ -757,7 +790,11 @@ function LikelyCrewPanel({ models }: { models: MatchupAnalysis["opponentCrew"]["
           <article className="recommendation" key={recommendation.model.id}>
             <div className="recHeader">
               <div>
-                <h3>{recommendation.model.name}</h3>
+                <h3>
+                  <button className="modelNameButton recNameButton" type="button" onClick={() => onOpenModel(recommendation.model)}>
+                    {recommendation.model.name}
+                  </button>
+                </h3>
                 <p>
                   <RulesIcon iconKey="soulstone" /> {recommendation.model.cost} - {recommendation.role} - likelihood {recommendation.score}
                 </p>
@@ -783,6 +820,140 @@ function confidenceLabel(score: number): "High" | "Medium" | "Low" {
   if (score >= 12) return "High";
   if (score >= 8) return "Medium";
   return "Low";
+}
+
+function StatCardModal({ model, onClose }: { model: ModelCard; onClose: () => void }) {
+  return (
+    <div className="modalBackdrop" role="presentation" onMouseDown={onClose}>
+      <section className="statCardModal" role="dialog" aria-modal="true" aria-labelledby="stat-card-title" onMouseDown={(event) => event.stopPropagation()}>
+        <div className="statCardTopline">
+          <span>{model.faction}</span>
+          <button className="iconButton" type="button" onClick={onClose} aria-label="Close stat card">
+            <X aria-hidden="true" />
+          </button>
+        </div>
+        <article className="statCard">
+          <header className="statCardHeader">
+            <div>
+              <h2 id="stat-card-title">{model.name}</h2>
+              <p>{model.sourceFile}</p>
+            </div>
+            <div className="statCardCost">
+              <RulesIcon iconKey="soulstone" />
+              <strong>{model.cost}</strong>
+            </div>
+          </header>
+
+          <div className="statCardMeta">
+            <div>
+              <h3>Characteristics</h3>
+              <div className="chipWrap">{model.traits.map((trait) => <RulesChip key={trait} label={trait} iconKey={iconForKeyword(trait)} />)}</div>
+            </div>
+            <div>
+              <h3>Keywords</h3>
+              <div className="chipWrap">{model.strategicKeywords.map((keyword) => <RulesChip key={keyword} label={keyword} iconKey="keyword" />)}</div>
+            </div>
+          </div>
+
+          <div className="statCardStats">
+            <StatBlockItem iconKey="defense" label="Defense" value={model.statBlock.defense} />
+            <StatBlockItem iconKey="willpower" label="Willpower" value={model.statBlock.willpower} />
+            <StatBlockItem iconKey="speed" label="Speed" value={model.statBlock.speed} />
+            <StatBlockItem iconKey="size" label="Size" value={model.statBlock.size} />
+          </div>
+
+          <section className="statCardSection">
+            <h3>Abilities</h3>
+            {model.abilities.length > 0 ? (
+              <div className="rulesList">
+                {model.abilities.map((ability, index) => (
+                  <div className="rulesEntry" key={`${ability.name}-${index}`}>
+                    <strong>{ability.name}</strong>
+                    {ability.text ? <p>{ability.text}</p> : null}
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="emptyRulesText">No parsed abilities.</p>
+            )}
+          </section>
+
+          <section className="statCardSection">
+            <h3>Actions</h3>
+            {model.actions.length > 0 ? (
+              <div className="rulesList">
+                {model.actions.map((action, index) => (
+                  <ActionCard action={action} key={`${action.name}-${index}`} />
+                ))}
+              </div>
+            ) : (
+              <p className="emptyRulesText">No parsed actions.</p>
+            )}
+          </section>
+        </article>
+      </section>
+    </div>
+  );
+}
+
+function RulesChip({ label, iconKey }: { label: string; iconKey?: RulesIconKey }) {
+  return (
+    <span className="rulesChip">
+      {iconKey ? <RulesIcon iconKey={iconKey} /> : null}
+      {label}
+    </span>
+  );
+}
+
+function StatBlockItem({
+  iconKey,
+  label,
+  value
+}: {
+  iconKey: Extract<RulesIconKey, "defense" | "willpower" | "speed" | "size">;
+  label: string;
+  value: number;
+}) {
+  return (
+    <div className="statBlockItem">
+      <RulesIcon iconKey={iconKey} />
+      <span>{label}</span>
+      <strong>{value}</strong>
+    </div>
+  );
+}
+
+function ActionCard({ action }: { action: ModelCard["actions"][number] }) {
+  const prefixIcon = actionPrefixIcon(action.name);
+  const typeIcon = rangeIcon(action.range);
+
+  return (
+    <div className="rulesEntry actionCard">
+      <div className="actionCardHeader">
+        <strong>
+          {prefixIcon ? <RulesIcon iconKey={prefixIcon} /> : null}
+          {typeIcon ? <RulesIcon iconKey={typeIcon} /> : null}
+          {cleanActionName(action.name)}
+        </strong>
+        <span>
+          {cleanRange(action.range) || "-"} / Stat {action.stat || "-"} / Resist {action.resist || "-"} / TN {action.targetNumber || "-"}
+        </span>
+      </div>
+      {action.damage && action.damage !== "-" ? <p className="damageLine">Damage: {action.damage}</p> : null}
+      {action.effect ? <p>{action.effect}</p> : null}
+      {action.triggers && action.triggers.length > 0 ? (
+        <div className="triggerList">
+          {action.triggers.map((trigger, index) => (
+            <div className="triggerEntry" key={`${trigger.name}-${index}`}>
+              <span>{triggerIcons(trigger.condition)}</span>
+              <strong>{trigger.name}</strong>
+              {trigger.effect ? <p>{trigger.effect}</p> : null}
+            </div>
+          ))}
+        </div>
+      ) : null}
+    </div>
+  );
 }
 
 function RecSection({ title, items }: { title: string; items: string[] }) {
@@ -893,6 +1064,13 @@ function sectionIcon(title: string): RulesIconKey {
   if (title.includes("Keyword")) return "keyword";
   if (title.includes("Versatile")) return "versatile";
   return "collection";
+}
+
+function triggerIcons(condition?: string) {
+  return (condition?.toLowerCase().match(/ss|[rmcts]/g) ?? [])
+    .map((item) => (item === "ss" ? "s" : item))
+    .filter((item) => TRIGGER_SUIT_ICONS[item])
+    .map((item, index) => <RulesIcon key={`${item}-${index}`} iconKey={TRIGGER_SUIT_ICONS[item]} />);
 }
 
 function strategyReasons(items: string[], strategyName?: string): string[] {

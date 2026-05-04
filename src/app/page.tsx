@@ -28,7 +28,7 @@ import {
   Waves,
   X
 } from "lucide-react";
-import type { CardCatalog, MatchupAnalysis, ModelCard, ModelRecommendation, RecommendationPath, TacticalTag } from "@/lib/types";
+import type { CardCatalog, MatchupAnalysis, ModelCard, ModelRecommendation, RecommendationPath, SynergyGroup, TacticalTag } from "@/lib/types";
 import { STRATEGY_POOLS } from "@/lib/strategy-pools";
 import { getMandatoryCrewEntries } from "@/lib/mandatory-crew";
 import {
@@ -1411,6 +1411,42 @@ function RecommendationPanel({
           );
         })}
       </div>
+      <SynergyGroupsPanel groups={selectedPath.synergyGroups} onOpenModel={onOpenModel} />
+    </section>
+  );
+}
+
+function SynergyGroupsPanel({ groups, onOpenModel }: { groups: SynergyGroup[]; onOpenModel: (model: ModelCard) => void }) {
+  if (groups.length === 0) {
+    return (
+      <section className="synergyGroups">
+        <h3>Synergy Groups</h3>
+        <p>No clear package identified; use these picks independently.</p>
+      </section>
+    );
+  }
+
+  return (
+    <section className="synergyGroups">
+      <h3>Synergy Groups</h3>
+      <div className="synergyGroupList">
+        {groups.map((group) => (
+          <article className="synergyGroup" key={group.name}>
+            <div>
+              <h4>{group.name}</h4>
+              <p>{group.job}</p>
+            </div>
+            <div className="synergyModels">
+              {group.models.map((model) => (
+                <button className="subtleButton" key={model.id} type="button" onClick={() => onOpenModel(model)}>
+                  {model.name}
+                </button>
+              ))}
+            </div>
+            <p>{group.rationale}</p>
+          </article>
+        ))}
+      </div>
     </section>
   );
 }
@@ -2391,6 +2427,11 @@ function buildDraftSummary(
     "",
     "Draft hires:",
     ...path.models.map(formatExportHireLine),
+    "",
+    "Synergy groups:",
+    ...(path.synergyGroups.length > 0
+      ? path.synergyGroups.map((group) => `- ${group.name}: ${group.models.map((model) => model.name).join(" + ")} - ${group.job}`)
+      : ["- No clear package identified; use these picks independently."]),
     "",
     "Planning notes:",
     ...path.models.slice(0, 5).map((recommendation) => `- ${recommendation.model.name}: ${recommendation.why[0] ?? recommendation.hireReason}`)

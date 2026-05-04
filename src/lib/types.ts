@@ -183,6 +183,14 @@ export type RecommendationPath = {
   remainingPoints: number;
   validation: CrewValidation;
   models: ModelRecommendation[];
+  synergyGroups: SynergyGroup[];
+};
+
+export type SynergyGroup = {
+  name: string;
+  job: string;
+  rationale: string;
+  models: ModelCard[];
 };
 
 export type ModelRecommendation = {

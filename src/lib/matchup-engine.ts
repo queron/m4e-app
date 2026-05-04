@@ -95,6 +95,8 @@ export function analyzeMatchup(input: PlannerInput): MatchupAnalysis {
     input.pointLimit,
     strategy
   );
+  const availablePath = buildPath("available", playerMaster, scoredAvailable, ownedIds, input.pointLimit, modelLimit, strategy, !hasOwnedPool);
+  const optimalPath = buildPath("optimal", playerMaster, scoredAll, ownedIds, input.pointLimit, modelLimit, strategy);
 
   return {
     generatedAt: new Date().toISOString(),
@@ -105,6 +107,17 @@ export function analyzeMatchup(input: PlannerInput): MatchupAnalysis {
       pointLimit: input.pointLimit
     },
     schemeWatchlist: buildSchemeWatchlist(schemePool, playerPlanSources, opponentCrew),
+    matchupBrief: buildMatchupBrief({
+      playerMaster,
+      playerCrewCard,
+      opponentMaster,
+      opponentCrewCard,
+      opponentCrew,
+      likelyOpponentModels,
+      strategy,
+      schemePool,
+      priorityPath: availablePath.models.length > 0 ? availablePath : optimalPath
+    }),
     playerCrew: {
       master: playerMaster,
       crewCard: playerCrewCard,
@@ -125,9 +138,63 @@ export function analyzeMatchup(input: PlannerInput): MatchupAnalysis {
       likelyModels: likelyOpponentModels
     },
     paths: {
-      available: buildPath("available", playerMaster, scoredAvailable, ownedIds, input.pointLimit, modelLimit, strategy, !hasOwnedPool),
-      optimal: buildPath("optimal", playerMaster, scoredAll, ownedIds, input.pointLimit, modelLimit, strategy)
+      available: availablePath,
+      optimal: optimalPath
     }
+  };
+}
+
+function buildMatchupBrief({
+  playerMaster,
+  playerCrewCard,
+  opponentMaster,
+  opponentCrewCard,
+  opponentCrew,
+  likelyOpponentModels,
+  strategy,
+  schemePool,
+  priorityPath
+}: {
+  playerMaster?: ModelCard;
+  playerCrewCard?: CrewCard;
+  opponentMaster?: ModelCard;
+  opponentCrewCard?: CrewCard;
+  opponentCrew: ModelCard[];
+  likelyOpponentModels: ModelRecommendation[];
+  strategy?: Strategy;
+  schemePool: SchemePool;
+  priorityPath: RecommendationPath;
+}) {
+  const knownThreats = opponentCrew.length > 1 ? opponentCrew : [opponentMaster, ...likelyOpponentModels.slice(0, 3).map((item) => item.model)].filter(Boolean) as ModelCard[];
+  const opponentTags = Array.from(new Set([
+    ...(opponentMaster?.tacticalTags ?? []),
+    ...(opponentCrewCard?.tacticalTags ?? []),
+    ...knownThreats.flatMap((model) => model.tacticalTags)
+  ])).slice(0, 5);
+  const playerTags = Array.from(new Set([...(playerMaster?.tacticalTags ?? []), ...(playerCrewCard?.tacticalTags ?? [])])).slice(0, 5);
+  const topHires = priorityPath.models.slice(0, 3);
+  const schemeNames = schemePool.incomplete ? [] : schemePool.schemes.slice(0, 3).map((scheme) => scheme.name);
+
+  return {
+    watchFor: uniqueSentences([
+      opponentMaster
+        ? `${opponentMaster.name} pressures ${formatTags(opponentTags)}; do not let that plan set the terms of the table.`
+        : "Select the opposing master to sharpen threat priorities.",
+      knownThreats.length > 0
+        ? `Expected pressure pieces: ${knownThreats.slice(0, 3).map((model) => model.name).join(", ")}.`
+        : "",
+      strategy ? `${strategy.name} rewards ${strategy.tags.slice(0, 4).join(", ")}; track who can score without overcommitting.` : ""
+    ]).slice(0, 4),
+    answerWith: uniqueSentences([
+      playerMaster
+        ? `${playerMaster.name} should lean into ${formatTags(playerTags)} while hiring to patch gaps into ${formatTags(opponentTags)}.`
+        : "Select your master to generate a counter-plan.",
+      schemeNames.length > 0 ? `Scheme pool pressure includes ${schemeNames.join(", ")}; keep at least one independent scorer available.` : "",
+      topHires[0] ? `Start the draft around ${topHires[0].model.name} if you need the clearest answer to the matchup.` : ""
+    ]).slice(0, 4),
+    priorityHires: topHires.map((recommendation) =>
+      `${recommendation.model.name}: ${recommendation.role}, because ${recommendation.why[0] ?? recommendation.hireReason}`
+    )
   };
 }
 

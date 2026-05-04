@@ -228,6 +228,7 @@ export type MatchupAnalysis = {
     pointLimit: number;
   };
   schemeWatchlist?: SchemeWatchlist;
+  matchupBrief: MatchupBrief;
   playerCrew: {
     master?: ModelCard;
     crewCard?: CrewCard;
@@ -251,6 +252,12 @@ export type MatchupAnalysis = {
     available: RecommendationPath;
     optimal: RecommendationPath;
   };
+};
+
+export type MatchupBrief = {
+  watchFor: string[];
+  answerWith: string[];
+  priorityHires: string[];
 };
 
 export type SchemeWatchlistItem = {

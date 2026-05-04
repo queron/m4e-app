@@ -492,6 +492,44 @@ select option {
   font-weight: 600;
 }
 
+.matchupBrief {
+  grid-column: 1 / -1;
+}
+
+.briefGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.briefGrid > div {
+  border: 1px solid var(--line-2);
+  border-radius: var(--radius-md);
+  background: rgba(15, 12, 10, 0.34);
+  padding: 12px;
+}
+
+.briefGrid h3 {
+  margin: 0 0 8px;
+  color: var(--accent);
+  font-family: Inter, Arial, sans-serif;
+  font-size: 0.78rem;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+
+.briefGrid ul {
+  display: grid;
+  gap: 7px;
+  margin: 0;
+  padding-left: 18px;
+}
+
+.briefGrid li {
+  color: var(--parchment-2);
+  line-height: 1.4;
+}
+
 .resultTabs {
   grid-column: 1 / -1;
   display: inline-grid;
@@ -2058,6 +2096,7 @@ li + li {
   .matchGrid,
   .formGrid,
   .listControls,
+  .briefGrid,
   .setupStepper,
   .scoreGrid {
     grid-template-columns: 1fr;

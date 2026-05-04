@@ -1267,7 +1267,7 @@ li + li {
   margin: 12px 0 16px;
 }
 
-.scoreGrid span {
+.scoreGrid > span {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -1280,6 +1280,73 @@ li + li {
   font-size: 0.78rem;
   font-weight: 500;
   text-align: center;
+}
+
+.fitSummary {
+  display: grid;
+  gap: 8px;
+  margin: 0 0 12px;
+  border: 1px solid rgba(196, 154, 70, 0.24);
+  border-radius: var(--radius-sm);
+  background: rgba(15, 12, 10, 0.38);
+  padding: 10px;
+}
+
+.fitSummary > div:first-child {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.fitSummary span,
+.fitSummary small {
+  color: var(--parchment-2);
+  font-family: Inter, Arial, sans-serif;
+}
+
+.fitSummary small {
+  color: var(--muted);
+  font-size: 0.72rem;
+}
+
+.fitBar,
+.miniFitBar {
+  display: block;
+  overflow: hidden;
+  height: 8px;
+  border-radius: 999px;
+  background: rgba(196, 154, 70, 0.16);
+}
+
+.fitBar > span,
+.miniFitBar > span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--accent), #dfcfaf);
+}
+
+.scoreContribution {
+  display: grid !important;
+  gap: 8px;
+  justify-items: stretch;
+  text-align: left !important;
+}
+
+.scoreContributionHeader {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.scoreContributionHeader strong {
+  color: var(--parchment);
+}
+
+.miniFitBar {
+  height: 6px;
 }
 
 .scoreGrid.twoScores {

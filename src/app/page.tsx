@@ -3,6 +3,16 @@
 import { useEffect, useMemo, useState } from "react";
 import type { CardCatalog, MatchupAnalysis, ModelCard, RecommendationPath } from "@/lib/types";
 import { STRATEGY_POOLS } from "@/lib/strategy-pools";
+import {
+  actionPrefixIcon,
+  cleanActionName,
+  cleanRange,
+  iconForKeyword,
+  rangeIcon,
+  RULES_ICONS,
+  TRIGGER_SUIT_ICONS,
+  type RulesIconKey
+} from "@/lib/rules-icons";
 
 type PathKind = "available" | "optimal";
 
@@ -153,7 +163,9 @@ export default function Home() {
       <header className="topbar">
         <div>
           <p className="eyebrow">Malifaux 4E</p>
-          <h1>Crew Optimizer</h1>
+          <h1>
+            <RulesIcon iconKey="soulstone" /> Crew Optimizer
+          </h1>
         </div>
       </header>
 
@@ -161,7 +173,9 @@ export default function Home() {
 
       <section className="panel matchPanel">
         <div className="panelHeader">
-          <h2>Match</h2>
+          <h2>
+            <RulesIcon iconKey="strategy" /> Match
+          </h2>
           <span>{strategy.name}</span>
         </div>
         <div className="matchGrid">
@@ -253,7 +267,9 @@ export default function Home() {
         <section className="analysisGrid">
           <div className="strategyContext">
             <div>
-              <h2>{analysis.match.strategy?.name ?? strategy.name}</h2>
+              <h2>
+                <RulesIcon iconKey="strategy" /> {analysis.match.strategy?.name ?? strategy.name}
+              </h2>
               <p>{analysis.match.strategy?.summary ?? strategy.summary}</p>
             </div>
             <span>{strategyPool.name}</span>
@@ -349,15 +365,17 @@ function CrewPanel(props: {
   return (
     <section className={`panel faction-${slugifyForMatch(props.faction)} ${props.collapsed ? "collapsedPanel" : ""}`}>
       <div className="panelHeader">
-        <h2>{props.title}</h2>
+        <h2>
+          <RulesIcon iconKey={props.title === "Player" ? "collection" : "prediction"} /> {props.title}
+        </h2>
         <span>
           {mandatoryModels.reduce((sum, entry) => sum + entry.quantity, 0)} required / {props.selectedIds.length} {props.selectedCountLabel} / {totalSoulstones}ss
         </span>
       </div>
       <div className="spendSummary">
-        <span>Required models {requiredSoulstones}ss</span>
-        <span>{props.selectionLabel} {selectedSoulstones}ss</span>
-        <strong>Displayed total {totalSoulstones}ss</strong>
+        <span><RulesIcon iconKey="soulstone" /> Required models {requiredSoulstones}</span>
+        <span><RulesIcon iconKey="collection" /> {props.selectionLabel} {selectedSoulstones}ss</span>
+        <strong><RulesIcon iconKey="soulstone" /> Displayed total {totalSoulstones}</strong>
         {props.collapsed ? (
           <button className="subtleButton" type="button" onClick={() => props.setCollapsed(false)}>
             Edit
@@ -411,7 +429,9 @@ function CrewPanel(props: {
         {sections.map((section) => (
           <div className="modelSection" key={section.title}>
             <div className="modelSectionHeader">
-              <h3>{section.title}</h3>
+              <h3>
+                <RulesIcon iconKey={sectionIcon(section.title)} /> {section.title}
+              </h3>
               <span>{section.models.length}</span>
             </div>
             {section.models.length > 0 ? (
@@ -470,12 +490,15 @@ function ModelRow({
       <span className="modelMain">
         <strong>{model.name}</strong>
         <small>
-          {model.cost}ss - {model.keywords.join(", ")}
+          <RulesIcon iconKey="soulstone" /> {model.cost} - {renderKeywordSummary(model)}
         </small>
         <small>{model.abilities.slice(0, 2).map((ability) => ability.name).join("; ") || "No parsed abilities"}</small>
+        <span className="actionPreview">{model.actions.slice(0, 2).map((action) => <ActionChip key={`${model.id}-${action.name}`} action={action} />)}</span>
       </span>
-      <span className="stats">
-        Df {model.statBlock.defense} / Wp {model.statBlock.willpower} / Sp {model.statBlock.speed}
+      <span className="stats statChips">
+        <StatChip iconKey="defense" value={model.statBlock.defense} />
+        <StatChip iconKey="willpower" value={model.statBlock.willpower} />
+        <StatChip iconKey="speed" value={model.statBlock.speed} />
       </span>
       {canSetQuantity ? (
         <span className="quantityControl">
@@ -564,7 +587,7 @@ function RecommendationPanel({
         <div>
           <h2>Recommendations</h2>
           <span>
-            {selectedPath.totalCost}ss hired / {selectedPath.remainingPoints}ss open
+            <RulesIcon iconKey="soulstone" /> {selectedPath.totalCost} hired / {selectedPath.remainingPoints}ss open
           </span>
         </div>
         <div className="segment">
@@ -577,7 +600,7 @@ function RecommendationPanel({
         </div>
       </div>
       <button className="planButton" type="button" onClick={() => onUsePlan(selectedPath)}>
-        Use this recommendation set
+        <RulesIcon iconKey="draft" /> Use this recommendation set
       </button>
 
       {!selectedPath.validation.legal ? (
@@ -595,23 +618,23 @@ function RecommendationPanel({
               <div>
                 <h3>{recommendation.model.name}</h3>
                 <p>
-                  {recommendation.model.cost}ss - {recommendation.role} - score {recommendation.score}
+                  <RulesIcon iconKey="soulstone" /> {recommendation.model.cost} - {recommendation.role} - score {recommendation.score}
                 </p>
               </div>
               <span className={recommendation.owned ? "ownedBadge" : "missingBadge"}>
-                {recommendation.owned ? "Owned" : "Not owned"}
+                <RulesIcon iconKey={recommendation.owned ? "collection" : "prediction"} /> {recommendation.owned ? "Owned" : "Not owned"}
               </span>
             </div>
             {recommendation.why[0] ? <p className="topReason">Top reason: {recommendation.why[0]}</p> : null}
             <div className="scoreGrid">
               <span title="How directly this pick addresses the opposing master and master-specific pressure.">
-                Master Counter {recommendation.scoreBreakdown.masterAbilities}
+                <RulesIcon iconKey="master" /> Master Counter {recommendation.scoreBreakdown.masterAbilities}
               </span>
               <span title="How well this pick works with your leader, keyword, and available allied models.">
-                Crew Synergy {recommendation.scoreBreakdown.crewSynergy}
+                <RulesIcon iconKey="keyword" /> Crew Synergy {recommendation.scoreBreakdown.crewSynergy}
               </span>
               <span title="How well this pick addresses the strategy, opponent composition, roles, and table demands.">
-                Strategy/Matchup Fit {recommendation.scoreBreakdown.compositionMatchup}
+                <RulesIcon iconKey="strategy" /> Strategy/Matchup Fit {recommendation.scoreBreakdown.compositionMatchup}
               </span>
             </div>
             <RecSection title="Right Pick" items={recommendation.why} />
@@ -659,13 +682,15 @@ function DraftCrewPanel({
     <section className="panel draftPanel">
       <div className="panelHeader">
         <div>
-          <h2>Draft Crew</h2>
+          <h2>
+            <RulesIcon iconKey="draft" /> Draft Crew
+          </h2>
           <span>
-            {totalCost}ss used / {remaining}ss open
+            <RulesIcon iconKey="soulstone" /> {totalCost} used / {remaining}ss open
           </span>
         </div>
         <button className="subtleButton" type="button" onClick={copyDraft}>
-          {copied ? "Copied" : "Copy summary"}
+          <RulesIcon iconKey="draft" /> {copied ? "Copied" : "Copy summary"}
         </button>
       </div>
       <div className="draftList">
@@ -673,14 +698,14 @@ function DraftCrewPanel({
         {requiredModels.map((entry, index) => (
           <div className="draftRow" key={`${entry.model.id}-${index}`}>
             <span>{entry.quantity}x {entry.model.name}</span>
-            <strong>{entry.model.cost * entry.quantity}ss</strong>
+            <strong><RulesIcon iconKey="soulstone" /> {entry.model.cost * entry.quantity}</strong>
           </div>
         ))}
         <h3>Recommended Hires</h3>
         {path.models.map((recommendation) => (
           <div className="draftRow" key={recommendation.model.id}>
             <span>{recommendation.model.name}</span>
-            <strong>{recommendation.model.cost}ss</strong>
+            <strong><RulesIcon iconKey="soulstone" /> {recommendation.model.cost}</strong>
           </div>
         ))}
       </div>
@@ -693,8 +718,10 @@ function LikelyCrewPanel({ models }: { models: MatchupAnalysis["opponentCrew"]["
     <section className="panel recommendationPanel">
       <div className="panelHeader">
         <div>
-          <h2>Likely Crew Members</h2>
-          <span>{models.reduce((sum, recommendation) => sum + recommendation.model.cost, 0)}ss likely package</span>
+          <h2>
+            <RulesIcon iconKey="prediction" /> Likely Crew Members
+          </h2>
+          <span><RulesIcon iconKey="soulstone" /> {models.reduce((sum, recommendation) => sum + recommendation.model.cost, 0)} likely package</span>
         </div>
       </div>
       <p className="panelHint">
@@ -708,15 +735,15 @@ function LikelyCrewPanel({ models }: { models: MatchupAnalysis["opponentCrew"]["
               <div>
                 <h3>{recommendation.model.name}</h3>
                 <p>
-                  {recommendation.model.cost}ss - {recommendation.role} - likelihood {recommendation.score}
+                  <RulesIcon iconKey="soulstone" /> {recommendation.model.cost} - {recommendation.role} - likelihood {recommendation.score}
                 </p>
               </div>
-              <span className="ownedBadge">Predicted</span>
+              <span className="ownedBadge"><RulesIcon iconKey="prediction" /> Predicted</span>
             </div>
             <p className="confidenceBand">{confidenceLabel(recommendation.score)} confidence prediction</p>
             <div className="scoreGrid twoScores">
-              <span>Synergy {recommendation.scoreBreakdown.crewSynergy}</span>
-              <span>Role {recommendation.scoreBreakdown.compositionMatchup}</span>
+              <span><RulesIcon iconKey="keyword" /> Synergy {recommendation.scoreBreakdown.crewSynergy}</span>
+              <span><RulesIcon iconKey="score" /> Role {recommendation.scoreBreakdown.compositionMatchup}</span>
             </div>
             <RecSection title="Why They Are Likely" items={recommendation.why} />
             <RecSection title="Relevant Tech" items={recommendation.relevantTech} />
@@ -743,6 +770,68 @@ function RecSection({ title, items }: { title: string; items: string[] }) {
       <ul>{items.map((item, index) => <li key={`${title}-${index}-${item}`}>{item}</li>)}</ul>
     </div>
   );
+}
+
+function RulesIcon({ iconKey }: { iconKey: RulesIconKey }) {
+  const icon = RULES_ICONS[iconKey];
+  return (
+    <span className={`rulesIcon rulesIcon-${icon.key}`} title={`${icon.label}: ${icon.meaning}`} aria-label={icon.label}>
+      {icon.glyph}
+    </span>
+  );
+}
+
+function StatChip({ iconKey, value }: { iconKey: Extract<RulesIconKey, "defense" | "willpower" | "speed" | "size">; value: number }) {
+  return (
+    <span className="statChip">
+      <RulesIcon iconKey={iconKey} /> {value}
+    </span>
+  );
+}
+
+function ActionChip({ action }: { action: ModelCard["actions"][number] }) {
+  const prefixIcon = actionPrefixIcon(action.name);
+  const typeIcon = rangeIcon(action.range);
+  const triggers = (action.triggers ?? [])
+    .flatMap((trigger) => trigger.condition?.toLowerCase().match(/ss|[rmcts]/g) ?? [])
+    .map((condition) => (condition === "ss" ? "s" : condition))
+    .filter((condition) => TRIGGER_SUIT_ICONS[condition])
+    .slice(0, 3);
+
+  return (
+    <span className="actionChip" title={cleanActionName(action.name)}>
+      {prefixIcon ? <RulesIcon iconKey={prefixIcon} /> : null}
+      {typeIcon ? <RulesIcon iconKey={typeIcon} /> : null}
+      <span>{cleanActionName(action.name)}</span>
+      {cleanRange(action.range) ? <em>{cleanRange(action.range)}</em> : null}
+      {triggers.map((condition, index) => (
+        <RulesIcon key={`${condition}-${index}`} iconKey={TRIGGER_SUIT_ICONS[condition]} />
+      ))}
+    </span>
+  );
+}
+
+function renderKeywordSummary(model: ModelCard) {
+  return (
+    <>
+      {model.keywords.slice(0, 5).map((keyword, index) => {
+        const keywordIcon = iconForKeyword(keyword);
+        return (
+          <span className="inlineKeyword" key={`${model.id}-${keyword}`}>
+            {keywordIcon ? <RulesIcon iconKey={keywordIcon} /> : index === 0 ? <RulesIcon iconKey="keyword" /> : null}
+            {keyword}
+          </span>
+        );
+      })}
+    </>
+  );
+}
+
+function sectionIcon(title: string): RulesIconKey {
+  if (title.includes("Leader")) return "master";
+  if (title.includes("Keyword")) return "keyword";
+  if (title.includes("Versatile")) return "versatile";
+  return "collection";
 }
 
 function strategyReasons(items: string[], strategyName?: string): string[] {

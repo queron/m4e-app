@@ -375,10 +375,12 @@ export default function Home() {
           setSelectedIds={setOwnedModelIds}
           search={collectionSearch}
           setSearch={setCollectionSearch}
-          selectionLabel="Owned"
+          selectionLabel="In Collection"
+          selectedSummaryLabel="Collection marked"
+          totalSummaryLabel="Displayed total"
           modeLabel="What I own"
           helperText="What I own: mark models in your collection. This builds the Available recommendation pool, not your hired crew."
-          selectedCountLabel="owned"
+          selectedCountLabel="in collection"
           collapsed={setupCollapsed}
           setCollapsed={setSetupCollapsed}
           onOpenModel={setSelectedModel}
@@ -538,6 +540,8 @@ function CrewPanel(props: {
   search: string;
   setSearch: (value: string) => void;
   selectionLabel: string;
+  selectedSummaryLabel?: string;
+  totalSummaryLabel?: string;
   modeLabel: string;
   helperText: string;
   selectedCountLabel: string;
@@ -590,8 +594,8 @@ function CrewPanel(props: {
       />
       <div className="spendSummary">
         <span>Required {requiredSoulstones}ss</span>
-        <span>{props.modeLabel} {selectedSoulstones}ss</span>
-        <strong>Total {totalSoulstones}ss</strong>
+        <span>{props.selectedSummaryLabel ?? props.selectionLabel} {selectedSoulstones}ss</span>
+        <strong>{props.totalSummaryLabel ?? "Total"} {totalSoulstones}ss</strong>
         {props.collapsed ? (
           <button className="subtleButton" type="button" onClick={() => props.setCollapsed(false)}>
             Edit

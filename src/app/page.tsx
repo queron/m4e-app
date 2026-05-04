@@ -28,7 +28,7 @@ import {
   Waves,
   X
 } from "lucide-react";
-import type { CardCatalog, MatchupAnalysis, ModelCard, ModelRecommendation, RecommendationPath } from "@/lib/types";
+import type { CardCatalog, MatchupAnalysis, ModelCard, ModelRecommendation, RecommendationPath, TacticalTag } from "@/lib/types";
 import { STRATEGY_POOLS } from "@/lib/strategy-pools";
 import { getMandatoryCrewEntries } from "@/lib/mandatory-crew";
 import {
@@ -1159,6 +1159,7 @@ function RecommendationPanel({
       <div className="recommendationList">
         {selectedPath.models.map((recommendation) => {
           const modelIssues = selectedPath.validation.modelIssues[recommendation.model.id] ?? [];
+          const chips = recommendationChips(recommendation);
 
           return (
             <article className="recommendation" key={recommendation.model.id}>
@@ -1183,6 +1184,13 @@ function RecommendationPanel({
                 </span>
               </div>
               {modelIssues.length > 0 ? <InlineIssues issues={modelIssues} /> : null}
+              <div className="recChipRow" aria-label={`${recommendation.model.name} tactical summary`}>
+                {chips.map((chip) => (
+                  <span className="recChip" key={chip.label} title={chip.title}>
+                    {chip.label}
+                  </span>
+                ))}
+              </div>
               {recommendation.hireTax > 0 ? <p className="topReason">Adjusted cost: {recommendation.hireReason}</p> : null}
               {recommendation.why[0] ? <p className="topReason">Top reason: {recommendation.why[0]}</p> : null}
               <div className="scoreGrid">
@@ -1542,6 +1550,91 @@ function confidenceLabel(score: number): "High" | "Medium" | "Low" {
 function formatRecommendationCost(recommendation: ModelRecommendation): string {
   if (recommendation.hireTax <= 0) return `${recommendation.hireCost}ss`;
   return `${recommendation.hireCost}ss (${recommendation.printedCost}+${recommendation.hireTax})`;
+}
+
+function recommendationChips(recommendation: ModelRecommendation): Array<{ label: string; title: string }> {
+  return [
+    { label: tacticalRoleLabel(recommendation.role), title: "Recommended table role." },
+    {
+      label: `Strategy fit: ${fitBand(recommendation.scoreBreakdown.compositionMatchup)}`,
+      title: "How strongly this pick addresses the selected strategy and matchup demands."
+    },
+    { label: hireKindLabel(recommendation), title: recommendation.hireReason },
+    ...topTacticalTags(recommendation.model.tacticalTags).map((tag) => ({
+      label: tacticalTagLabel(tag),
+      title: `Detected tactical tag: ${tacticalTagLabel(tag)}.`
+    }))
+  ];
+}
+
+function tacticalRoleLabel(role: string): string {
+  return role
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((word) => word[0]?.toUpperCase() + word.slice(1))
+    .join(" ");
+}
+
+function fitBand(score: number): "High" | "Medium" | "Low" {
+  if (score >= 30) return "High";
+  if (score >= 16) return "Medium";
+  return "Low";
+}
+
+function hireKindLabel(recommendation: ModelRecommendation): string {
+  if (recommendation.hireKind === "keyword") return "Keyword hire";
+  if (recommendation.hireKind === "versatile") return "Versatile";
+  if (recommendation.hireKind === "outOfKeyword") return recommendation.hireTax > 0 ? "Out-of-keyword +1" : "Out-of-keyword";
+  return "Illegal hire";
+}
+
+function topTacticalTags(tags: TacticalTag[]): TacticalTag[] {
+  const priority: TacticalTag[] = [
+    "mobility",
+    "placement",
+    "scheme",
+    "marker",
+    "control",
+    "damage",
+    "burst",
+    "healing",
+    "armor",
+    "ranged",
+    "melee"
+  ];
+  const uniqueTags = [...new Set(tags)];
+  return uniqueTags
+    .sort((left, right) => priorityIndex(left, priority) - priorityIndex(right, priority))
+    .slice(0, 3);
+}
+
+function priorityIndex(tag: TacticalTag, priority: TacticalTag[]): number {
+  const index = priority.indexOf(tag);
+  return index >= 0 ? index : priority.length;
+}
+
+function tacticalTagLabel(tag: TacticalTag): string {
+  const labels: Partial<Record<TacticalTag, string>> = {
+    antiArmor: "Anti-armor",
+    antiTrigger: "Anti-trigger",
+    burst: "Burst damage",
+    cardPressure: "Card pressure",
+    defenseAttack: "Df attack",
+    mobility: "Mobility",
+    placement: "Placement",
+    scheme: "Scheme play",
+    marker: "Marker play",
+    control: "Control",
+    healing: "Healing",
+    armor: "Armor",
+    ranged: "Ranged",
+    melee: "Melee",
+    willpowerAttack: "Wp attack",
+    speedAttack: "Sp attack",
+    sizeAttack: "Sz attack",
+    soulstone: "Soulstone use"
+  };
+  return labels[tag] ?? tacticalRoleLabel(tag.replace(/([A-Z])/g, " $1").toLowerCase());
 }
 
 function formatExportHireLine(recommendation: ModelRecommendation): string {

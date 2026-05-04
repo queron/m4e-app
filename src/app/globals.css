@@ -237,6 +237,13 @@ select option {
   margin-bottom: 14px;
 }
 
+.updateStatus {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
 .matchHint,
 .infoCallout {
   margin: 10px 0 0;
@@ -1019,6 +1026,14 @@ select option {
   border-color: rgba(201, 106, 58, 0.65);
   background: #26150f;
   color: #f0b781;
+}
+
+.inlineIssues {
+  margin: 8px 0 0;
+  padding-left: 18px;
+  color: #f0b781;
+  font-size: 0.78rem;
+  line-height: 1.35;
 }
 
 .summaryBlock {

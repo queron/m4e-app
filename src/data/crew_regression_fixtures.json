@@ -3,22 +3,25 @@
     "name": "Outcasts Viktoria twin master accepts Mercenary keyword hire",
     "faction": "Outcasts",
     "masterName": "Viktoria Chambers, Ashes And Blood",
-    "syntheticMasterId": "special-master-viktoria-chambers-ashes-and-blood",
     "hires": ["Ronin"],
-    "expectedLegal": true
+    "expectedLegal": true,
+    "covers": ["title-master", "viktorias"]
   },
   {
-    "name": "Performer out-of-keyword Arcanist hire receives +1ss tax",
+    "name": "Arcanist Performer out-of-keyword hire receives +1ss tax",
     "faction": "Arcanists",
     "masterName": "Colette Du Bois, Smuggler",
     "hires": ["Oxfordian Mage"],
     "expectedLegal": true,
     "expectedTaxByModel": {
       "Oxfordian Mage": 1
+    },
+    "expectedHireCostByModel": {
+      "Oxfordian Mage": 7
     }
   },
   {
-    "name": "Cross-faction non-keyword hire is illegal",
+    "name": "Arcanist cross-faction non-keyword hire is illegal",
     "faction": "Arcanists",
     "masterName": "Colette Du Bois, Smuggler",
     "hires": ["Ronin"],
@@ -33,5 +36,54 @@
     "expectedTaxByModel": {
       "Francois L, Croix": 0
     }
+  },
+  {
+    "name": "Guild normal master accepts Augmented keyword hire",
+    "faction": "Guild",
+    "masterName": "Charles Hoffman, Inventor",
+    "hires": ["Hunter"],
+    "expectedLegal": true,
+    "covers": ["normal-master", "totem"]
+  },
+  {
+    "name": "Neverborn multi-copy minion is legal within copy limit",
+    "faction": "Neverborn",
+    "masterName": "Nekima, Broodmother",
+    "hires": [
+      {
+        "name": "Terror Tot",
+        "count": 3
+      }
+    ],
+    "expectedLegal": true,
+    "covers": ["multi-copy-minion"]
+  },
+  {
+    "name": "Resurrectionist Unique model duplicate is illegal",
+    "faction": "Resurrectionists",
+    "masterName": "Yan Lo, The Spirit Walker",
+    "hires": [
+      {
+        "name": "Manos, The Risen",
+        "count": 2
+      }
+    ],
+    "expectedLegal": false,
+    "expectedIssuesInclude": ["Unique"],
+    "covers": ["unique-model"]
+  },
+  {
+    "name": "Ten Thunders Foundry keyword hire stays at printed cost",
+    "faction": "Ten Thunders",
+    "masterName": "Mei Feng, Foreman",
+    "hires": ["Steelworker"],
+    "expectedLegal": true
+  },
+  {
+    "name": "Explorer's Society Apex keyword hire stays at printed cost",
+    "faction": "Explorer's Society",
+    "masterName": "Lord Cooper, Manhunter",
+    "hires": ["Vatagi Huntsman"],
+    "expectedLegal": true
   }
 ]

@@ -157,6 +157,7 @@ export type CrewValidation = {
   modelCount: number;
   modelLimit: number;
   issues: string[];
+  modelIssues: Record<string, string[]>;
   hiredModelCosts: HiredModelCost[];
 };
 

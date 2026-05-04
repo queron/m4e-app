@@ -8,6 +8,7 @@ export function validateCrew(
   modelLimit: number
 ): CrewValidation {
   const issues: string[] = [];
+  const modelIssues: Record<string, string[]> = {};
   const hiredModelCosts = hiredModels.map((model) => {
     const details = getHireDetails(master, model);
     return {
@@ -19,29 +20,35 @@ export function validateCrew(
   const totalCost = hiredModelCosts.reduce((sum, model) => sum + model.hireCost, 0);
   const counts = new Map<string, number>();
 
+  function addIssue(issue: string, model?: ModelCard) {
+    issues.push(issue);
+    if (!model) return;
+    modelIssues[model.id] = [...(modelIssues[model.id] ?? []), issue];
+  }
+
   for (const model of hiredModels) {
     counts.set(model.id, (counts.get(model.id) ?? 0) + 1);
     const details = getHireDetails(master, model);
     if (!details.legal) {
-      issues.push(`${model.name} is not a legal hire: ${details.reason}`);
+      addIssue(`${model.name} is not a legal hire: ${details.reason}`, model);
     }
   }
 
   for (const model of hiredModels) {
     const count = counts.get(model.id) ?? 0;
     if (model.isUnique && count > 1) {
-      issues.push(`${model.name} is Unique and can only be hired once.`);
+      addIssue(`${model.name} is Unique and can only be hired once.`, model);
     }
     if (count > model.maxCopies) {
-      issues.push(`${model.name} exceeds its copy limit of ${model.maxCopies}.`);
+      addIssue(`${model.name} exceeds its copy limit of ${model.maxCopies}.`, model);
     }
   }
 
-  if (!master) issues.push("Select a player master.");
-  if (totalCost > pointLimit) issues.push(`Crew spends ${totalCost}ss, which exceeds the ${pointLimit}ss limit.`);
+  if (!master) addIssue("Select a player master.");
+  if (totalCost > pointLimit) addIssue(`Crew spends ${totalCost}ss, which exceeds the ${pointLimit}ss limit.`);
   const mandatoryModelCount = getMandatoryCrewModelCount(master);
   if (Number.isFinite(modelLimit) && hiredModels.length + mandatoryModelCount > modelLimit) {
-    issues.push(`Crew has ${hiredModels.length + mandatoryModelCount} models, above the ${modelLimit} model limit.`);
+    addIssue(`Crew has ${hiredModels.length + mandatoryModelCount} models, above the ${modelLimit} model limit.`);
   }
 
   return {
@@ -51,6 +58,7 @@ export function validateCrew(
     modelCount: hiredModels.length + mandatoryModelCount,
     modelLimit,
     issues,
+    modelIssues,
     hiredModelCosts
   };
 }

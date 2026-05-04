@@ -46,9 +46,18 @@ type SavedDraft = {
   id: string;
   name: string;
   createdAt: string;
+  updatedAt?: string;
   totalCost: number;
   modelIds: string[];
   summary: string;
+  playerFaction?: string;
+  playerMasterId?: string;
+  opponentFaction?: string;
+  opponentMasterId?: string;
+  pointLimit?: number;
+  strategyPoolId?: string;
+  strategyId?: string;
+  path?: RecommendationPath;
 };
 
 type DraftSummaryContext = {
@@ -328,12 +337,64 @@ export default function Home() {
       id: `${Date.now()}`,
       name: `${playerMaster?.name ?? "Crew"} into ${opponentMaster?.name ?? "opponent"}`,
       createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
       totalCost,
       modelIds: path.models.map((recommendation) => recommendation.model.id),
+      playerFaction,
+      playerMasterId,
+      opponentFaction,
+      opponentMasterId,
+      pointLimit,
+      strategyPoolId,
+      strategyId,
+      path,
       summary
     };
     setSavedDrafts((drafts) => [draft, ...drafts].slice(0, 12));
     setStatusMessage("Draft saved locally.");
+  }
+
+  function loadDraft(draft: SavedDraft) {
+    if (draft.playerFaction) setPlayerFaction(draft.playerFaction);
+    if (draft.playerMasterId) setPlayerMasterId(draft.playerMasterId);
+    if (draft.opponentFaction) setOpponentFaction(draft.opponentFaction);
+    if (draft.opponentMasterId) setOpponentMasterId(draft.opponentMasterId);
+    if (draft.pointLimit) setPointLimit(draft.pointLimit);
+    if (draft.strategyPoolId) setStrategyPoolId(draft.strategyPoolId);
+    if (draft.strategyId) setStrategyId(draft.strategyId);
+    setDraftPath(draft.path ?? null);
+    setActiveResultTab("draft");
+    setSetupCollapsed(false);
+    setStatusMessage("Draft loaded. Review opponent intel before analyzing again.");
+  }
+
+  function duplicateDraft(draft: SavedDraft) {
+    const now = new Date().toISOString();
+    setSavedDrafts((drafts) => [
+      {
+        ...draft,
+        id: `${Date.now()}`,
+        name: `Copy of ${draft.name}`,
+        createdAt: now,
+        updatedAt: now
+      },
+      ...drafts
+    ].slice(0, 12));
+    setStatusMessage("Draft duplicated.");
+  }
+
+  function renameDraft(draftId: string, name: string) {
+    const trimmed = name.trim();
+    if (!trimmed) return;
+    setSavedDrafts((drafts) =>
+      drafts.map((draft) => (draft.id === draftId ? { ...draft, name: trimmed, updatedAt: new Date().toISOString() } : draft))
+    );
+    setStatusMessage("Draft renamed.");
+  }
+
+  function deleteDraft(draftId: string) {
+    setSavedDrafts((drafts) => drafts.filter((draft) => draft.id !== draftId));
+    setStatusMessage("Draft deleted.");
   }
 
   async function exportDraft(path: RecommendationPath) {
@@ -601,7 +662,13 @@ export default function Home() {
               ) : (
                 <DraftEmptyState />
               )}
-              <SavedDraftsPanel drafts={savedDrafts} setDrafts={setSavedDrafts} />
+              <SavedDraftsPanel
+                drafts={savedDrafts}
+                onLoad={loadDraft}
+                onDuplicate={duplicateDraft}
+                onRename={renameDraft}
+                onDelete={deleteDraft}
+              />
             </div>
           ) : null}
         </section>
@@ -1092,12 +1159,20 @@ function DraftEmptyState() {
 
 function SavedDraftsPanel({
   drafts,
-  setDrafts
+  onLoad,
+  onDuplicate,
+  onRename,
+  onDelete
 }: {
   drafts: SavedDraft[];
-  setDrafts: (drafts: SavedDraft[] | ((drafts: SavedDraft[]) => SavedDraft[])) => void;
+  onLoad: (draft: SavedDraft) => void;
+  onDuplicate: (draft: SavedDraft) => void;
+  onRename: (draftId: string, name: string) => void;
+  onDelete: (draftId: string) => void;
 }) {
   const [expanded, setExpanded] = useState(false);
+  const [renamingId, setRenamingId] = useState<string | null>(null);
+  const [draftName, setDraftName] = useState("");
 
   if (drafts.length === 0) return null;
 
@@ -1120,11 +1195,54 @@ function SavedDraftsPanel({
           {drafts.map((draft) => (
             <div className="draftRow" key={draft.id}>
               <span>
-                <strong>{draft.name}</strong>
+                {renamingId === draft.id ? (
+                  <input
+                    aria-label={`Rename ${draft.name}`}
+                    value={draftName}
+                    onChange={(event) => setDraftName(event.target.value)}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter") {
+                        onRename(draft.id, draftName);
+                        setRenamingId(null);
+                      }
+                      if (event.key === "Escape") setRenamingId(null);
+                    }}
+                  />
+                ) : (
+                  <strong>{draft.name}</strong>
+                )}
                 <small>{draft.totalCost}ss - {new Date(draft.createdAt).toLocaleDateString()}</small>
               </span>
+              <button className="subtleButton" type="button" onClick={() => onLoad(draft)}>Load</button>
+              <button className="subtleButton" type="button" onClick={() => onDuplicate(draft)}>Duplicate</button>
+              {renamingId === draft.id ? (
+                <>
+                  <button
+                    className="subtleButton"
+                    type="button"
+                    onClick={() => {
+                      onRename(draft.id, draftName);
+                      setRenamingId(null);
+                    }}
+                  >
+                    Save
+                  </button>
+                  <button className="subtleButton" type="button" onClick={() => setRenamingId(null)}>Cancel</button>
+                </>
+              ) : (
+                <button
+                  className="subtleButton"
+                  type="button"
+                  onClick={() => {
+                    setDraftName(draft.name);
+                    setRenamingId(draft.id);
+                  }}
+                >
+                  Rename
+                </button>
+              )}
               <button className="subtleButton" type="button" onClick={() => copyDraft(draft)}>Copy</button>
-              <button className="subtleButton" type="button" onClick={() => setDrafts(drafts.filter((item) => item.id !== draft.id))}>Delete</button>
+              <button className="subtleButton" type="button" onClick={() => onDelete(draft.id)}>Delete</button>
             </div>
           ))}
         </div>

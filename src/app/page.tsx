@@ -351,7 +351,11 @@ export default function Home() {
           <button className="subtleButton" type="button" onClick={clearCollection}>Clear collection</button>
         </div>
         <p className="matchSummary">{strategy.summary}</p>
-        <p className="matchHint">You can analyze with only both masters selected, then refine the results by marking models in your collection.</p>
+        <HelpDisclosure
+          className="matchHint"
+          label="Analyze with masters only"
+          text="You can run analysis with just both masters selected, then refine Available results by marking models in your collection."
+        />
       </section>
 
       <section className="plannerGrid">
@@ -403,14 +407,16 @@ export default function Home() {
 
       {analysis ? (
         <section className="analysisGrid">
-          <div className="strategyContext">
+          <div className="postAnalyzeSummary">
             <div>
               <h2>
-                <RulesIcon iconKey="strategy" /> {analysis.match.strategy?.name ?? strategy.name}
+                {analysis.playerCrew.master?.name ?? "Player"} vs {analysis.opponentCrew.master?.name ?? "Opponent"}
               </h2>
-              <p>{analysis.match.strategy?.summary ?? strategy.summary}</p>
+              <p>{analysis.match.strategy?.name ?? strategy.name} - {strategyPool.name} - {analysis.match.pointLimit}ss</p>
             </div>
-            <span>{strategyPool.name}</span>
+            <button className="subtleButton" type="button" onClick={() => setSetupCollapsed(false)}>
+              Edit setup
+            </button>
           </div>
           <div className="resultTabs" role="tablist" aria-label="Analysis views">
             <button
@@ -570,11 +576,19 @@ function CrewPanel(props: {
           {mandatoryModels.reduce((sum, entry) => sum + entry.quantity, 0)} required / {props.selectedIds.length} {props.selectedCountLabel} / {totalSoulstones}ss
         </span>
       </div>
-      <p className="panelHelper">{props.title === "Player" ? "Choose your collection, inspect cards, then compare recommended hires." : "Mark known enemy models or leave empty for predicted picks."}</p>
+      <HelpDisclosure
+        className="panelHelper"
+        label={props.title === "Player" ? "What I own" : "Opponent intel"}
+        text={
+          props.title === "Player"
+            ? "Selected models constrain Available recommendations. Draft crews are built separately from this collection."
+            : "Mark known or expected enemy models to sharpen target priority. Leave empty to predict from their legal pool."
+        }
+      />
       <div className="spendSummary">
-        <span><SpendIcon iconKey="soulstone" /> Required models {requiredSoulstones}</span>
-        <span><SpendIcon iconKey="collection" /> {props.selectionLabel} {selectedSoulstones}ss</span>
-        <strong><SpendIcon iconKey="soulstone" /> Displayed total {totalSoulstones}</strong>
+        <span>Required {requiredSoulstones}ss</span>
+        <span>{props.selectionLabel} {selectedSoulstones}ss</span>
+        <strong>Total {totalSoulstones}ss</strong>
         {props.collapsed ? (
           <button className="subtleButton" type="button" onClick={() => props.setCollapsed(false)}>
             Edit
@@ -622,8 +636,7 @@ function CrewPanel(props: {
         placeholder="Filter models, abilities, keywords"
         onChange={(event) => props.setSearch(event.target.value)}
       />
-      <p className="helperText">{props.helperText}</p>
-      <p className="requiredHelper">Leader and associated totem models are included automatically and cannot be removed from this crew setup.</p>
+      <HelpDisclosure className="helperText" label="Required models" text="Leader and associated totem models are included automatically and cannot be removed from this crew setup." />
       <div className="modelList">
         {sections.map((section) => (
           <div className="modelSection" key={section.title}>
@@ -703,7 +716,6 @@ function ModelRow({
           <RulesIcon iconKey="soulstone" /> {model.cost} - {renderKeywordSummary(model)}
         </small>
         <small>{model.abilities.slice(0, 2).map((ability) => ability.name).join("; ") || "No parsed abilities"}</small>
-        <span className="actionPreview">{model.actions.slice(0, 2).map((action) => <ActionChip key={`${model.id}-${action.name}`} action={action} />)}</span>
       </span>
       <span className="stats statChips">
         <StatChip iconKey="defense" value={model.statBlock.defense} />
@@ -795,6 +807,7 @@ function RecommendationPanel({
   onExportPlan: (path: RecommendationPath) => void;
   onOpenModel: (model: ModelCard) => void;
 }) {
+  const [expandedModelId, setExpandedModelId] = useState<string | null>(null);
   if (!selectedPath) return null;
 
   return (
@@ -816,7 +829,7 @@ function RecommendationPanel({
         </div>
       </div>
       <button className="planButton" type="button" onClick={() => onUsePlan(selectedPath)}>
-        <RulesIcon iconKey="draft" /> Use this recommendation set
+        Use this recommendation set
       </button>
       <div className="actionBar compactActions">
         <button className="subtleButton" type="button" onClick={() => onSavePlan(selectedPath)}>
@@ -849,29 +862,45 @@ function RecommendationPanel({
                   <RulesIcon iconKey="soulstone" /> {formatRecommendationCost(recommendation)} - {recommendation.role} - score {recommendation.score}
                 </p>
               </div>
-              <span className={recommendation.owned ? "ownedBadge" : "missingBadge"}>
-                <RulesIcon iconKey={recommendation.owned ? "collection" : "prediction"} /> {recommendation.owned ? "Owned" : "Not owned"}
+              <span className="badgeGroup">
+                <span className={recommendation.owned ? "ownedBadge" : "missingBadge"}>
+                  {recommendation.owned ? "Owned" : "Not owned"}
+                </span>
+                <span className={`confidenceBadge confidence-${recommendation.confidence.toLowerCase()}`}>
+                  {recommendation.confidence}
+                </span>
               </span>
             </div>
             {recommendation.why[0] ? <p className="topReason">Top reason: {recommendation.why[0]}</p> : null}
             <div className="scoreGrid">
               <span title="How directly this pick addresses the opposing master and master-specific pressure.">
-                <RulesIcon iconKey="master" /> Master Counter {recommendation.scoreBreakdown.masterAbilities}
+                Master Counter {recommendation.scoreBreakdown.masterAbilities}
               </span>
               <span title="How well this pick works with your leader, keyword, and available allied models.">
-                <RulesIcon iconKey="keyword" /> Crew Synergy {recommendation.scoreBreakdown.crewSynergy}
+                Crew Synergy {recommendation.scoreBreakdown.crewSynergy}
               </span>
               <span title="How well this pick addresses the strategy, opponent composition, roles, and table demands.">
-                <RulesIcon iconKey="strategy" /> Strategy/Matchup Fit {recommendation.scoreBreakdown.compositionMatchup}
+                Strategy/Matchup Fit {recommendation.scoreBreakdown.compositionMatchup}
               </span>
             </div>
-            <RecSection title="Right Pick" items={recommendation.why} />
-            <RecSection title="Strategy Fit" items={strategyReasons(recommendation.why, strategyName)} />
-            <RecSection title="Why This Ranked Here" items={recommendation.trace} />
-            <RecSection title="Curated Notes" items={recommendation.curatedNotes} />
-            <RecSection title="Relevant Skills, Abilities, Triggers" items={recommendation.relevantTech} />
-            <RecSection title="Priority Targets" items={recommendation.priorityTargets} />
-            <RecSection title="Allied Synergies" items={recommendation.alliedSynergies} />
+            <button
+              className="detailsButton"
+              type="button"
+              aria-expanded={expandedModelId === recommendation.model.id}
+              onClick={() => setExpandedModelId((current) => (current === recommendation.model.id ? null : recommendation.model.id))}
+            >
+              {expandedModelId === recommendation.model.id ? "Hide details" : "Details"}
+            </button>
+            {expandedModelId === recommendation.model.id ? (
+              <>
+                <RecSection title="How to Use" items={modelUseNotes(recommendation, strategyName)} />
+                <RecSection title="Key Tech" items={recommendation.relevantTech} />
+                <RecSection title="Targets" items={recommendation.priorityTargets} />
+                <RecSection title="Synergy" items={recommendation.alliedSynergies} />
+                <RecSection title="Score Trace" items={recommendation.trace} />
+                <RecSection title="Notes" items={recommendation.curatedNotes} />
+              </>
+            ) : null}
           </article>
         ))}
       </div>
@@ -922,7 +951,7 @@ function DraftCrewPanel({
           </span>
         </div>
         <button className="subtleButton" type="button" onClick={copyDraft}>
-          <RulesIcon iconKey="draft" /> {copied ? "Copied" : "Copy summary"}
+          {copied ? "Copied" : "Copy summary"}
         </button>
       </div>
       <div className="draftList">
@@ -970,6 +999,8 @@ function SavedDraftsPanel({
   drafts: SavedDraft[];
   setDrafts: (drafts: SavedDraft[] | ((drafts: SavedDraft[]) => SavedDraft[])) => void;
 }) {
+  const [expanded, setExpanded] = useState(false);
+
   if (drafts.length === 0) return null;
 
   async function copyDraft(draft: SavedDraft) {
@@ -982,20 +1013,26 @@ function SavedDraftsPanel({
         <h2>
           <RulesIcon iconKey="draft" /> Saved Drafts
         </h2>
-        <span>{drafts.length} local</span>
+        <button className="subtleButton" type="button" onClick={() => setExpanded((current) => !current)}>
+          {expanded ? "Hide" : `Show ${drafts.length}`}
+        </button>
       </div>
-      <div className="draftList">
-        {drafts.map((draft) => (
-          <div className="draftRow" key={draft.id}>
-            <span>
-              <strong>{draft.name}</strong>
-              <small>{draft.totalCost}ss - {new Date(draft.createdAt).toLocaleDateString()}</small>
-            </span>
-            <button className="subtleButton" type="button" onClick={() => copyDraft(draft)}>Copy</button>
-            <button className="subtleButton" type="button" onClick={() => setDrafts(drafts.filter((item) => item.id !== draft.id))}>Delete</button>
-          </div>
-        ))}
-      </div>
+      {expanded ? (
+        <div className="draftList">
+          {drafts.map((draft) => (
+            <div className="draftRow" key={draft.id}>
+              <span>
+                <strong>{draft.name}</strong>
+                <small>{draft.totalCost}ss - {new Date(draft.createdAt).toLocaleDateString()}</small>
+              </span>
+              <button className="subtleButton" type="button" onClick={() => copyDraft(draft)}>Copy</button>
+              <button className="subtleButton" type="button" onClick={() => setDrafts(drafts.filter((item) => item.id !== draft.id))}>Delete</button>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <p className="panelHint">Saved locally for later planning. Expand only when you need an older draft.</p>
+      )}
     </section>
   );
 }
@@ -1007,19 +1044,23 @@ function LikelyCrewPanel({
   models: MatchupAnalysis["opponentCrew"]["likelyModels"];
   onOpenModel: (model: ModelCard) => void;
 }) {
+  const [expandedModelId, setExpandedModelId] = useState<string | null>(null);
+
   return (
     <section className="panel recommendationPanel">
       <div className="panelHeader">
         <div>
           <h2>
-            <RulesIcon iconKey="prediction" /> Likely Crew Members
+            <RulesIcon iconKey="prediction" /> Opponent Picks
           </h2>
           <span><RulesIcon iconKey="soulstone" /> {models.reduce((sum, recommendation) => sum + recommendation.hireCost, 0)} likely package</span>
         </div>
       </div>
-      <p className="panelHint">
-        Predictions are estimates based on keyword fit, role coverage, strategy needs, and point efficiency. They are not confirmed opponent selections.
-      </p>
+      <HelpDisclosure
+        className="panelHint"
+        label="Predicted picks"
+        text="Estimated from legal pool, keyword fit, role coverage, strategy needs, and point efficiency. These are not confirmed opponent selections."
+      />
 
       <div className="recommendationList">
         {models.map((recommendation) => (
@@ -1035,21 +1076,47 @@ function LikelyCrewPanel({
                   <RulesIcon iconKey="soulstone" /> {formatRecommendationCost(recommendation)} - {recommendation.role} - likelihood {recommendation.score}
                 </p>
               </div>
-              <span className="ownedBadge"><RulesIcon iconKey="prediction" /> Predicted</span>
+              <span className="badgeGroup">
+                <span className="ownedBadge">Predicted</span>
+                <span className={`confidenceBadge confidence-${recommendation.confidence.toLowerCase()}`}>
+                  {recommendation.confidence}
+                </span>
+              </span>
             </div>
-            <p className="confidenceBand">{recommendation.confidence} confidence prediction</p>
             <div className="scoreGrid twoScores">
-              <span><RulesIcon iconKey="keyword" /> Synergy {recommendation.scoreBreakdown.crewSynergy}</span>
-              <span><RulesIcon iconKey="score" /> Role {recommendation.scoreBreakdown.compositionMatchup}</span>
+              <span>Synergy {recommendation.scoreBreakdown.crewSynergy}</span>
+              <span>Role {recommendation.scoreBreakdown.compositionMatchup}</span>
             </div>
-            <RecSection title="Why They Are Likely" items={recommendation.why} />
-            <RecSection title="Confidence Basis" items={recommendation.trace} />
-            <RecSection title="Relevant Tech" items={recommendation.relevantTech} />
-            <RecSection title="Crew Synergies" items={recommendation.alliedSynergies} />
+            <button
+              className="detailsButton"
+              type="button"
+              aria-expanded={expandedModelId === recommendation.model.id}
+              onClick={() => setExpandedModelId((current) => (current === recommendation.model.id ? null : recommendation.model.id))}
+            >
+              {expandedModelId === recommendation.model.id ? "Hide details" : "Details"}
+            </button>
+            {expandedModelId === recommendation.model.id ? (
+              <>
+                <RecSection title="How to Use" items={recommendation.why} />
+                <RecSection title="Key Tech" items={recommendation.relevantTech} />
+                <RecSection title="Synergy" items={recommendation.alliedSynergies} />
+                <RecSection title="Score Trace" items={recommendation.trace} />
+                <RecSection title="Notes" items={recommendation.curatedNotes} />
+              </>
+            ) : null}
           </article>
         ))}
       </div>
     </section>
+  );
+}
+
+function HelpDisclosure({ label, text, className }: { label: string; text: string; className?: string }) {
+  return (
+    <details className={`helpDisclosure ${className ?? ""}`}>
+      <summary>{label}</summary>
+      <p>{text}</p>
+    </details>
   );
 }
 
@@ -1062,6 +1129,22 @@ function confidenceLabel(score: number): "High" | "Medium" | "Low" {
 function formatRecommendationCost(recommendation: ModelRecommendation): string {
   if (recommendation.hireTax <= 0) return `${recommendation.hireCost}ss`;
   return `${recommendation.hireCost}ss (${recommendation.printedCost}+${recommendation.hireTax})`;
+}
+
+function modelUseNotes(recommendation: ModelRecommendation, strategyName?: string): string[] {
+  return uniqueItems([
+    ...recommendation.why,
+    ...strategyReasons(recommendation.why, strategyName),
+    `${recommendation.model.name} should play as ${articleFor(recommendation.role)} ${recommendation.role}.`
+  ]);
+}
+
+function uniqueItems(items: string[]): string[] {
+  return Array.from(new Set(items.filter(Boolean)));
+}
+
+function articleFor(value: string): "a" | "an" {
+  return /^[aeiou]/i.test(value) ? "an" : "a";
 }
 
 function StatCardModal({ model, onClose }: { model: ModelCard; onClose: () => void }) {
@@ -1254,12 +1337,6 @@ function RulesIcon({ iconKey }: { iconKey: RulesIconKey }) {
       {suitGlyph ? <span className="suitGlyph">{suitGlyph}</span> : Icon ? <Icon aria-hidden="true" strokeWidth={2.25} /> : null}
     </span>
   );
-}
-
-function SpendIcon({ iconKey }: { iconKey: Extract<RulesIconKey, "soulstone" | "collection"> }) {
-  const Icon = iconKey === "collection" ? Library : Gem;
-
-  return <Icon className="spendIcon" aria-hidden="true" strokeWidth={2.8} />;
 }
 
 function StatChip({ iconKey, value }: { iconKey: Extract<RulesIconKey, "defense" | "willpower" | "speed" | "size">; value: number }) {

@@ -854,7 +854,7 @@ select option {
 
 .expectedGuide {
   display: grid;
-  gap: 10px;
+  gap: 12px;
   margin: 12px 0 18px;
   border: 1px solid var(--line-2);
   border-radius: var(--radius-md);
@@ -862,8 +862,27 @@ select option {
   padding: 12px;
 }
 
+.expectedGuideHeader {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
 .expectedGuide strong {
   color: var(--parchment);
+}
+
+.expectedGuideHeader > span {
+  border: 1px solid rgba(196, 154, 70, 0.32);
+  border-radius: 999px;
+  background: rgba(196, 154, 70, 0.095);
+  color: var(--parchment-2);
+  padding: 5px 9px;
+  font-family: Inter, Arial, sans-serif;
+  font-size: 0.72rem;
+  font-weight: 700;
+  white-space: nowrap;
 }
 
 .expectedGuide p {
@@ -885,18 +904,50 @@ select option {
 
 .expectedSuggestions article {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto auto;
-  align-items: center;
-  gap: 10px;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 12px;
   border: 1px solid var(--line-2);
   border-radius: var(--radius-sm);
   background: rgba(20, 16, 12, 0.66);
-  padding: 9px;
+  padding: 12px;
 }
 
-.expectedSuggestions span {
+.expectedSuggestions article.markedSuggestion {
+  border-color: rgba(142, 154, 114, 0.5);
+  background: rgba(47, 90, 69, 0.18);
+}
+
+.suggestionMain {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+}
+
+.suggestionMain span {
   color: var(--muted);
+  font-family: Inter, Arial, sans-serif;
   font-size: 0.78rem;
+}
+
+.suggestionMain span .rulesIcon {
+  font-size: 0.96em;
+}
+
+.suggestionMain p {
+  margin: 0;
+  color: var(--parchment-2);
+}
+
+.suggestionBadges {
+  display: flex;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.expectedSuggestions .subtleButton {
+  grid-column: 2;
 }
 
 .collapsedPanel {
@@ -2305,6 +2356,11 @@ li + li {
 
   .expectedSuggestions article {
     grid-template-columns: 1fr;
+  }
+
+  .expectedSuggestions .subtleButton {
+    grid-column: 1;
+    width: fit-content;
   }
 
   .modalBackdrop {

@@ -456,6 +456,27 @@ select option {
   line-height: 1.35;
 }
 
+.helpDisclosure {
+  position: relative;
+  color: var(--muted);
+}
+
+.helpDisclosure summary {
+  width: fit-content;
+  cursor: pointer;
+  color: var(--parchment-2);
+  font-family: Inter, Arial, sans-serif;
+  font-size: 0.82rem;
+  font-weight: 900;
+  list-style-position: outside;
+}
+
+.helpDisclosure p {
+  margin: 6px 0 0;
+  color: var(--muted);
+  line-height: 1.4;
+}
+
 .spendSummary {
   position: relative;
   display: flex;
@@ -484,20 +505,6 @@ select option {
   border-color: color-mix(in srgb, var(--faction-accent), var(--accent) 40%);
   color: var(--parchment);
   background: color-mix(in srgb, var(--faction-accent), #15110d 78%);
-}
-
-.spendIcon {
-  display: block;
-  flex: 0 0 auto;
-  width: 18px;
-  height: 18px;
-  margin-right: 7px;
-  color: var(--accent);
-  stroke: currentColor;
-}
-
-.spendSummary strong .spendIcon {
-  color: var(--parchment);
 }
 
 .subtleButton {
@@ -768,13 +775,6 @@ select option {
 .statChip .rulesIcon {
   margin-right: 0;
   font-size: 1.05em;
-}
-
-.actionPreview {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  min-height: 0;
 }
 
 .actionChip {

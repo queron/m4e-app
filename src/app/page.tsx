@@ -25,6 +25,7 @@ export default function Home() {
   const [opponentSearch, setOpponentSearch] = useState("");
   const [analysis, setAnalysis] = useState<MatchupAnalysis | null>(null);
   const [analyzedCollectionCount, setAnalyzedCollectionCount] = useState(0);
+  const [draftPath, setDraftPath] = useState<RecommendationPath | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [setupCollapsed, setSetupCollapsed] = useState(false);
   const [error, setError] = useState("");
@@ -99,6 +100,10 @@ export default function Home() {
   const selectedPath = analysis?.paths[pathKind];
   const strategyPool = STRATEGY_POOLS.find((pool) => pool.id === strategyPoolId) ?? STRATEGY_POOLS[0];
   const strategy = strategyPool.strategies.find((candidate) => candidate.id === strategyId) ?? strategyPool.strategies[0];
+  const playerRequiredModels = useMemo(
+    () => (catalog && playerMaster ? getMandatoryModelsForMaster(playerMaster, catalog.models) : []),
+    [catalog, playerMaster]
+  );
 
   async function analyze() {
     if (!playerMasterId || !opponentMasterId) return;
@@ -125,6 +130,7 @@ export default function Home() {
       if (!response.ok) throw new Error(payload.error ?? "Analysis failed.");
       setAnalysis(payload);
       setAnalyzedCollectionCount(ownedModelIds.length);
+      setDraftPath(null);
       setPathKind("available");
       setSetupCollapsed(true);
     } catch (currentError) {
@@ -266,7 +272,9 @@ export default function Home() {
               selectedPath={selectedPath}
               usedFullPool={pathKind === "available" && analyzedCollectionCount === 0}
               strategyName={analysis.match.strategy?.name}
+              onUsePlan={(path) => setDraftPath(path)}
             />
+            {draftPath ? <DraftCrewPanel requiredModels={playerRequiredModels} path={draftPath} pointLimit={pointLimit} /> : null}
           </div>
           <div className="analysisColumn">
             <CrewAnalysisCard
@@ -538,13 +546,15 @@ function RecommendationPanel({
   setPathKind,
   selectedPath,
   usedFullPool,
-  strategyName
+  strategyName,
+  onUsePlan
 }: {
   pathKind: PathKind;
   setPathKind: (value: PathKind) => void;
   selectedPath?: RecommendationPath;
   usedFullPool: boolean;
   strategyName?: string;
+  onUsePlan: (path: RecommendationPath) => void;
 }) {
   if (!selectedPath) return null;
 
@@ -566,6 +576,9 @@ function RecommendationPanel({
           </button>
         </div>
       </div>
+      <button className="planButton" type="button" onClick={() => onUsePlan(selectedPath)}>
+        Use this recommendation set
+      </button>
 
       {!selectedPath.validation.legal ? (
         <div className="warning">{selectedPath.validation.issues.join(" ")}</div>
@@ -607,6 +620,68 @@ function RecommendationPanel({
             <RecSection title="Priority Targets" items={recommendation.priorityTargets} />
             <RecSection title="Allied Synergies" items={recommendation.alliedSynergies} />
           </article>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function DraftCrewPanel({
+  requiredModels,
+  path,
+  pointLimit
+}: {
+  requiredModels: Array<{ model: ModelCard; quantity: number }>;
+  path: RecommendationPath;
+  pointLimit: number;
+}) {
+  const [copied, setCopied] = useState(false);
+  const requiredCost = requiredModels.reduce((sum, entry) => sum + entry.model.cost * entry.quantity, 0);
+  const hiredCost = path.models.reduce((sum, recommendation) => sum + recommendation.model.cost, 0);
+  const totalCost = requiredCost + hiredCost;
+  const remaining = pointLimit - totalCost;
+
+  async function copyDraft() {
+    const lines = [
+      `Draft crew - ${totalCost}/${pointLimit}ss`,
+      "",
+      "Required:",
+      ...requiredModels.map((entry) => `${entry.quantity}x ${entry.model.name} (${entry.model.cost}ss)`),
+      "",
+      "Recommended hires:",
+      ...path.models.map((recommendation) => `${recommendation.model.name} (${recommendation.model.cost}ss) - ${recommendation.role}`)
+    ];
+    await navigator.clipboard.writeText(lines.join("\n"));
+    setCopied(true);
+  }
+
+  return (
+    <section className="panel draftPanel">
+      <div className="panelHeader">
+        <div>
+          <h2>Draft Crew</h2>
+          <span>
+            {totalCost}ss used / {remaining}ss open
+          </span>
+        </div>
+        <button className="subtleButton" type="button" onClick={copyDraft}>
+          {copied ? "Copied" : "Copy summary"}
+        </button>
+      </div>
+      <div className="draftList">
+        <h3>Required</h3>
+        {requiredModels.map((entry, index) => (
+          <div className="draftRow" key={`${entry.model.id}-${index}`}>
+            <span>{entry.quantity}x {entry.model.name}</span>
+            <strong>{entry.model.cost * entry.quantity}ss</strong>
+          </div>
+        ))}
+        <h3>Recommended Hires</h3>
+        {path.models.map((recommendation) => (
+          <div className="draftRow" key={recommendation.model.id}>
+            <span>{recommendation.model.name}</span>
+            <strong>{recommendation.model.cost}ss</strong>
+          </div>
         ))}
       </div>
     </section>

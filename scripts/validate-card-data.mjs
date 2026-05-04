@@ -158,7 +158,9 @@ if (!Array.isArray(cards)) {
   }
 
   for (const master of masters) {
-    const synthetic = (masterCrewRules.syntheticMasters ?? []).find((rule) => rule.id === generatedUnitId(master));
+    const synthetic = (masterCrewRules.syntheticMasters ?? []).find(
+      (rule) => slugify(rule.faction) === slugify(master.faction) && slugify(rule.sourceModelName) === slugify(master.name)
+    );
     if (synthetic?.suppressTotems) continue;
 
     const masterKeywords = strategicKeywords(master).map((keyword) => keyword.toLowerCase());

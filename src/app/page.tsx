@@ -41,9 +41,20 @@ import {
 } from "@/lib/rules-icons";
 
 type PathKind = "available" | "optimal";
+type SavedDraft = {
+  id: string;
+  name: string;
+  createdAt: string;
+  totalCost: number;
+  modelIds: string[];
+  summary: string;
+};
 
 const DEFAULT_POINT_LIMIT = 50;
 const INTERNAL_MODEL_LIMIT = 99;
+const COLLECTION_STORAGE_KEY = "m4e.collection.v1";
+const DRAFT_STORAGE_KEY = "m4e.drafts.v1";
+const SHARE_PARAM = "setup";
 
 export default function Home() {
   const [catalog, setCatalog] = useState<CardCatalog | null>(null);
@@ -62,6 +73,8 @@ export default function Home() {
   const [analysis, setAnalysis] = useState<MatchupAnalysis | null>(null);
   const [analyzedCollectionCount, setAnalyzedCollectionCount] = useState(0);
   const [draftPath, setDraftPath] = useState<RecommendationPath | null>(null);
+  const [savedDrafts, setSavedDrafts] = useState<SavedDraft[]>([]);
+  const [statusMessage, setStatusMessage] = useState("");
   const [selectedModel, setSelectedModel] = useState<ModelCard | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [setupCollapsed, setSetupCollapsed] = useState(false);
@@ -72,10 +85,25 @@ export default function Home() {
       .then((response) => response.json())
       .then((data: CardCatalog) => {
         setCatalog(data);
-        setPlayerFaction(data.factions[0] ?? "");
-        setOpponentFaction(data.factions[1] ?? data.factions[0] ?? "");
+        const restored = readSharedSetup();
+        setPlayerFaction(restored?.playerFaction ?? data.factions[0] ?? "");
+        setOpponentFaction(restored?.opponentFaction ?? data.factions[1] ?? data.factions[0] ?? "");
+        if (restored?.playerMasterId) setPlayerMasterId(restored.playerMasterId);
+        if (restored?.opponentMasterId) setOpponentMasterId(restored.opponentMasterId);
+        if (restored?.ownedModelIds) setOwnedModelIds(restored.ownedModelIds);
+        if (restored?.opponentModelIds) setOpponentModelIds(restored.opponentModelIds);
+        if (restored?.pointLimit) setPointLimit(restored.pointLimit);
+        if (restored?.strategyPoolId) setStrategyPoolId(restored.strategyPoolId);
+        if (restored?.strategyId) setStrategyId(restored.strategyId);
+        if (!restored?.ownedModelIds) setOwnedModelIds(readStoredIds(COLLECTION_STORAGE_KEY));
+        setSavedDrafts(readStoredDrafts());
       })
       .catch(() => setError("Card data could not be loaded."));
+  }, []);
+
+  useEffect(() => {
+    if (!("serviceWorker" in navigator)) return;
+    navigator.serviceWorker.register("/sw.js").catch(() => undefined);
   }, []);
 
   useEffect(() => {
@@ -108,16 +136,28 @@ export default function Home() {
   );
 
   useEffect(() => {
-    setPlayerMasterId(playerMasters[0]?.id ?? "");
-    setOwnedModelIds([]);
+    if (playerMasters.length > 0 && !playerMasters.some((master) => master.id === playerMasterId)) {
+      setPlayerMasterId(playerMasters[0]?.id ?? "");
+    }
     setAnalysis(null);
-  }, [playerMasters]);
+  }, [playerMasters, playerMasterId]);
 
   useEffect(() => {
-    setOpponentMasterId(opponentMasters[0]?.id ?? "");
-    setOpponentModelIds([]);
+    if (opponentMasters.length > 0 && !opponentMasters.some((master) => master.id === opponentMasterId)) {
+      setOpponentMasterId(opponentMasters[0]?.id ?? "");
+    }
     setAnalysis(null);
-  }, [opponentMasters]);
+  }, [opponentMasters, opponentMasterId]);
+
+  useEffect(() => {
+    if (!catalog) return;
+    localStorage.setItem(COLLECTION_STORAGE_KEY, JSON.stringify(ownedModelIds));
+  }, [catalog, ownedModelIds]);
+
+  useEffect(() => {
+    if (!catalog) return;
+    localStorage.setItem(DRAFT_STORAGE_KEY, JSON.stringify(savedDrafts));
+  }, [catalog, savedDrafts]);
 
   const playerPool = useMemo(() => {
     if (!catalog || !playerMaster) return [];
@@ -181,11 +221,60 @@ export default function Home() {
       setDraftPath(null);
       setPathKind("available");
       setSetupCollapsed(true);
+      setStatusMessage("Analysis ready. Setup panels collapsed for comparison.");
     } catch (currentError) {
       setError(currentError instanceof Error ? currentError.message : "Analysis failed.");
     } finally {
       setIsAnalyzing(false);
     }
+  }
+
+  async function shareSetup() {
+    const payload = {
+      playerFaction,
+      playerMasterId,
+      opponentFaction,
+      opponentMasterId,
+      ownedModelIds,
+      opponentModelIds,
+      pointLimit,
+      strategyPoolId,
+      strategyId
+    };
+    const url = new URL(window.location.href);
+    url.searchParams.set(SHARE_PARAM, encodeSharePayload(payload));
+    await navigator.clipboard.writeText(url.toString());
+    setStatusMessage("Share link copied.");
+  }
+
+  function printPlan() {
+    window.print();
+  }
+
+  function clearCollection() {
+    setOwnedModelIds([]);
+    setStatusMessage("Collection selections cleared.");
+  }
+
+  function saveDraft(path: RecommendationPath) {
+    const requiredCost = playerRequiredModels.reduce((sum, entry) => sum + entry.model.cost * entry.quantity, 0);
+    const totalCost = requiredCost + path.totalCost;
+    const summary = buildDraftSummary(playerRequiredModels, path, pointLimit);
+    const draft: SavedDraft = {
+      id: `${Date.now()}`,
+      name: `${playerMaster?.name ?? "Crew"} into ${opponentMaster?.name ?? "opponent"}`,
+      createdAt: new Date().toISOString(),
+      totalCost,
+      modelIds: path.models.map((recommendation) => recommendation.model.id),
+      summary
+    };
+    setSavedDrafts((drafts) => [draft, ...drafts].slice(0, 12));
+    setStatusMessage("Draft saved locally.");
+  }
+
+  async function exportDraft(path: RecommendationPath) {
+    await navigator.clipboard.writeText(buildDraftSummary(playerRequiredModels, path, pointLimit));
+    setStatusMessage("Draft export copied.");
   }
 
   if (!catalog) {
@@ -208,6 +297,7 @@ export default function Home() {
       </header>
 
       {error ? <div className="error">{error}</div> : null}
+      {statusMessage ? <div className="infoCallout globalStatus">{statusMessage}</div> : null}
 
       <section className="panel matchPanel">
         <div className="panelHeader">
@@ -252,6 +342,11 @@ export default function Home() {
             {isAnalyzing ? "Analyzing" : "Analyze"}
           </button>
         </div>
+        <div className="actionBar">
+          <button className="subtleButton" type="button" onClick={shareSetup}>Copy share link</button>
+          <button className="subtleButton" type="button" onClick={printPlan}>Print view</button>
+          <button className="subtleButton" type="button" onClick={clearCollection}>Clear collection</button>
+        </div>
         <p className="matchSummary">{strategy.summary}</p>
         <p className="matchHint">You can analyze with only both masters selected, then refine the results by marking models in your collection.</p>
       </section>
@@ -273,7 +368,7 @@ export default function Home() {
           search={collectionSearch}
           setSearch={setCollectionSearch}
           selectionLabel="In Collection"
-          helperText="Select models you own. Available recommendations will build from this collection pool."
+          helperText="Select models you own. Draft crews are created separately from recommendations."
           selectedCountLabel="collection"
           collapsed={setupCollapsed}
           setCollapsed={setSetupCollapsed}
@@ -329,11 +424,14 @@ export default function Home() {
               usedFullPool={pathKind === "available" && analyzedCollectionCount === 0}
               strategyName={analysis.match.strategy?.name}
               onUsePlan={(path) => setDraftPath(path)}
+              onSavePlan={saveDraft}
+              onExportPlan={exportDraft}
               onOpenModel={setSelectedModel}
             />
             {draftPath ? (
               <DraftCrewPanel requiredModels={playerRequiredModels} path={draftPath} pointLimit={pointLimit} onOpenModel={setSelectedModel} />
             ) : null}
+            <SavedDraftsPanel drafts={savedDrafts} setDrafts={setSavedDrafts} />
           </div>
           <div className="analysisColumn">
             <CrewAnalysisCard
@@ -533,7 +631,13 @@ function ModelRow({
       {forced ? (
         <span className="check forcedCheck">Req</span>
       ) : (
-        <button className="check" onClick={onToggle} type="button">
+        <button
+          className="check"
+          onClick={onToggle}
+          type="button"
+          aria-pressed={selected}
+          aria-label={`${selected ? "Remove" : "Add"} ${model.name} ${selectionLabel.toLowerCase()}`}
+        >
           {selected ? "x" : ""}
         </button>
       )}
@@ -554,7 +658,7 @@ function ModelRow({
       </span>
       {canSetQuantity ? (
         <span className="quantityControl">
-          <button type="button" onClick={() => onQuantityChange?.(selectedQuantity - 1)} disabled={selectedQuantity <= 1}>
+          <button type="button" onClick={() => onQuantityChange?.(selectedQuantity - 1)} disabled={selectedQuantity <= 1} aria-label={`Reduce ${model.name} quantity`}>
             -
           </button>
           <label>
@@ -567,7 +671,7 @@ function ModelRow({
               onChange={(event) => onQuantityChange?.(Number(event.target.value))}
             />
           </label>
-          <button type="button" onClick={() => onQuantityChange?.(selectedQuantity + 1)} disabled={selectedQuantity >= model.maxCopies}>
+          <button type="button" onClick={() => onQuantityChange?.(selectedQuantity + 1)} disabled={selectedQuantity >= model.maxCopies} aria-label={`Increase ${model.name} quantity`}>
             +
           </button>
         </span>
@@ -623,6 +727,8 @@ function RecommendationPanel({
   usedFullPool,
   strategyName,
   onUsePlan,
+  onSavePlan,
+  onExportPlan,
   onOpenModel
 }: {
   pathKind: PathKind;
@@ -631,6 +737,8 @@ function RecommendationPanel({
   usedFullPool: boolean;
   strategyName?: string;
   onUsePlan: (path: RecommendationPath) => void;
+  onSavePlan: (path: RecommendationPath) => void;
+  onExportPlan: (path: RecommendationPath) => void;
   onOpenModel: (model: ModelCard) => void;
 }) {
   if (!selectedPath) return null;
@@ -656,6 +764,14 @@ function RecommendationPanel({
       <button className="planButton" type="button" onClick={() => onUsePlan(selectedPath)}>
         <RulesIcon iconKey="draft" /> Use this recommendation set
       </button>
+      <div className="actionBar compactActions">
+        <button className="subtleButton" type="button" onClick={() => onSavePlan(selectedPath)}>
+          Save draft
+        </button>
+        <button className="subtleButton" type="button" onClick={() => onExportPlan(selectedPath)}>
+          Copy export
+        </button>
+      </div>
 
       {!selectedPath.validation.legal ? (
         <div className="warning">{selectedPath.validation.issues.join(" ")}</div>
@@ -697,6 +813,8 @@ function RecommendationPanel({
             </div>
             <RecSection title="Right Pick" items={recommendation.why} />
             <RecSection title="Strategy Fit" items={strategyReasons(recommendation.why, strategyName)} />
+            <RecSection title="Why This Ranked Here" items={recommendation.trace} />
+            <RecSection title="Curated Notes" items={recommendation.curatedNotes} />
             <RecSection title="Relevant Skills, Abilities, Triggers" items={recommendation.relevantTech} />
             <RecSection title="Priority Targets" items={recommendation.priorityTargets} />
             <RecSection title="Allied Synergies" items={recommendation.alliedSynergies} />
@@ -777,6 +895,43 @@ function DraftCrewPanel({
   );
 }
 
+function SavedDraftsPanel({
+  drafts,
+  setDrafts
+}: {
+  drafts: SavedDraft[];
+  setDrafts: (drafts: SavedDraft[] | ((drafts: SavedDraft[]) => SavedDraft[])) => void;
+}) {
+  if (drafts.length === 0) return null;
+
+  async function copyDraft(draft: SavedDraft) {
+    await navigator.clipboard.writeText(draft.summary);
+  }
+
+  return (
+    <section className="panel draftPanel savedDraftsPanel">
+      <div className="panelHeader">
+        <h2>
+          <RulesIcon iconKey="draft" /> Saved Drafts
+        </h2>
+        <span>{drafts.length} local</span>
+      </div>
+      <div className="draftList">
+        {drafts.map((draft) => (
+          <div className="draftRow" key={draft.id}>
+            <span>
+              <strong>{draft.name}</strong>
+              <small>{draft.totalCost}ss - {new Date(draft.createdAt).toLocaleDateString()}</small>
+            </span>
+            <button className="subtleButton" type="button" onClick={() => copyDraft(draft)}>Copy</button>
+            <button className="subtleButton" type="button" onClick={() => setDrafts(drafts.filter((item) => item.id !== draft.id))}>Delete</button>
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
 function LikelyCrewPanel({
   models,
   onOpenModel
@@ -814,12 +969,13 @@ function LikelyCrewPanel({
               </div>
               <span className="ownedBadge"><RulesIcon iconKey="prediction" /> Predicted</span>
             </div>
-            <p className="confidenceBand">{confidenceLabel(recommendation.score)} confidence prediction</p>
+            <p className="confidenceBand">{recommendation.confidence} confidence prediction</p>
             <div className="scoreGrid twoScores">
               <span><RulesIcon iconKey="keyword" /> Synergy {recommendation.scoreBreakdown.crewSynergy}</span>
               <span><RulesIcon iconKey="score" /> Role {recommendation.scoreBreakdown.compositionMatchup}</span>
             </div>
             <RecSection title="Why They Are Likely" items={recommendation.why} />
+            <RecSection title="Confidence Basis" items={recommendation.trace} />
             <RecSection title="Relevant Tech" items={recommendation.relevantTech} />
             <RecSection title="Crew Synergies" items={recommendation.alliedSynergies} />
           </article>
@@ -847,7 +1003,7 @@ function StatCardModal({ model, onClose }: { model: ModelCard; onClose: () => vo
         <div className="statCardTopline">
           <span>{model.faction}</span>
           <span className="modalHint">Esc closes</span>
-          <button className="iconButton" type="button" onClick={onClose} aria-label="Close stat card">
+          <button className="iconButton" type="button" onClick={onClose} aria-label="Close stat card" autoFocus>
             <X aria-hidden="true" />
           </button>
         </div>
@@ -1175,4 +1331,76 @@ function slugifyForMatch(value: string): string {
     .replace(/&/g, " and ")
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-+|-+$/g, "");
+}
+
+function readStoredIds(key: string): string[] {
+  if (typeof window === "undefined") return [];
+  try {
+    const parsed = JSON.parse(localStorage.getItem(key) ?? "[]");
+    return Array.isArray(parsed) ? parsed.filter((item) => typeof item === "string") : [];
+  } catch {
+    return [];
+  }
+}
+
+function readStoredDrafts(): SavedDraft[] {
+  if (typeof window === "undefined") return [];
+  try {
+    const parsed = JSON.parse(localStorage.getItem(DRAFT_STORAGE_KEY) ?? "[]");
+    return Array.isArray(parsed) ? parsed.filter(isSavedDraft) : [];
+  } catch {
+    return [];
+  }
+}
+
+function isSavedDraft(value: unknown): value is SavedDraft {
+  if (!value || typeof value !== "object") return false;
+  const draft = value as SavedDraft;
+  return typeof draft.id === "string" && typeof draft.name === "string" && Array.isArray(draft.modelIds);
+}
+
+function readSharedSetup(): Partial<{
+  playerFaction: string;
+  playerMasterId: string;
+  opponentFaction: string;
+  opponentMasterId: string;
+  ownedModelIds: string[];
+  opponentModelIds: string[];
+  pointLimit: number;
+  strategyPoolId: string;
+  strategyId: string;
+}> | null {
+  if (typeof window === "undefined") return null;
+  const encoded = new URL(window.location.href).searchParams.get(SHARE_PARAM);
+  if (!encoded) return null;
+  try {
+    return JSON.parse(decodeURIComponent(atob(encoded)));
+  } catch {
+    return null;
+  }
+}
+
+function encodeSharePayload(value: unknown): string {
+  return btoa(encodeURIComponent(JSON.stringify(value)));
+}
+
+function buildDraftSummary(
+  requiredModels: Array<{ model: ModelCard; quantity: number }>,
+  path: RecommendationPath,
+  pointLimit: number
+): string {
+  const requiredCost = requiredModels.reduce((sum, entry) => sum + entry.model.cost * entry.quantity, 0);
+  const totalCost = requiredCost + path.totalCost;
+  return [
+    `Draft crew - ${totalCost}/${pointLimit}ss`,
+    "",
+    "Required:",
+    ...requiredModels.map((entry) => `${entry.quantity}x ${entry.model.name} (${entry.model.cost}ss)`),
+    "",
+    "Recommended hires:",
+    ...path.models.map((recommendation) => `${recommendation.model.name} (${formatRecommendationCost(recommendation)}) - ${recommendation.role}`),
+    "",
+    "Planning notes:",
+    ...path.models.slice(0, 5).map((recommendation) => `- ${recommendation.model.name}: ${recommendation.why[0] ?? recommendation.hireReason}`)
+  ].join("\n");
 }

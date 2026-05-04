@@ -208,6 +208,22 @@ select option {
   line-height: 1.45;
 }
 
+.actionBar {
+  position: relative;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 12px 0 0;
+}
+
+.compactActions {
+  margin: -4px 0 12px;
+}
+
+.globalStatus {
+  margin-bottom: 14px;
+}
+
 .matchHint,
 .infoCallout {
   margin: 10px 0 0;
@@ -1080,6 +1096,13 @@ li + li {
 
 .draftRow span {
   color: var(--parchment-2);
+  display: grid;
+  gap: 2px;
+}
+
+.draftRow small {
+  color: var(--dim);
+  font-family: Inter, Arial, sans-serif;
 }
 
 .draftModelButton {
@@ -1093,6 +1116,12 @@ li + li {
   align-items: center;
   color: var(--accent);
   font-family: Inter, Arial, sans-serif;
+}
+
+.savedDraftsPanel .draftRow {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
 }
 
 .modalBackdrop {
@@ -1457,5 +1486,42 @@ li + li {
 
   .scoreGrid.twoScores {
     grid-template-columns: 1fr;
+  }
+}
+
+@media print {
+  body {
+    background: #fff;
+    color: #111;
+  }
+
+  .topbar,
+  .matchPanel,
+  .plannerGrid,
+  .segment,
+  .planButton,
+  .actionBar,
+  .subtleButton,
+  .modalBackdrop {
+    display: none !important;
+  }
+
+  .shell {
+    width: 100%;
+    padding: 0;
+  }
+
+  .analysisGrid,
+  .analysisColumn {
+    display: block;
+  }
+
+  .panel,
+  .recommendation {
+    break-inside: avoid;
+    box-shadow: none;
+    color: #111;
+    background: #fff;
+    border-color: #999;
   }
 }

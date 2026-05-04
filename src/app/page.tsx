@@ -361,6 +361,7 @@ export default function Home() {
       <section className="plannerGrid">
         <CrewPanel
           title="Player"
+          displayTitle="Player Collection"
           factions={catalog.factions}
           faction={playerFaction}
           setFaction={setPlayerFaction}
@@ -374,15 +375,17 @@ export default function Home() {
           setSelectedIds={setOwnedModelIds}
           search={collectionSearch}
           setSearch={setCollectionSearch}
-          selectionLabel="In Collection"
-          helperText="Select models you own. Draft crews are created separately from recommendations."
-          selectedCountLabel="collection"
+          selectionLabel="Owned"
+          modeLabel="What I own"
+          helperText="What I own: mark models in your collection. This builds the Available recommendation pool, not your hired crew."
+          selectedCountLabel="owned"
           collapsed={setupCollapsed}
           setCollapsed={setSetupCollapsed}
           onOpenModel={setSelectedModel}
         />
         <CrewPanel
           title="Opponent"
+          displayTitle="Opponent Intel"
           factions={catalog.factions}
           faction={opponentFaction}
           setFaction={setOpponentFaction}
@@ -396,8 +399,9 @@ export default function Home() {
           setSelectedIds={setOpponentModelIds}
           search={opponentSearch}
           setSearch={setOpponentSearch}
-          selectionLabel="Seen"
-          helperText="Mark opposing models you know or expect. Leave empty to predict from their legal pool."
+          selectionLabel="Expected"
+          modeLabel="What I know they may take"
+          helperText="What I know they may take: mark enemy models you know or expect. Leave empty to predict from their legal pool."
           selectedCountLabel="known"
           collapsed={setupCollapsed}
           setCollapsed={setSetupCollapsed}
@@ -519,6 +523,7 @@ export default function Home() {
 
 function CrewPanel(props: {
   title: string;
+  displayTitle: string;
   factions: string[];
   faction: string;
   setFaction: (value: string) => void;
@@ -533,6 +538,7 @@ function CrewPanel(props: {
   search: string;
   setSearch: (value: string) => void;
   selectionLabel: string;
+  modeLabel: string;
   helperText: string;
   selectedCountLabel: string;
   collapsed: boolean;
@@ -549,6 +555,7 @@ function CrewPanel(props: {
   const requiredSoulstones = mandatoryModels.reduce((sum, entry) => sum + entry.model.cost * entry.quantity, 0);
   const selectedSoulstones = selectedModels.reduce((sum, model) => sum + model.cost, 0);
   const totalSoulstones = requiredSoulstones + selectedSoulstones;
+  const isPlayerPanel = props.title === "Player";
   const sections = groupModelsForMaster(
     props.pool.filter((model) => !mandatoryIds.has(model.id)),
     props.master,
@@ -570,7 +577,7 @@ function CrewPanel(props: {
     <section className={`panel faction-${slugifyForMatch(props.faction)} ${props.collapsed ? "collapsedPanel" : ""}`}>
       <div className="panelHeader">
         <h2>
-          <RulesIcon iconKey={props.title === "Player" ? "collection" : "prediction"} /> {props.title}
+          <RulesIcon iconKey={isPlayerPanel ? "collection" : "prediction"} /> {props.displayTitle}
         </h2>
         <span>
           {mandatoryModels.reduce((sum, entry) => sum + entry.quantity, 0)} required / {props.selectedIds.length} {props.selectedCountLabel} / {totalSoulstones}ss
@@ -578,16 +585,12 @@ function CrewPanel(props: {
       </div>
       <HelpDisclosure
         className="panelHelper"
-        label={props.title === "Player" ? "What I own" : "Opponent intel"}
-        text={
-          props.title === "Player"
-            ? "Selected models constrain Available recommendations. Draft crews are built separately from this collection."
-            : "Mark known or expected enemy models to sharpen target priority. Leave empty to predict from their legal pool."
-        }
+        label={props.modeLabel}
+        text={props.helperText}
       />
       <div className="spendSummary">
         <span>Required {requiredSoulstones}ss</span>
-        <span>{props.selectionLabel} {selectedSoulstones}ss</span>
+        <span>{props.modeLabel} {selectedSoulstones}ss</span>
         <strong>Total {totalSoulstones}ss</strong>
         {props.collapsed ? (
           <button className="subtleButton" type="button" onClick={() => props.setCollapsed(false)}>
@@ -654,6 +657,7 @@ function CrewPanel(props: {
                   selected={entry.forced || selected.has(entry.model.id)}
                   selectedQuantity={entry.forced ? 1 : selectedCounts.get(entry.model.id) ?? 0}
                   selectionLabel={entry.forced ? "Required" : props.selectionLabel}
+                  checkboxLabel={entry.forced ? undefined : selectionCheckboxLabel(entry.model, selected.has(entry.model.id), isPlayerPanel)}
                   onToggle={entry.forced ? undefined : () => toggle(entry.model.id)}
                   onQuantityChange={entry.forced ? undefined : (quantity) => setModelQuantity(entry.model, quantity)}
                   onOpenModel={() => props.onOpenModel(entry.model)}
@@ -677,6 +681,7 @@ function ModelRow({
   selected,
   selectedQuantity,
   selectionLabel,
+  checkboxLabel,
   onToggle,
   onQuantityChange,
   onOpenModel,
@@ -686,6 +691,7 @@ function ModelRow({
   selected: boolean;
   selectedQuantity: number;
   selectionLabel: string;
+  checkboxLabel?: string;
   onToggle?: () => void;
   onQuantityChange?: (quantity: number) => void;
   onOpenModel: () => void;
@@ -703,7 +709,7 @@ function ModelRow({
           onClick={onToggle}
           type="button"
           aria-pressed={selected}
-          aria-label={`${selected ? "Remove" : "Add"} ${model.name} ${selectionLabel.toLowerCase()}`}
+          aria-label={checkboxLabel ?? `${selected ? "Remove" : "Add"} ${model.name} ${selectionLabel.toLowerCase()}`}
         >
           {selected ? "x" : ""}
         </button>
@@ -815,6 +821,7 @@ function RecommendationPanel({
       <div className="panelHeader">
         <div>
           <h2>Recommendations</h2>
+          <small>What the app suggests</small>
           <span>
             <RulesIcon iconKey="soulstone" /> {selectedPath.totalCost} hired / {selectedPath.remainingPoints}ss open
           </span>
@@ -829,7 +836,7 @@ function RecommendationPanel({
         </div>
       </div>
       <button className="planButton" type="button" onClick={() => onUsePlan(selectedPath)}>
-        Use this recommendation set
+        Build draft crew from this set
       </button>
       <div className="actionBar compactActions">
         <button className="subtleButton" type="button" onClick={() => onSavePlan(selectedPath)}>
@@ -932,7 +939,7 @@ function DraftCrewPanel({
       "Required:",
       ...requiredModels.map((entry) => `${entry.quantity}x ${entry.model.name} (${entry.model.cost}ss)`),
       "",
-      "Recommended hires:",
+      "Draft hires:",
       ...path.models.map((recommendation) => `${recommendation.model.name} (${formatRecommendationCost(recommendation)}) - ${recommendation.role}`)
     ];
     await navigator.clipboard.writeText(lines.join("\n"));
@@ -946,6 +953,7 @@ function DraftCrewPanel({
           <h2>
             <RulesIcon iconKey="draft" /> Draft Crew
           </h2>
+          <small>What I am taking</small>
           <span>
             <RulesIcon iconKey="soulstone" /> {totalCost} used / {remaining}ss open
           </span>
@@ -964,7 +972,7 @@ function DraftCrewPanel({
             <strong><RulesIcon iconKey="soulstone" /> {entry.model.cost * entry.quantity}</strong>
           </div>
         ))}
-        <h3>Recommended Hires</h3>
+        <h3>Draft Hires</h3>
         {path.models.map((recommendation) => (
           <div className="draftRow" key={recommendation.model.id}>
             <button className="draftModelButton" type="button" onClick={() => onOpenModel(recommendation.model)}>
@@ -1461,6 +1469,14 @@ function countSelectedIds(ids: string[]): Map<string, number> {
   }, new Map<string, number>());
 }
 
+function selectionCheckboxLabel(model: ModelCard, selected: boolean, isPlayerPanel: boolean): string {
+  if (isPlayerPanel) {
+    return `${selected ? "Remove" : "Add"} ${model.name} ${selected ? "from" : "to"} collection`;
+  }
+
+  return `${selected ? "Unmark" : "Mark"} ${model.name} as expected opponent model`;
+}
+
 function expandSectionEntries(entries: ModelSectionEntry[]): ModelSectionEntry[] {
   return entries.flatMap((entry) =>
     Array.from({ length: Math.max(1, entry.quantity) }, () => ({
@@ -1542,7 +1558,7 @@ function buildDraftSummary(
     "Required:",
     ...requiredModels.map((entry) => `${entry.quantity}x ${entry.model.name} (${entry.model.cost}ss)`),
     "",
-    "Recommended hires:",
+    "Draft hires:",
     ...path.models.map((recommendation) => `${recommendation.model.name} (${formatRecommendationCost(recommendation)}) - ${recommendation.role}`),
     "",
     "Planning notes:",

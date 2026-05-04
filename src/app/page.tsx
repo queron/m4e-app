@@ -806,8 +806,13 @@ function RecommendationPanel({
                   <RulesIcon iconKey="soulstone" /> {formatRecommendationCost(recommendation)} - {recommendation.role} - score {recommendation.score}
                 </p>
               </div>
-              <span className={recommendation.owned ? "ownedBadge" : "missingBadge"}>
-                {recommendation.owned ? "Owned" : "Not owned"}
+              <span className="badgeGroup">
+                <span className={recommendation.owned ? "ownedBadge" : "missingBadge"}>
+                  {recommendation.owned ? "Owned" : "Not owned"}
+                </span>
+                <span className={`confidenceBadge confidence-${recommendation.confidence.toLowerCase()}`}>
+                  {recommendation.confidence}
+                </span>
               </span>
             </div>
             {recommendation.why[0] ? <p className="topReason">Top reason: {recommendation.why[0]}</p> : null}
@@ -832,13 +837,12 @@ function RecommendationPanel({
             </button>
             {expandedModelId === recommendation.model.id ? (
               <>
-                <RecSection title="Why Pick" items={recommendation.why} />
-                <RecSection title="Strategy" items={strategyReasons(recommendation.why, strategyName)} />
-                <RecSection title="Score Trace" items={recommendation.trace} />
-                <RecSection title="Notes" items={recommendation.curatedNotes} />
+                <RecSection title="How to Use" items={modelUseNotes(recommendation, strategyName)} />
                 <RecSection title="Key Tech" items={recommendation.relevantTech} />
                 <RecSection title="Targets" items={recommendation.priorityTargets} />
                 <RecSection title="Synergy" items={recommendation.alliedSynergies} />
+                <RecSection title="Score Trace" items={recommendation.trace} />
+                <RecSection title="Notes" items={recommendation.curatedNotes} />
               </>
             ) : null}
           </article>
@@ -1023,10 +1027,11 @@ function LikelyCrewPanel({
             </button>
             {expandedModelId === recommendation.model.id ? (
               <>
-                <RecSection title="Why Likely" items={recommendation.why} />
-                <RecSection title="Basis" items={recommendation.trace} />
+                <RecSection title="How to Use" items={recommendation.why} />
                 <RecSection title="Key Tech" items={recommendation.relevantTech} />
                 <RecSection title="Synergy" items={recommendation.alliedSynergies} />
+                <RecSection title="Score Trace" items={recommendation.trace} />
+                <RecSection title="Notes" items={recommendation.curatedNotes} />
               </>
             ) : null}
           </article>
@@ -1054,6 +1059,22 @@ function confidenceLabel(score: number): "High" | "Medium" | "Low" {
 function formatRecommendationCost(recommendation: ModelRecommendation): string {
   if (recommendation.hireTax <= 0) return `${recommendation.hireCost}ss`;
   return `${recommendation.hireCost}ss (${recommendation.printedCost}+${recommendation.hireTax})`;
+}
+
+function modelUseNotes(recommendation: ModelRecommendation, strategyName?: string): string[] {
+  return uniqueItems([
+    ...recommendation.why,
+    ...strategyReasons(recommendation.why, strategyName),
+    `${recommendation.model.name} should play as ${articleFor(recommendation.role)} ${recommendation.role}.`
+  ]);
+}
+
+function uniqueItems(items: string[]): string[] {
+  return Array.from(new Set(items.filter(Boolean)));
+}
+
+function articleFor(value: string): "a" | "an" {
+  return /^[aeiou]/i.test(value) ? "an" : "a";
 }
 
 function StatCardModal({ model, onClose }: { model: ModelCard; onClose: () => void }) {

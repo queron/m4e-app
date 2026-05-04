@@ -15,6 +15,7 @@ import type {
   ModelRecommendation,
   PlannerInput,
   RecommendationPath,
+  SynergyGroup,
   TacticalTag
 } from "./types";
 import { actionToText, cleanText, containsTag } from "./strategy-tags";
@@ -119,8 +120,8 @@ export function analyzeMatchup(input: PlannerInput): MatchupAnalysis {
       likelyModels: likelyOpponentModels
     },
     paths: {
-      available: buildPath("available", playerMaster, scoredAvailable, ownedIds, input.pointLimit, modelLimit, !hasOwnedPool),
-      optimal: buildPath("optimal", playerMaster, scoredAll, ownedIds, input.pointLimit, modelLimit)
+      available: buildPath("available", playerMaster, scoredAvailable, ownedIds, input.pointLimit, modelLimit, strategy, !hasOwnedPool),
+      optimal: buildPath("optimal", playerMaster, scoredAll, ownedIds, input.pointLimit, modelLimit, strategy)
     }
   };
 }
@@ -180,6 +181,7 @@ function buildPath(
   ownedIds: Set<string>,
   pointLimit: number,
   modelLimit: number,
+  strategy?: Strategy,
   treatAllAsAvailable = false
 ): RecommendationPath {
   const selected = buildCrewByScore(master, scored, pointLimit, modelLimit);
@@ -199,8 +201,72 @@ function buildPath(
       pointLimit,
       modelLimit
     ),
-    models: recommendations
+    models: recommendations,
+    synergyGroups: buildSynergyGroups(master, recommendations, strategy)
   };
+}
+
+function buildSynergyGroups(master: ModelCard | undefined, recommendations: ModelRecommendation[], strategy?: Strategy): SynergyGroup[] {
+  const groups: SynergyGroup[] = [];
+  const pool = recommendations.slice(0, 8);
+  const strategyName = strategy?.name ?? "the selected strategy";
+  const strategyTags = new Set(strategy?.tags ?? []);
+
+  const addGroup = (name: string, job: string, rationale: string, candidates: ModelRecommendation[]) => {
+    const models = uniqueModels([master, ...candidates.map((candidate) => candidate.model)]).slice(0, 3);
+    if (models.length < 2) return;
+    if (groups.some((group) => group.name === name)) return;
+    groups.push({ name, job, rationale, models });
+  };
+
+  const flankPieces = pool.filter((recommendation) =>
+    hasAnyTag(recommendation.model, ["scheme", "mobility", "placement", "marker"])
+  );
+  if (flankPieces.length >= 1 && intersects(strategyTags, ["spread", "enemyHalf", "mobility", "interact", "markers", "scheme"])) {
+    addGroup(
+      "Flank scoring package",
+      "Score wide and force the opponent to split resources.",
+      `Use this package to carry or place scoring pressure for ${strategyName}.`,
+      flankPieces.slice(0, 2)
+    );
+  }
+
+  const centerPieces = pool.filter((recommendation) =>
+    hasAnyTag(recommendation.model, ["armor", "incorporeal", "demise", "healing", "control", "damage"])
+  );
+  if (centerPieces.length >= 1) {
+    addGroup(
+      "Center anchor package",
+      "Contest the middle while protecting the crew's key activation.",
+      strategyTags.has("center")
+        ? `This group is built to stand on the center line for ${strategyName}.`
+        : "This group gives the crew a stable pivot while other pieces score.",
+      centerPieces.slice(0, 2)
+    );
+  }
+
+  const denialPieces = pool.filter((recommendation) =>
+    hasAnyTag(recommendation.model, ["control", "marker", "stunned", "slow", "staggered", "ranged"])
+  );
+  if (denialPieces.length >= 1) {
+    addGroup(
+      "Denial pair",
+      "Disrupt enemy scoring lanes and punish overextended pieces.",
+      `Use this pair to slow, block, or remove the opponent's ${strategyName} plan.`,
+      denialPieces.slice(0, 2)
+    );
+  }
+
+  if (groups.length === 0 && pool.length >= 1) {
+    addGroup(
+      "Independent tech pieces",
+      "Use separately to cover gaps the keyword does not naturally solve.",
+      "No tight package was identified, so these picks should operate as flexible problem-solvers.",
+      pool.slice(0, 2)
+    );
+  }
+
+  return groups.slice(0, 3);
 }
 
 type ScoredModel = {
@@ -531,6 +597,23 @@ function summarizeStats(models: ModelCard[]) {
 
 function overlappingCounters(model: ModelCard, target: ModelCard): TacticalTag[] {
   return target.tacticalTags.flatMap((tag) => COUNTER_TAGS[tag] ?? []).filter((counter) => model.tacticalTags.includes(counter));
+}
+
+function hasAnyTag(model: ModelCard, tags: TacticalTag[]): boolean {
+  return tags.some((tag) => model.tacticalTags.includes(tag));
+}
+
+function intersects(tags: Set<string>, candidates: string[]): boolean {
+  return candidates.some((candidate) => tags.has(candidate));
+}
+
+function uniqueModels(models: Array<ModelCard | undefined>): ModelCard[] {
+  const seen = new Set<string>();
+  return models.filter((model): model is ModelCard => {
+    if (!model || seen.has(model.id)) return false;
+    seen.add(model.id);
+    return true;
+  });
 }
 
 function isRelevantText(text: string, opponentTags: Set<TacticalTag>): boolean {

@@ -518,9 +518,9 @@ function CrewPanel(props: {
       </div>
       <p className="panelHelper">{props.title === "Player" ? "Choose your collection, inspect cards, then compare recommended hires." : "Mark known enemy models or leave empty for predicted picks."}</p>
       <div className="spendSummary">
-        <span><SpendIcon iconKey="soulstone" /> Required models {requiredSoulstones}</span>
-        <span><SpendIcon iconKey="collection" /> {props.selectionLabel} {selectedSoulstones}ss</span>
-        <strong><SpendIcon iconKey="soulstone" /> Displayed total {totalSoulstones}</strong>
+        <span>Required {requiredSoulstones}ss</span>
+        <span>{props.selectionLabel} {selectedSoulstones}ss</span>
+        <strong>Total {totalSoulstones}ss</strong>
         {props.collapsed ? (
           <button className="subtleButton" type="button" onClick={() => props.setCollapsed(false)}>
             Edit
@@ -761,7 +761,7 @@ function RecommendationPanel({
         </div>
       </div>
       <button className="planButton" type="button" onClick={() => onUsePlan(selectedPath)}>
-        <RulesIcon iconKey="draft" /> Use this recommendation set
+        Use this recommendation set
       </button>
       <div className="actionBar compactActions">
         <button className="subtleButton" type="button" onClick={() => onSavePlan(selectedPath)}>
@@ -795,19 +795,19 @@ function RecommendationPanel({
                 </p>
               </div>
               <span className={recommendation.owned ? "ownedBadge" : "missingBadge"}>
-                <RulesIcon iconKey={recommendation.owned ? "collection" : "prediction"} /> {recommendation.owned ? "Owned" : "Not owned"}
+                {recommendation.owned ? "Owned" : "Not owned"}
               </span>
             </div>
             {recommendation.why[0] ? <p className="topReason">Top reason: {recommendation.why[0]}</p> : null}
             <div className="scoreGrid">
               <span title="How directly this pick addresses the opposing master and master-specific pressure.">
-                <RulesIcon iconKey="master" /> Master Counter {recommendation.scoreBreakdown.masterAbilities}
+                Master Counter {recommendation.scoreBreakdown.masterAbilities}
               </span>
               <span title="How well this pick works with your leader, keyword, and available allied models.">
-                <RulesIcon iconKey="keyword" /> Crew Synergy {recommendation.scoreBreakdown.crewSynergy}
+                Crew Synergy {recommendation.scoreBreakdown.crewSynergy}
               </span>
               <span title="How well this pick addresses the strategy, opponent composition, roles, and table demands.">
-                <RulesIcon iconKey="strategy" /> Strategy/Matchup Fit {recommendation.scoreBreakdown.compositionMatchup}
+                Strategy/Matchup Fit {recommendation.scoreBreakdown.compositionMatchup}
               </span>
             </div>
             <RecSection title="Why Pick" items={recommendation.why} />
@@ -867,7 +867,7 @@ function DraftCrewPanel({
           </span>
         </div>
         <button className="subtleButton" type="button" onClick={copyDraft}>
-          <RulesIcon iconKey="draft" /> {copied ? "Copied" : "Copy summary"}
+          {copied ? "Copied" : "Copy summary"}
         </button>
       </div>
       <div className="draftList">
@@ -975,15 +975,15 @@ function LikelyCrewPanel({
                 </p>
               </div>
               <span className="badgeGroup">
-                <span className="ownedBadge"><RulesIcon iconKey="prediction" /> Predicted</span>
+                <span className="ownedBadge">Predicted</span>
                 <span className={`confidenceBadge confidence-${recommendation.confidence.toLowerCase()}`}>
                   {recommendation.confidence}
                 </span>
               </span>
             </div>
             <div className="scoreGrid twoScores">
-              <span><RulesIcon iconKey="keyword" /> Synergy {recommendation.scoreBreakdown.crewSynergy}</span>
-              <span><RulesIcon iconKey="score" /> Role {recommendation.scoreBreakdown.compositionMatchup}</span>
+              <span>Synergy {recommendation.scoreBreakdown.crewSynergy}</span>
+              <span>Role {recommendation.scoreBreakdown.compositionMatchup}</span>
             </div>
             <RecSection title="Why Likely" items={recommendation.why} />
             <RecSection title="Basis" items={recommendation.trace} />
@@ -1197,12 +1197,6 @@ function RulesIcon({ iconKey }: { iconKey: RulesIconKey }) {
       {suitGlyph ? <span className="suitGlyph">{suitGlyph}</span> : Icon ? <Icon aria-hidden="true" strokeWidth={2.25} /> : null}
     </span>
   );
-}
-
-function SpendIcon({ iconKey }: { iconKey: Extract<RulesIconKey, "soulstone" | "collection"> }) {
-  const Icon = iconKey === "collection" ? Library : Gem;
-
-  return <Icon className="spendIcon" aria-hidden="true" strokeWidth={2.8} />;
 }
 
 function StatChip({ iconKey, value }: { iconKey: Extract<RulesIconKey, "defense" | "willpower" | "speed" | "size">; value: number }) {

@@ -41,6 +41,7 @@ import {
 } from "@/lib/rules-icons";
 
 type PathKind = "available" | "optimal";
+type ActiveResultTab = "picks" | "matchup" | "draft";
 type SavedDraft = {
   id: string;
   name: string;
@@ -78,6 +79,7 @@ export default function Home() {
   const [selectedModel, setSelectedModel] = useState<ModelCard | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [setupCollapsed, setSetupCollapsed] = useState(false);
+  const [activeResultTab, setActiveResultTab] = useState<ActiveResultTab>("picks");
   const [error, setError] = useState("");
 
   useEffect(() => {
@@ -220,6 +222,7 @@ export default function Home() {
       setAnalyzedCollectionCount(ownedModelIds.length);
       setDraftPath(null);
       setPathKind("available");
+      setActiveResultTab("picks");
       setSetupCollapsed(true);
       setStatusMessage("Analysis ready. Setup panels collapsed for comparison.");
     } catch (currentError) {
@@ -409,42 +412,93 @@ export default function Home() {
             </div>
             <span>{strategyPool.name}</span>
           </div>
-          <div className="analysisColumn">
-            <CrewAnalysisCard
-              title="My Crew"
-              subtitle={`${analysis.playerCrew.primaryKeywords.join(", ")} - ${analysis.match.strategy?.name ?? "No strategy"}`}
-              playstyle={analysis.playerCrew.playstyle}
-              strengths={analysis.playerCrew.strengths}
-              vulnerabilities={analysis.playerCrew.vulnerabilities}
-            />
-            <RecommendationPanel
-              pathKind={pathKind}
-              setPathKind={setPathKind}
-              selectedPath={selectedPath}
-              usedFullPool={pathKind === "available" && analyzedCollectionCount === 0}
-              strategyName={analysis.match.strategy?.name}
-              onUsePlan={(path) => setDraftPath(path)}
-              onSavePlan={saveDraft}
-              onExportPlan={exportDraft}
-              onOpenModel={setSelectedModel}
-            />
-            {draftPath ? (
-              <DraftCrewPanel requiredModels={playerRequiredModels} path={draftPath} pointLimit={pointLimit} onOpenModel={setSelectedModel} />
-            ) : null}
-            <SavedDraftsPanel drafts={savedDrafts} setDrafts={setSavedDrafts} />
+          <div className="resultTabs" role="tablist" aria-label="Analysis views">
+            <button
+              className={activeResultTab === "picks" ? "active" : ""}
+              type="button"
+              role="tab"
+              aria-selected={activeResultTab === "picks"}
+              onClick={() => setActiveResultTab("picks")}
+            >
+              Pick Models
+            </button>
+            <button
+              className={activeResultTab === "matchup" ? "active" : ""}
+              type="button"
+              role="tab"
+              aria-selected={activeResultTab === "matchup"}
+              onClick={() => setActiveResultTab("matchup")}
+            >
+              Understand Matchup
+            </button>
+            <button
+              className={activeResultTab === "draft" ? "active" : ""}
+              type="button"
+              role="tab"
+              aria-selected={activeResultTab === "draft"}
+              onClick={() => setActiveResultTab("draft")}
+            >
+              Draft Crew
+            </button>
           </div>
-          <div className="analysisColumn">
-            <CrewAnalysisCard
-              title="Opponent Crew"
-              subtitle={`${analysis.opponentCrew.primaryKeywords.join(", ")} - ${analysis.match.strategy?.name ?? "No strategy"}`}
-              playstyle={analysis.opponentCrew.plan}
-              strengths={analysis.opponentCrew.pressurePoints}
-              vulnerabilities={analysis.playerCrew.vulnerabilities}
-              strengthTitle="Likely Pressure"
-              vulnerabilityTitle="Your Pressure Points"
-            />
-            <LikelyCrewPanel models={analysis.opponentCrew.likelyModels} onOpenModel={setSelectedModel} />
-          </div>
+          {activeResultTab === "picks" ? (
+            <>
+              <div className="analysisColumn">
+                <RecommendationPanel
+                  pathKind={pathKind}
+                  setPathKind={setPathKind}
+                  selectedPath={selectedPath}
+                  usedFullPool={pathKind === "available" && analyzedCollectionCount === 0}
+                  strategyName={analysis.match.strategy?.name}
+                  onUsePlan={(path) => {
+                    setDraftPath(path);
+                    setActiveResultTab("draft");
+                  }}
+                  onSavePlan={saveDraft}
+                  onExportPlan={exportDraft}
+                  onOpenModel={setSelectedModel}
+                />
+              </div>
+              <div className="analysisColumn">
+                <LikelyCrewPanel models={analysis.opponentCrew.likelyModels} onOpenModel={setSelectedModel} />
+              </div>
+            </>
+          ) : null}
+          {activeResultTab === "matchup" ? (
+            <>
+              <div className="analysisColumn">
+                <CrewAnalysisCard
+                  title="My Crew"
+                  subtitle={`${analysis.playerCrew.primaryKeywords.join(", ")} - ${analysis.match.strategy?.name ?? "No strategy"}`}
+                  playstyle={analysis.playerCrew.playstyle}
+                  strengths={analysis.playerCrew.strengths}
+                  vulnerabilities={analysis.playerCrew.vulnerabilities}
+                />
+              </div>
+              <div className="analysisColumn">
+                <CrewAnalysisCard
+                  title="Opponent Crew"
+                  subtitle={`${analysis.opponentCrew.primaryKeywords.join(", ")} - ${analysis.match.strategy?.name ?? "No strategy"}`}
+                  playstyle={analysis.opponentCrew.plan}
+                  strengths={analysis.opponentCrew.pressurePoints}
+                  vulnerabilities={analysis.playerCrew.vulnerabilities}
+                  strengthTitle="Likely Pressure"
+                  vulnerabilityTitle="Your Pressure Points"
+                />
+                <LikelyCrewPanel models={analysis.opponentCrew.likelyModels} onOpenModel={setSelectedModel} />
+              </div>
+            </>
+          ) : null}
+          {activeResultTab === "draft" ? (
+            <div className="draftResults">
+              {draftPath ? (
+                <DraftCrewPanel requiredModels={playerRequiredModels} path={draftPath} pointLimit={pointLimit} onOpenModel={setSelectedModel} />
+              ) : (
+                <DraftEmptyState />
+              )}
+              <SavedDraftsPanel drafts={savedDrafts} setDrafts={setSavedDrafts} />
+            </div>
+          ) : null}
         </section>
       ) : (
         <section className="emptyState">
@@ -891,6 +945,20 @@ function DraftCrewPanel({
           </div>
         ))}
       </div>
+    </section>
+  );
+}
+
+function DraftEmptyState() {
+  return (
+    <section className="panel draftPanel draftEmptyState">
+      <div className="panelHeader">
+        <h2>
+          <RulesIcon iconKey="draft" /> Draft Crew
+        </h2>
+        <span>No active draft</span>
+      </div>
+      <p>Use a recommendation set from Pick Models to create a draft crew here.</p>
     </section>
   );
 }

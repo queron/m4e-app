@@ -394,11 +394,51 @@ select option {
   font-weight: 900;
 }
 
+.resultTabs {
+  grid-column: 1 / -1;
+  display: inline-grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  width: min(680px, 100%);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  overflow: hidden;
+  background: #17130f;
+}
+
+.resultTabs button {
+  min-height: 42px;
+  border: 0;
+  border-right: 1px solid var(--line);
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  font-family: Inter, Arial, sans-serif;
+  font-size: 0.82rem;
+  font-weight: 900;
+}
+
+.resultTabs button:last-child {
+  border-right: 0;
+}
+
+.resultTabs button.active {
+  background: linear-gradient(180deg, rgba(196, 154, 70, 0.32), rgba(196, 154, 70, 0.16));
+  color: var(--parchment);
+}
+
 .analysisColumn {
   display: grid;
   grid-template-rows: subgrid;
   grid-row: span 3;
   gap: 16px;
+}
+
+.draftResults {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 16px;
+  align-items: start;
 }
 
 .analysisPanel,
@@ -1068,6 +1108,12 @@ li + li {
   border-color: rgba(176, 138, 60, 0.48);
 }
 
+.draftEmptyState p {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.55;
+}
+
 .draftList {
   position: relative;
   display: grid;
@@ -1425,6 +1471,10 @@ li + li {
     grid-template-columns: 1fr;
   }
 
+  .draftResults {
+    grid-template-columns: 1fr;
+  }
+
   .analysisColumn {
     display: grid;
     grid-template-rows: none;
@@ -1499,6 +1549,7 @@ li + li {
   .matchPanel,
   .plannerGrid,
   .segment,
+  .resultTabs,
   .planButton,
   .actionBar,
   .subtleButton,

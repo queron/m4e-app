@@ -161,14 +161,14 @@ function scoreLikelyModel(model: ModelCard, master: ModelCard | undefined, crewC
     why: uniqueSentences([
       shared.length
         ? `${model.name} is a natural include because it shares ${shared.join(", ")} with ${master?.name}.`
-        : `${model.name} is a likely flex hire from the legal pool.`,
+        : `${model.name} is a likely tech pick from the legal pool.`,
       ...synergy.reasons,
       ...strategyFit.reasons,
       ...curatedNotesFor(model, master).slice(0, 1),
-      `It brings ${formatTags(model.tacticalTags.slice(0, 4))}, giving the crew a likely ${inferRole(model)} lane.`
+      `It brings ${formatTags(model.tacticalTags.slice(0, 4))}, giving the crew a clear ${inferRole(model)} table job.`
     ]).slice(0, 4),
     relevantTech: likelyRelevantTech(model).slice(0, 5),
-    priorityTargets: ["Likely included for role coverage rather than known target priority."],
+    priorityTargets: ["Likely included for table-job coverage rather than a confirmed target priority."],
     alliedSynergies: alliedSynergies(model, master, crewCard).slice(0, 4)
   };
 }
@@ -250,7 +250,7 @@ function scoreModel(
 }
 
 function scoreAgainstMaster(model: ModelCard, opponentMaster?: ModelCard, opponentCrewCard?: CrewCard) {
-  if (!opponentMaster) return { score: 0, reasons: ["No opposing master selected, so this score only uses general matchup heuristics."] };
+  if (!opponentMaster) return { score: 0, reasons: ["No opposing master selected, so this score only uses broad matchup heuristics."] };
 
   const opponentTags = new Set<TacticalTag>([...opponentMaster.tacticalTags, ...(opponentCrewCard?.tacticalTags ?? [])]);
   let score = 0;
@@ -369,7 +369,7 @@ function scoreStrategyFit(model: ModelCard, strategy?: Strategy) {
   }
 
   if (score > 0) {
-    reasons.push(`${model.name} fits ${strategy.name} because it supports ${strategy.tags.join(", ")} scoring pressure.`);
+    reasons.push(`${model.name} fits ${strategy.name} because it can help carry, contest, or deny the ${strategy.tags.join(", ")} scoring plan.`);
   }
   reasons.push(...strategyNotesFor(strategy).slice(0, 1));
 
@@ -450,10 +450,10 @@ function alliedSynergies(model: ModelCard, playerMaster?: ModelCard, playerCrewC
   }
 
   if (containsTag(model, "scheme") && playerMaster && containsTag(playerMaster, "damage")) {
-    lines.push(`${playerMaster.name}: lets the master spend activations fighting while this model handles scoring and denial work.`);
+    lines.push(`${playerMaster.name}: lets the master spend activations fighting while this model handles scheme running and denial work.`);
   }
 
-  return lines.length ? lines : ["Best used as an independent tech piece that fills a gap the core keyword does not naturally cover."];
+  return lines.length ? lines : ["Best used as an independent tech pick that fills a gap the core keyword does not naturally cover."];
 }
 
 function describeStrengths(master?: ModelCard, crewCard?: CrewCard, strategy?: Strategy): string[] {
@@ -484,7 +484,7 @@ function describePlaystyle(master?: ModelCard, crewCard?: CrewCard, strategy?: S
   const tags = Array.from(new Set([...master.tacticalTags, ...(crewCard?.tacticalTags ?? [])]));
   const role = inferRole({ ...master, tacticalTags: tags });
   const strategyText = strategy ? ` In ${strategy.name}, prioritize hires that help with ${strategy.tags.join(", ")}.` : "";
-  return `${master.name} should start from a ${role} posture, then hire models that either amplify ${formatTags(tags.slice(0, 3))} or patch the matchup gaps below.${strategyText}`;
+  return `${master.name} starts best as a ${role}: hire pieces that amplify ${formatTags(tags.slice(0, 3))} or patch the matchup gaps below.${strategyText}`;
 }
 
 function describeOpponentPlan(master?: ModelCard, crewCard?: CrewCard, crew: ModelCard[] = [], strategy?: Strategy): string {
@@ -553,7 +553,7 @@ function inferRole(model: Pick<ModelCard, "tacticalTags">): string {
       bestScore = score;
     }
   }
-  return best;
+  return bestScore <= 0 ? "tech pick" : best;
 }
 
 function efficiencyBonus(model: ModelCard): number {
@@ -579,7 +579,7 @@ function toRecommendation(scored: ScoredModel, master: ModelCard | undefined, ow
     trace: [
       `Master Counter: ${Math.round(scored.scoreBreakdown.masterAbilities)} from opposing leader and crew-card pressure.`,
       `Crew Synergy: ${Math.round(scored.scoreBreakdown.crewSynergy)} from keyword, faction, and shared tactical tags.`,
-      `Strategy/Matchup Fit: ${Math.round(scored.scoreBreakdown.compositionMatchup)} from strategy tags, opponent composition, and role coverage.`,
+      `Strategy/Matchup Fit: ${Math.round(scored.scoreBreakdown.compositionMatchup)} from strategy tags, opponent composition, and table-job coverage.`,
       `Hire rule: ${hireDetails.reason}`
     ],
     curatedNotes: curatedNotesFor(scored.model, master).slice(0, 3),
@@ -627,7 +627,7 @@ function strategyNotesFor(strategy?: Strategy): string[] {
 
 function formatTags(tags: TacticalTag[]): string {
   const unique = Array.from(new Set(tags));
-  if (unique.length === 0) return "general efficiency";
+  if (unique.length === 0) return "flex table job";
   return unique.map((tag) => tag.replace(/([A-Z])/g, " $1").toLowerCase()).join(", ");
 }
 

@@ -69,6 +69,7 @@ type DraftSummaryContext = {
   strategyName: string;
   playerMasterName?: string;
   opponentMasterName?: string;
+  schemePairings?: NonNullable<MatchupAnalysis["recommendedSchemePairs"]>;
 };
 
 const DEFAULT_POINT_LIMIT = 50;
@@ -593,7 +594,8 @@ export default function Home() {
       strategyPoolName: strategyPool.name,
       strategyName: strategy.name,
       playerMasterName: playerMaster?.name,
-      opponentMasterName: opponentMaster?.name
+      opponentMasterName: opponentMaster?.name,
+      schemePairings: analysis?.recommendedSchemePairs
     };
   }
 
@@ -816,7 +818,7 @@ export default function Home() {
               Draft Crew
             </button>
           </div>
-          {analysis.schemeWatchlist ? <SchemeWatchlistPanel watchlist={analysis.schemeWatchlist} /> : null}
+          {analysis.schemeWatchlist ? <SchemeWatchlistPanel watchlist={analysis.schemeWatchlist} pairings={analysis.recommendedSchemePairs ?? []} /> : null}
           {activeResultTab === "picks" ? (
             <>
               <div className="analysisColumn">
@@ -1446,7 +1448,13 @@ function CrewAnalysisCard({
   );
 }
 
-function SchemeWatchlistPanel({ watchlist }: { watchlist: NonNullable<MatchupAnalysis["schemeWatchlist"]> }) {
+function SchemeWatchlistPanel({
+  watchlist,
+  pairings
+}: {
+  watchlist: NonNullable<MatchupAnalysis["schemeWatchlist"]>;
+  pairings: NonNullable<MatchupAnalysis["recommendedSchemePairs"]>;
+}) {
   return (
     <details className="schemeWatchlist">
       <summary>Scheme Watchlist</summary>
@@ -1454,6 +1462,7 @@ function SchemeWatchlistPanel({ watchlist }: { watchlist: NonNullable<MatchupAna
         <SchemeWatchlistColumn title="Good for your crew" items={watchlist.goodForPlayer} />
         <SchemeWatchlistColumn title="Watch opponent for" items={watchlist.opponentThreats} />
       </div>
+      <SchemePairingIdeas pairings={pairings} />
     </details>
   );
 }
@@ -1475,6 +1484,29 @@ function SchemeWatchlistColumn({ title, items }: { title: string; items: NonNull
         <p>No strong scheme lane identified from current crew tags.</p>
       )}
     </section>
+  );
+}
+
+function SchemePairingIdeas({ pairings }: { pairings: NonNullable<MatchupAnalysis["recommendedSchemePairs"]> }) {
+  return (
+    <div className="schemePairings">
+      <h3>Scheme Pairing Ideas</h3>
+      {pairings.length > 0 ? (
+        <div className="schemePairingGrid">
+          {pairings.map((pairing) => (
+            <article key={`${pairing.schemes[0].id}-${pairing.schemes[1].id}`}>
+              <strong>{pairing.schemes[0].name} + {pairing.schemes[1].name}</strong>
+              <span>{pairing.confidence} confidence advisory</span>
+              <p>{pairing.rationale}</p>
+              <small>Jobs: {pairing.requiredJobs.slice(0, 2).join(" ")}</small>
+              <small>Watchout: {pairing.opponentWatchout}</small>
+            </article>
+          ))}
+        </div>
+      ) : (
+        <p>No confident scheme pair is available from the selected pool and current crew evidence.</p>
+      )}
+    </div>
   );
 }
 
@@ -2823,6 +2855,11 @@ function buildDraftSummary(
     ...(path.synergyGroups.length > 0
       ? path.synergyGroups.map((group) => `- ${group.name}: ${group.models.map((model) => model.name).join(" + ")} - ${group.job}`)
       : ["- No clear package identified; use these picks independently."]),
+    "",
+    "Scheme pairing ideas:",
+    ...(context.schemePairings && context.schemePairings.length > 0
+      ? context.schemePairings.map((pairing) => `- ${pairing.schemes[0].name} + ${pairing.schemes[1].name}: ${pairing.confidence} confidence - ${pairing.rationale}`)
+      : ["- No confident advisory pair identified for this setup."]),
     "",
     "Planning notes:",
     ...path.models.slice(0, 5).map((recommendation) => `- ${recommendation.model.name}: ${recommendation.why[0] ?? recommendation.hireReason}`)

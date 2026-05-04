@@ -189,6 +189,22 @@ select option {
   line-height: 1.45;
 }
 
+.matchHint,
+.infoCallout {
+  margin: 10px 0 0;
+  border: 1px solid rgba(176, 138, 60, 0.38);
+  border-radius: 7px;
+  background: rgba(176, 138, 60, 0.1);
+  color: var(--parchment-2);
+  padding: 10px 12px;
+  line-height: 1.4;
+}
+
+.infoCallout {
+  position: relative;
+  margin: 0 0 12px;
+}
+
 .primary {
   min-height: 42px;
   border: 1px solid #c4a257;

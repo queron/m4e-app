@@ -24,6 +24,7 @@ export default function Home() {
   const [collectionSearch, setCollectionSearch] = useState("");
   const [opponentSearch, setOpponentSearch] = useState("");
   const [analysis, setAnalysis] = useState<MatchupAnalysis | null>(null);
+  const [analyzedCollectionCount, setAnalyzedCollectionCount] = useState(0);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [setupCollapsed, setSetupCollapsed] = useState(false);
   const [error, setError] = useState("");
@@ -123,6 +124,7 @@ export default function Home() {
       const payload = await response.json();
       if (!response.ok) throw new Error(payload.error ?? "Analysis failed.");
       setAnalysis(payload);
+      setAnalyzedCollectionCount(ownedModelIds.length);
       setPathKind("available");
       setSetupCollapsed(true);
     } catch (currentError) {
@@ -193,6 +195,7 @@ export default function Home() {
           </button>
         </div>
         <p className="matchSummary">{strategy.summary}</p>
+        <p className="matchHint">You can analyze with only both masters selected, then refine the results by marking models in your collection.</p>
       </section>
 
       <section className="plannerGrid">
@@ -250,7 +253,12 @@ export default function Home() {
               strengths={analysis.playerCrew.strengths}
               vulnerabilities={analysis.playerCrew.vulnerabilities}
             />
-            <RecommendationPanel pathKind={pathKind} setPathKind={setPathKind} selectedPath={selectedPath} />
+            <RecommendationPanel
+              pathKind={pathKind}
+              setPathKind={setPathKind}
+              selectedPath={selectedPath}
+              usedFullPool={pathKind === "available" && analyzedCollectionCount === 0}
+            />
           </div>
           <div className="analysisColumn">
             <CrewAnalysisCard
@@ -515,11 +523,13 @@ function CrewAnalysisCard({
 function RecommendationPanel({
   pathKind,
   setPathKind,
-  selectedPath
+  selectedPath,
+  usedFullPool
 }: {
   pathKind: PathKind;
   setPathKind: (value: PathKind) => void;
   selectedPath?: RecommendationPath;
+  usedFullPool: boolean;
 }) {
   if (!selectedPath) return null;
 
@@ -544,6 +554,10 @@ function RecommendationPanel({
 
       {!selectedPath.validation.legal ? (
         <div className="warning">{selectedPath.validation.issues.join(" ")}</div>
+      ) : null}
+
+      {usedFullPool ? (
+        <div className="infoCallout">No collection models were selected, so Available is using the full legal model pool.</div>
       ) : null}
 
       <div className="recommendationList">

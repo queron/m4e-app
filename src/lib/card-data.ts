@@ -1,5 +1,6 @@
 import rawCards from "@/data/m4e_cards.json";
-import type { CardCatalog, CrewCard, ModelCard, RawCard, UpgradeCard } from "./types";
+import type { CardCatalog, CrewCard, HireDetails, ModelCard, RawCard, UpgradeCard } from "./types";
+import { getMandatoryCrewDiagnostics, getMandatoryCrewEntries, getSyntheticMasterRules } from "./mandatory-crew";
 import { cleanText, inferTags, modelRulesBlob, slugify } from "./strategy-tags";
 
 const TRAIT_KEYWORDS = new Set([
@@ -80,35 +81,89 @@ export function getPrimaryKeywords(model?: ModelCard): string[] {
 
 export function legalModelsForMaster(master?: ModelCard): ModelCard[] {
   if (!master) return [];
-  const primaryKeywords = new Set(getPrimaryKeywords(master).map((keyword) => keyword.toLowerCase()));
 
   return getCatalog().models.filter((model) => {
     if (model.isMaster || model.id === master.id || model.cost <= 0) return false;
-    if (model.faction === master.faction) return true;
-    return model.strategicKeywords.some((keyword) => primaryKeywords.has(keyword.toLowerCase()));
+    return getHireDetails(master, model).legal;
   });
 }
 
 export function getMandatoryCrewModels(master?: ModelCard): ModelCard[] {
-  if (!master) return [];
-  const models = getCatalog().models;
-  const primaryKeywords = new Set(getPrimaryKeywords(master).map((keyword) => keyword.toLowerCase()));
-  const mandatory: ModelCard[] = Array.from({ length: master.leaderModelCount }, () => master);
+  return getMandatoryCrewEntries(master, getCatalog().models).flatMap((entry) => Array.from({ length: entry.quantity }, () => entry.model));
+}
 
-  if (master.id === "special-master-viktoria-chambers-ashes-and-blood") {
-    return mandatory;
-  }
-
-  const totems = models
-    .filter((model) => model.isTotem && model.faction === master.faction)
-    .filter((model) => model.strategicKeywords.some((keyword) => primaryKeywords.has(keyword.toLowerCase())))
-    .sort(sortByFactionName);
-
-  return [...mandatory, ...selectTotemsForTitle(master, totems)];
+export function getMandatoryCrewModelEntries(master?: ModelCard): Array<{ model: ModelCard; quantity: number }> {
+  return getMandatoryCrewEntries(master, getCatalog().models);
 }
 
 export function getMandatoryCrewModelCount(master?: ModelCard): number {
-  return getMandatoryCrewModels(master).length;
+  return getMandatoryCrewEntries(master, getCatalog().models).reduce((sum, entry) => sum + entry.quantity, 0);
+}
+
+export function getCardDataDiagnostics(): string[] {
+  const catalog = getCatalog();
+  return getMandatoryCrewDiagnostics(catalog.masters, catalog.models);
+}
+
+export function getHireDetails(master: ModelCard | undefined, model: ModelCard): HireDetails {
+  const printedCost = model.cost;
+  if (!master) {
+    return {
+      legal: false,
+      kind: "illegal",
+      printedCost,
+      hireCost: printedCost,
+      tax: 0,
+      reason: "Select a master before checking hire legality."
+    };
+  }
+
+  const masterKeywords = new Set(getPrimaryKeywords(master).map((keyword) => keyword.toLowerCase()));
+  const sharesKeyword = model.strategicKeywords.some((keyword) => masterKeywords.has(keyword.toLowerCase()));
+  const sameFaction = model.faction === master.faction;
+  const versatile = model.keywords.some((keyword) => keyword.toLowerCase() === "versatile");
+
+  if (sharesKeyword) {
+    return {
+      legal: true,
+      kind: "keyword",
+      printedCost,
+      hireCost: printedCost,
+      tax: 0,
+      reason: `Shares ${getPrimaryKeywords(master).join(", ")} keyword with the leader.`
+    };
+  }
+
+  if (sameFaction && versatile) {
+    return {
+      legal: true,
+      kind: "versatile",
+      printedCost,
+      hireCost: printedCost,
+      tax: 0,
+      reason: "Versatile same-faction hire at printed cost."
+    };
+  }
+
+  if (sameFaction) {
+    return {
+      legal: true,
+      kind: "outOfKeyword",
+      printedCost,
+      hireCost: printedCost + 1,
+      tax: 1,
+      reason: "Same-faction out-of-keyword hire adds +1ss."
+    };
+  }
+
+  return {
+    legal: false,
+    kind: "illegal",
+    printedCost,
+    hireCost: printedCost,
+    tax: 0,
+    reason: `Outside ${master.faction} and does not share ${getPrimaryKeywords(master).join(", ") || "the leader's keyword"}.`
+  };
 }
 
 function toModelCard(card: RawCard, copyCount: number): ModelCard {
@@ -177,30 +232,28 @@ function toModelCard(card: RawCard, copyCount: number): ModelCard {
 }
 
 function withSpecialMasters(models: ModelCard[]): ModelCard[] {
-  const ashesAndBlood = models.find(
-    (model) =>
-      model.faction === "Outcasts" &&
-      model.name === "Viktoria Chambers, Ashes And Blood" &&
-      model.strategicKeywords.includes("Mercenary")
-  );
+  const additions: ModelCard[] = [];
 
-  if (!ashesAndBlood || models.some((model) => model.id === "special-master-viktoria-chambers-ashes-and-blood")) {
-    return models;
+  for (const rule of getSyntheticMasterRules()) {
+    if (models.some((model) => model.id === rule.id)) continue;
+
+    const sourceModel = models.find((model) => model.faction === rule.faction && model.name === rule.sourceModelName);
+    if (!sourceModel) continue;
+
+    additions.push({
+      ...sourceModel,
+      id: rule.id,
+      keywords: ["Master", ...sourceModel.keywords.filter((keyword) => keyword !== "Unique")],
+      traits: ["Master", ...sourceModel.traits.filter((keyword) => keyword !== "Unique")],
+      isMaster: true,
+      isUnique: false,
+      maxCopies: rule.requiredCopies,
+      leaderModelCount: rule.requiredCopies,
+      textIndex: `${sourceModel.textIndex} Master Twin Masters ${rule.note ?? ""}`
+    });
   }
 
-  const twinMaster: ModelCard = {
-    ...ashesAndBlood,
-    id: "special-master-viktoria-chambers-ashes-and-blood",
-    keywords: ["Master", ...ashesAndBlood.keywords.filter((keyword) => keyword !== "Unique")],
-    traits: ["Master", ...ashesAndBlood.traits.filter((keyword) => keyword !== "Unique")],
-    isMaster: true,
-    isUnique: false,
-    maxCopies: 2,
-    leaderModelCount: 2,
-    textIndex: `${ashesAndBlood.textIndex} Master Twin Masters Bounty Hunt two copies`
-  };
-
-  return [...models, twinMaster];
+  return [...models, ...additions];
 }
 
 function toCrewCard(card: RawCard): CrewCard {
@@ -234,15 +287,6 @@ function toUpgradeCard(card: RawCard): UpgradeCard {
     rulesText,
     tacticalTags: inferTags([rulesText])
   };
-}
-
-function selectTotemsForTitle(master: ModelCard, totems: ModelCard[]): ModelCard[] {
-  if (totems.length <= 1) return totems;
-
-  const masterText = slugify(`${master.name} ${master.sourceFile} ${master.rulesText} ${master.textIndex}`);
-  const directMatches = totems.filter((totem) => masterText.includes(slugify(totem.name)));
-
-  return directMatches.length > 0 ? directMatches : totems;
 }
 
 function normalizeKeywords(keywords: string[]): string[] {

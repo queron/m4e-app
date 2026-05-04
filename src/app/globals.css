@@ -1,23 +1,23 @@
 @import url("https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700;800&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600;8..60,700&family=Inter:wght@500;600;700;800;900&display=swap");
 
 :root {
-  --bg: #0e0d0b;
-  --bg-2: #17130f;
-  --surface: #211a15;
-  --surface-2: #2b231c;
-  --surface-3: #17130f;
-  --parchment: #eadabc;
-  --parchment-2: #d1bea0;
+  --bg: #0b0a08;
+  --bg-2: #14100d;
+  --surface: #1b1511;
+  --surface-2: #241d17;
+  --surface-3: #120f0c;
+  --parchment: #f0dfc0;
+  --parchment-2: #d8c7a8;
   --ink: #f0dfbf;
-  --muted: #b8a88c;
-  --dim: #887863;
-  --line: #5a4730;
-  --line-2: #3c3026;
-  --accent: #b08a3c;
-  --accent-2: #6e1f2a;
+  --muted: #c9b99a;
+  --dim: #a99778;
+  --line: #6a5437;
+  --line-2: #4a3a29;
+  --accent: #c49a46;
+  --accent-2: #7a2630;
   --faction-accent: #b08a3c;
-  --good: #8e9a72;
-  --warn: #c96a3a;
+  --good: #789064;
+  --warn: #d27a3e;
   --bad: #b65b62;
   --shadow: 0 22px 70px rgba(0, 0, 0, 0.42);
   --inner-glow: inset 0 1px 0 rgba(255, 240, 196, 0.08), inset 0 -18px 45px rgba(0, 0, 0, 0.18);
@@ -114,7 +114,7 @@ h1 {
 h1 .rulesIcon {
   width: 1.05em;
   height: 1.05em;
-  font-size: 0.42em;
+  font-size: 0.48em;
   vertical-align: 0.2em;
 }
 
@@ -157,26 +157,33 @@ label {
 input,
 select {
   width: 100%;
-  min-height: 42px;
-  border: 1px solid var(--line);
-  border-radius: 6px;
+  min-height: 44px;
+  border: 1px solid color-mix(in srgb, var(--line), var(--accent) 20%);
+  border-radius: 7px;
   background:
     linear-gradient(180deg, rgba(255, 242, 210, 0.06), rgba(0, 0, 0, 0.08)),
     var(--surface-3);
   color: var(--ink);
-  padding: 10px 11px;
+  padding: 11px 12px;
   outline: none;
   box-shadow: inset 0 1px 0 rgba(255, 238, 194, 0.08);
 }
 
 input::placeholder {
-  color: #9b8b74;
+  color: #b3a181;
 }
 
 input:focus,
 select:focus {
   border-color: var(--accent);
-  box-shadow: 0 0 0 3px rgba(176, 138, 60, 0.18), inset 0 1px 0 rgba(255, 238, 194, 0.1);
+  box-shadow: 0 0 0 3px rgba(196, 154, 70, 0.28), inset 0 1px 0 rgba(255, 238, 194, 0.1);
+}
+
+button:focus-visible,
+input:focus-visible,
+select:focus-visible {
+  outline: 2px solid #f0dfc0;
+  outline-offset: 2px;
 }
 
 select option {
@@ -259,8 +266,8 @@ select option {
   align-items: center;
   justify-content: center;
   flex: 0 0 auto;
-  width: 1.45em;
-  height: 1.45em;
+  width: 1.7em;
+  height: 1.7em;
   margin-right: 0.34em;
   border: 1px solid rgba(176, 138, 60, 0.55);
   border-radius: 50%;
@@ -269,7 +276,7 @@ select option {
     rgba(15, 12, 10, 0.72);
   color: var(--accent);
   font-family: Inter, Arial, sans-serif;
-  font-size: 0.72em;
+  font-size: 0.82em;
   font-weight: 900;
   line-height: 1;
   vertical-align: -0.12em;
@@ -277,15 +284,15 @@ select option {
 
 .rulesIcon svg {
   display: block;
-  width: 0.88em;
-  height: 0.88em;
+  width: 1.05em;
+  height: 1.05em;
   margin: auto;
   stroke: currentColor;
 }
 
 .suitGlyph {
   display: block;
-  font-size: 1.02em;
+  font-size: 1.18em;
   line-height: 1;
   transform: translateY(-0.02em);
 }
@@ -345,9 +352,7 @@ select option {
   gap: 16px;
   border: 1px solid rgba(176, 138, 60, 0.42);
   border-radius: 8px;
-  background:
-    linear-gradient(90deg, rgba(176, 138, 60, 0.13), transparent 62%),
-    #17130f;
+  background: linear-gradient(90deg, rgba(196, 154, 70, 0.13), transparent 62%), #17130f;
   padding: 14px 16px;
   box-shadow: var(--shadow);
 }
@@ -393,8 +398,8 @@ select option {
   border: 1px solid var(--line);
   border-radius: 8px;
   background:
-    linear-gradient(180deg, rgba(255, 239, 196, 0.055), transparent 9rem),
-    linear-gradient(135deg, rgba(176, 138, 60, 0.075), transparent 18rem),
+    linear-gradient(180deg, rgba(255, 239, 196, 0.045), transparent 9rem),
+    linear-gradient(135deg, rgba(196, 154, 70, 0.055), transparent 18rem),
     var(--surface);
   box-shadow: var(--shadow), var(--inner-glow);
 }
@@ -404,7 +409,7 @@ select option {
   position: absolute;
   inset: 6px;
   pointer-events: none;
-  border: 1px solid rgba(176, 138, 60, 0.18);
+  border: 1px solid rgba(196, 154, 70, 0.14);
   border-radius: 5px;
 }
 
@@ -418,14 +423,21 @@ select option {
   align-items: start;
   justify-content: space-between;
   gap: 14px;
-  margin-bottom: 14px;
+  margin-bottom: 8px;
 }
 
 .panelHeader span {
   color: var(--muted);
   font-family: Inter, Arial, sans-serif;
-  font-size: 0.8rem;
-  font-weight: 700;
+  font-size: 0.82rem;
+  font-weight: 800;
+}
+
+.panelHelper {
+  position: relative;
+  margin: 0 0 12px;
+  color: var(--muted);
+  line-height: 1.35;
 }
 
 .spendSummary {
@@ -438,20 +450,38 @@ select option {
 
 .spendSummary span,
 .spendSummary strong {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 36px;
   border: 1px solid var(--line);
   border-radius: 999px;
   background: rgba(15, 12, 10, 0.62);
-  padding: 6px 10px;
-  color: var(--muted);
+  padding: 0 13px;
+  color: var(--parchment-2);
   font-family: Inter, Arial, sans-serif;
-  font-size: 0.74rem;
-  line-height: 1;
+  font-size: 0.78rem;
+  line-height: 1.2;
 }
 
 .spendSummary strong {
   border-color: color-mix(in srgb, var(--faction-accent), var(--accent) 40%);
   color: var(--parchment);
   background: color-mix(in srgb, var(--faction-accent), #15110d 78%);
+}
+
+.spendIcon {
+  display: block;
+  flex: 0 0 auto;
+  width: 18px;
+  height: 18px;
+  margin-right: 7px;
+  color: var(--accent);
+  stroke: currentColor;
+}
+
+.spendSummary strong .spendIcon {
+  color: var(--parchment);
 }
 
 .subtleButton {
@@ -500,9 +530,9 @@ select option {
 .requiredHelper {
   position: relative;
   margin: 0 0 12px;
-  color: var(--muted);
-  font-size: 0.9rem;
-  line-height: 1.4;
+  color: var(--parchment-2);
+  font-size: 0.94rem;
+  line-height: 1.45;
 }
 
 .modelList {
@@ -534,14 +564,14 @@ select option {
   background:
     linear-gradient(90deg, color-mix(in srgb, var(--faction-accent), transparent 88%), transparent),
     #17130f;
-  padding: 8px 10px;
+  padding: 10px 12px;
 }
 
 .modelSectionHeader h3 {
   margin: 0;
   color: var(--accent);
   font-family: Inter, Arial, sans-serif;
-  font-size: 0.8rem;
+  font-size: 0.84rem;
   font-weight: 900;
   letter-spacing: 0.04em;
   text-transform: uppercase;
@@ -564,19 +594,17 @@ select option {
 
 .modelRow {
   display: grid;
-  grid-template-columns: 24px minmax(0, 1fr) auto auto auto;
-  align-items: center;
-  gap: 10px;
+  grid-template-columns: 32px minmax(0, 1fr) auto auto auto;
+  align-items: start;
+  gap: 12px;
   width: 100%;
-  min-height: 64px;
+  min-height: 82px;
   border: 1px solid var(--line-2);
   border-left: 4px solid rgba(176, 138, 60, 0.34);
   border-radius: 7px;
-  background:
-    linear-gradient(180deg, rgba(234, 218, 188, 0.055), rgba(0, 0, 0, 0.08)),
-    #1a1511;
+  background: #1a1511;
   color: var(--ink);
-  padding: 8px 10px;
+  padding: 12px;
   text-align: left;
 }
 
@@ -598,38 +626,38 @@ select option {
 }
 
 .modelRow.forced .pill {
-  background: rgba(176, 138, 60, 0.18);
+  background: rgba(196, 154, 70, 0.2);
   color: var(--parchment);
 }
 
 .check {
   display: grid;
   place-items: center;
-  width: 22px;
-  height: 22px;
+  width: 26px;
+  height: 26px;
   border: 1px solid var(--line);
   border-radius: 4px;
   background: #0f0c0a;
   color: var(--accent);
   font-family: Inter, Arial, sans-serif;
-  font-size: 0.8rem;
+  font-size: 0.9rem;
   font-weight: 900;
   padding: 0;
 }
 
 .forcedCheck {
   width: auto;
-  min-width: 32px;
-  padding: 0 5px;
+  min-width: 36px;
+  padding: 0 6px;
   color: var(--parchment);
   border-color: var(--accent);
   background: rgba(176, 138, 60, 0.18);
-  font-size: 0.62rem;
+  font-size: 0.68rem;
 }
 
 .modelMain {
   display: grid;
-  gap: 3px;
+  gap: 5px;
   min-width: 0;
 }
 
@@ -644,8 +672,8 @@ select option {
 .modelMain strong,
 .modelNameButton {
   color: var(--parchment);
-  font-size: 1.02rem;
-  line-height: 1.15;
+  font-size: 1.12rem;
+  line-height: 1.18;
 }
 
 .modelNameButton,
@@ -660,6 +688,10 @@ select option {
   font-weight: 800;
   text-align: left;
   cursor: pointer;
+  text-decoration: underline;
+  text-decoration-color: rgba(196, 154, 70, 0.38);
+  text-underline-offset: 4px;
+  text-decoration-thickness: 1px;
 }
 
 .modelNameButton:hover,
@@ -675,12 +707,12 @@ select option {
 
 .modelMain small,
 .stats {
-  color: var(--muted);
-  font-size: 0.76rem;
+  color: var(--parchment-2);
+  font-size: 0.8rem;
 }
 
 .modelMain small .rulesIcon {
-  font-size: 0.84em;
+  font-size: 0.96em;
 }
 
 .inlineKeyword {
@@ -698,7 +730,7 @@ select option {
   border: 1px solid var(--line-2);
   border-radius: 999px;
   background: rgba(15, 12, 10, 0.62);
-  padding: 5px 8px;
+  padding: 6px 9px;
   color: var(--parchment-2);
   font-family: Inter, Arial, sans-serif;
   white-space: nowrap;
@@ -706,40 +738,41 @@ select option {
 
 .statChips {
   display: inline-flex;
-  gap: 5px;
-  padding: 4px;
+  gap: 8px;
+  padding: 6px;
 }
 
 .statChip {
   display: inline-flex;
   align-items: center;
-  gap: 2px;
+  gap: 4px;
+  font-size: 0.82rem;
 }
 
 .statChip .rulesIcon {
   margin-right: 0;
-  font-size: 0.74em;
+  font-size: 1.05em;
 }
 
 .actionPreview {
   display: flex;
   flex-wrap: wrap;
-  gap: 5px;
+  gap: 6px;
   min-height: 0;
 }
 
 .actionChip {
   display: inline-flex;
   align-items: center;
-  gap: 3px;
+  gap: 5px;
   max-width: 100%;
   border: 1px solid var(--line-2);
   border-radius: 999px;
   background: rgba(15, 12, 10, 0.5);
   color: var(--parchment-2);
-  padding: 3px 7px;
+  padding: 5px 8px;
   font-family: Inter, Arial, sans-serif;
-  font-size: 0.68rem;
+  font-size: 0.74rem;
   line-height: 1.15;
 }
 
@@ -752,7 +785,7 @@ select option {
 .actionChip .rulesIcon {
   flex: 0 0 auto;
   margin-right: 0;
-  font-size: 0.78em;
+  font-size: 1em;
 }
 
 .actionChip em {
@@ -806,9 +839,9 @@ select option {
   align-items: center;
   border: 1px solid rgba(176, 138, 60, 0.25);
   border-radius: 999px;
-  padding: 4px 8px;
+  padding: 6px 9px;
   font-family: Inter, Arial, sans-serif;
-  font-size: 0.7rem;
+  font-size: 0.76rem;
   font-weight: 900;
   white-space: nowrap;
 }
@@ -822,32 +855,12 @@ select option {
 .planButton .rulesIcon,
 .subtleButton .rulesIcon {
   margin-right: 0.28em;
-  font-size: 0.78em;
-}
-
-.spendSummary .rulesIcon {
-  width: 1.15em;
-  height: 1.15em;
-  margin-right: 0.36em;
-  border: 0;
-  background: transparent;
-  color: var(--accent);
   font-size: 1em;
-  vertical-align: -0.18em;
-}
-
-.spendSummary strong .rulesIcon {
-  color: var(--parchment);
-}
-
-.spendSummary .rulesIcon svg {
-  width: 1em;
-  height: 1em;
 }
 
 .pill {
   background: rgba(15, 12, 10, 0.68);
-  color: var(--muted);
+  color: var(--parchment-2);
 }
 
 .ownedBadge {
@@ -909,28 +922,28 @@ li + li {
 }
 
 .segment button {
-  min-height: 34px;
+  min-height: 38px;
   border: 0;
   background: transparent;
-  color: var(--muted);
-  padding: 0 12px;
+  color: var(--parchment-2);
+  padding: 0 14px;
   font-family: Inter, Arial, sans-serif;
   font-weight: 900;
 }
 
 .segment button.active {
-  background: linear-gradient(180deg, rgba(176, 138, 60, 0.26), rgba(176, 138, 60, 0.12));
+  background: linear-gradient(180deg, rgba(196, 154, 70, 0.32), rgba(196, 154, 70, 0.16));
   color: var(--parchment);
 }
 
 .planButton {
   position: relative;
   width: 100%;
-  min-height: 38px;
+  min-height: 44px;
   margin: 0 0 12px;
   border: 1px solid var(--accent);
   border-radius: 7px;
-  background: rgba(176, 138, 60, 0.12);
+  background: rgba(196, 154, 70, 0.15);
   color: var(--parchment);
   font-family: Inter, Arial, sans-serif;
   font-weight: 900;
@@ -946,10 +959,8 @@ li + li {
   border: 1px solid var(--line);
   border-left: 4px solid var(--accent);
   border-radius: 8px;
-  padding: 14px;
-  background:
-    linear-gradient(180deg, rgba(234, 218, 188, 0.065), transparent 8rem),
-    #18130f;
+  padding: 16px;
+  background: #18130f;
 }
 
 .recHeader {
@@ -961,30 +972,30 @@ li + li {
 }
 
 .recHeader h3 {
-  margin-bottom: 4px;
-  font-size: 1.08rem;
+  margin-bottom: 6px;
+  font-size: 1.14rem;
 }
 
 .recHeader p {
   margin-bottom: 0;
-  color: var(--muted);
+  color: var(--parchment-2);
   font-family: Inter, Arial, sans-serif;
-  font-size: 0.82rem;
+  font-size: 0.84rem;
 }
 
 .topReason {
-  margin: -2px 0 12px;
+  margin: 0 0 12px;
   border-left: 3px solid var(--accent);
   color: var(--parchment-2);
-  background: rgba(176, 138, 60, 0.08);
-  padding: 8px 10px;
+  background: rgba(196, 154, 70, 0.1);
+  padding: 10px 12px;
   line-height: 1.45;
 }
 
 .panelHint,
 .confidenceBand {
   margin: -4px 0 12px;
-  color: var(--muted);
+  color: var(--parchment-2);
   line-height: 1.45;
 }
 
@@ -1014,10 +1025,10 @@ li + li {
   border: 1px solid var(--line-2);
   border-radius: 6px;
   background: rgba(15, 12, 10, 0.66);
-  padding: 8px;
+  padding: 10px;
   color: var(--parchment-2);
   font-family: Inter, Arial, sans-serif;
-  font-size: 0.74rem;
+  font-size: 0.78rem;
   font-weight: 800;
   text-align: center;
 }
@@ -1034,7 +1045,7 @@ li + li {
 
 .recSection li {
   color: var(--parchment-2);
-  line-height: 1.48;
+  line-height: 1.55;
 }
 
 .draftPanel {
@@ -1064,7 +1075,7 @@ li + li {
   border: 1px solid var(--line-2);
   border-radius: 7px;
   background: rgba(15, 12, 10, 0.58);
-  padding: 9px 10px;
+  padding: 11px 12px;
 }
 
 .draftRow span {
@@ -1090,7 +1101,7 @@ li + li {
   z-index: 50;
   display: grid;
   place-items: center;
-  background: rgba(4, 3, 2, 0.78);
+  background: rgba(4, 3, 2, 0.82);
   padding: 24px;
   backdrop-filter: blur(3px);
 }
@@ -1099,7 +1110,7 @@ li + li {
   width: min(920px, calc(100vw - 32px));
   max-height: min(900px, calc(100vh - 32px));
   overflow: auto;
-  border: 1px solid rgba(176, 138, 60, 0.6);
+  border: 1px solid rgba(196, 154, 70, 0.68);
   border-radius: 10px;
   background:
     radial-gradient(circle at 20% 0%, rgba(176, 138, 60, 0.18), transparent 24rem),
@@ -1116,10 +1127,10 @@ li + li {
   align-items: center;
   border-bottom: 1px solid var(--line);
   background: rgba(15, 12, 10, 0.92);
-  color: var(--accent);
-  padding: 10px 12px;
+  color: var(--parchment-2);
+  padding: 12px 14px;
   font-family: Inter, Arial, sans-serif;
-  font-size: 0.74rem;
+  font-size: 0.78rem;
   font-weight: 900;
   letter-spacing: 0.06em;
   text-transform: uppercase;
@@ -1128,8 +1139,8 @@ li + li {
 .iconButton {
   display: inline-grid;
   place-items: center;
-  width: 34px;
-  height: 34px;
+  width: 38px;
+  height: 38px;
   border: 1px solid var(--line);
   border-radius: 50%;
   background: rgba(15, 12, 10, 0.72);
@@ -1145,10 +1156,8 @@ li + li {
   margin: 12px;
   border: 1px solid var(--line);
   border-radius: 9px;
-  background:
-    linear-gradient(180deg, rgba(234, 218, 188, 0.08), transparent 12rem),
-    #211a15;
-  padding: 18px;
+  background: #211a15;
+  padding: 20px;
 }
 
 .statCardHeader {
@@ -1166,15 +1175,15 @@ li + li {
 
 .statCardHeader p {
   margin: 0;
-  color: var(--muted);
+  color: var(--parchment-2);
 }
 
 .statCardCost {
   display: grid;
   place-items: center;
-  min-width: 78px;
-  height: 78px;
-  border: 1px solid rgba(176, 138, 60, 0.58);
+  min-width: 86px;
+  height: 86px;
+  border: 1px solid rgba(196, 154, 70, 0.68);
   border-radius: 50%;
   background: rgba(15, 12, 10, 0.72);
   color: var(--parchment);
@@ -1182,12 +1191,12 @@ li + li {
 
 .statCardCost .rulesIcon {
   margin: 0;
-  font-size: 1.25rem;
+  font-size: 1.45rem;
 }
 
 .statCardCost strong {
   font-family: Inter, Arial, sans-serif;
-  font-size: 1.35rem;
+  font-size: 1.45rem;
 }
 
 .statCardMeta {
@@ -1202,7 +1211,7 @@ li + li {
   margin-bottom: 8px;
   color: var(--accent);
   font-family: Inter, Arial, sans-serif;
-  font-size: 0.76rem;
+  font-size: 0.82rem;
   letter-spacing: 0.05em;
   text-transform: uppercase;
 }
@@ -1220,15 +1229,15 @@ li + li {
   border-radius: 999px;
   background: rgba(15, 12, 10, 0.58);
   color: var(--parchment-2);
-  padding: 5px 8px;
+  padding: 6px 9px;
   font-family: Inter, Arial, sans-serif;
-  font-size: 0.74rem;
+  font-size: 0.8rem;
   font-weight: 800;
 }
 
 .rulesChip .rulesIcon {
   margin-right: 0.28em;
-  font-size: 0.8em;
+  font-size: 0.95em;
 }
 
 .statCardStats {
@@ -1246,8 +1255,8 @@ li + li {
   border: 1px solid var(--line-2);
   border-radius: 8px;
   background: rgba(15, 12, 10, 0.58);
-  padding: 10px;
-  color: var(--muted);
+  padding: 12px;
+  color: var(--parchment-2);
 }
 
 .statBlockItem .rulesIcon {
@@ -1274,8 +1283,8 @@ li + li {
 .rulesEntry {
   border: 1px solid var(--line-2);
   border-radius: 8px;
-  background: rgba(15, 12, 10, 0.44);
-  padding: 10px;
+  background: rgba(15, 12, 10, 0.62);
+  padding: 12px;
 }
 
 .rulesEntry strong {
@@ -1285,8 +1294,8 @@ li + li {
 .rulesEntry p,
 .emptyRulesText {
   margin: 5px 0 0;
-  color: var(--muted);
-  line-height: 1.45;
+  color: var(--parchment-2);
+  line-height: 1.52;
 }
 
 .actionCardHeader {
@@ -1301,14 +1310,14 @@ li + li {
 }
 
 .actionCardHeader strong .rulesIcon {
-  font-size: 0.8em;
+  font-size: 1em;
 }
 
 .actionCardHeader span,
 .damageLine {
   color: var(--accent);
   font-family: Inter, Arial, sans-serif;
-  font-size: 0.78rem;
+  font-size: 0.82rem;
   font-weight: 800;
 }
 
@@ -1334,7 +1343,7 @@ li + li {
 
 .triggerEntry .rulesIcon {
   margin: 0;
-  font-size: 0.76em;
+  font-size: 0.95em;
 }
 
 .faction-the-guild {
@@ -1370,6 +1379,17 @@ li + li {
   --faction-accent: #b59b67;
 }
 
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+  }
+}
+
 @media (max-width: 1050px) {
   .plannerGrid,
   .analysisGrid {
@@ -1380,6 +1400,11 @@ li + li {
     display: grid;
     grid-template-rows: none;
     grid-row: auto;
+  }
+
+  .statCardMeta,
+  .statCardStats {
+    grid-template-columns: 1fr 1fr;
   }
 }
 
@@ -1403,12 +1428,34 @@ li + li {
   }
 
   .modelRow {
-    grid-template-columns: 24px minmax(0, 1fr);
+    grid-template-columns: 32px minmax(0, 1fr);
   }
 
   .stats,
   .quantityControl,
   .pill {
     grid-column: 2;
+  }
+
+  .modalBackdrop {
+    padding: 10px;
+  }
+
+  .statCard {
+    margin: 8px;
+    padding: 14px;
+  }
+
+  .statCardHeader,
+  .actionCardHeader {
+    display: grid;
+  }
+
+  .statCardStats {
+    grid-template-columns: 1fr;
+  }
+
+  .scoreGrid.twoScores {
+    grid-template-columns: 1fr;
   }
 }

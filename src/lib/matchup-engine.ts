@@ -1,6 +1,7 @@
 import {
   findCrewCardForMaster,
   getCatalog,
+  getHireDetails,
   getPrimaryKeywords,
   legalModelsForMaster
 } from "./card-data";
@@ -120,7 +121,7 @@ function buildLikelyCrewMembers(
   return selected
     .map((model) => scored.find((item) => item.model.id === model.id))
     .filter(Boolean)
-    .map((item) => toRecommendation(item as ScoredModel, new Set(), true));
+    .map((item) => toRecommendation(item as ScoredModel, master, new Set(), true));
 }
 
 function scoreLikelyModel(model: ModelCard, master: ModelCard | undefined, crewCard: CrewCard | undefined, strategy?: Strategy): ScoredModel {
@@ -167,8 +168,8 @@ function buildPath(
   const recommendations = selected
     .map((model) => scored.find((item) => item.model.id === model.id))
     .filter(Boolean)
-    .map((item) => toRecommendation(item as ScoredModel, ownedIds, treatAllAsAvailable));
-  const totalCost = recommendations.reduce((sum, recommendation) => sum + recommendation.model.cost, 0);
+    .map((item) => toRecommendation(item as ScoredModel, master, ownedIds, treatAllAsAvailable));
+  const totalCost = recommendations.reduce((sum, recommendation) => sum + recommendation.hireCost, 0);
 
   return {
     kind,
@@ -541,10 +542,17 @@ function efficiencyBonus(model: ModelCard): number {
   return 0;
 }
 
-function toRecommendation(scored: ScoredModel, ownedIds: Set<string>, treatAsOwned = false): ModelRecommendation {
+function toRecommendation(scored: ScoredModel, master: ModelCard | undefined, ownedIds: Set<string>, treatAsOwned = false): ModelRecommendation {
+  const hireDetails = getHireDetails(master, scored.model);
+
   return {
     model: scored.model,
     owned: treatAsOwned || ownedIds.has(scored.model.id),
+    hireCost: hireDetails.hireCost,
+    printedCost: hireDetails.printedCost,
+    hireTax: hireDetails.tax,
+    hireKind: hireDetails.kind,
+    hireReason: hireDetails.reason,
     score: Math.round(scored.score),
     role: scored.role,
     scoreBreakdown: {

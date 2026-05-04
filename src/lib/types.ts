@@ -157,6 +157,23 @@ export type CrewValidation = {
   modelCount: number;
   modelLimit: number;
   issues: string[];
+  hiredModelCosts: HiredModelCost[];
+};
+
+export type HireKind = "keyword" | "versatile" | "outOfKeyword" | "illegal";
+
+export type HireDetails = {
+  legal: boolean;
+  kind: HireKind;
+  printedCost: number;
+  hireCost: number;
+  tax: number;
+  reason: string;
+};
+
+export type HiredModelCost = HireDetails & {
+  modelId: string;
+  modelName: string;
 };
 
 export type RecommendationPath = {
@@ -170,6 +187,11 @@ export type RecommendationPath = {
 export type ModelRecommendation = {
   model: ModelCard;
   owned: boolean;
+  hireCost: number;
+  printedCost: number;
+  hireTax: number;
+  hireKind: HireKind;
+  hireReason: string;
   score: number;
   role: string;
   scoreBreakdown: {

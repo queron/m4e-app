@@ -26,8 +26,9 @@ import {
   Waves,
   X
 } from "lucide-react";
-import type { CardCatalog, MatchupAnalysis, ModelCard, RecommendationPath } from "@/lib/types";
+import type { CardCatalog, MatchupAnalysis, ModelCard, ModelRecommendation, RecommendationPath } from "@/lib/types";
 import { STRATEGY_POOLS } from "@/lib/strategy-pools";
+import { getMandatoryCrewEntries } from "@/lib/mandatory-crew";
 import {
   actionPrefixIcon,
   cleanActionName,
@@ -76,6 +77,17 @@ export default function Home() {
       })
       .catch(() => setError("Card data could not be loaded."));
   }, []);
+
+  useEffect(() => {
+    if (!selectedModel) return;
+
+    function closeOnEscape(event: KeyboardEvent) {
+      if (event.key === "Escape") setSelectedModel(null);
+    }
+
+    window.addEventListener("keydown", closeOnEscape);
+    return () => window.removeEventListener("keydown", closeOnEscape);
+  }, [selectedModel]);
 
   const playerMasters = useMemo(
     () => catalog?.masters.filter((model) => model.faction === playerFaction) ?? [],
@@ -406,10 +418,11 @@ function CrewPanel(props: {
           {mandatoryModels.reduce((sum, entry) => sum + entry.quantity, 0)} required / {props.selectedIds.length} {props.selectedCountLabel} / {totalSoulstones}ss
         </span>
       </div>
+      <p className="panelHelper">{props.title === "Player" ? "Choose your collection, inspect cards, then compare recommended hires." : "Mark known enemy models or leave empty for predicted picks."}</p>
       <div className="spendSummary">
-        <span><RulesIcon iconKey="soulstone" /> Required models {requiredSoulstones}</span>
-        <span><RulesIcon iconKey="collection" /> {props.selectionLabel} {selectedSoulstones}ss</span>
-        <strong><RulesIcon iconKey="soulstone" /> Displayed total {totalSoulstones}</strong>
+        <span><SpendIcon iconKey="soulstone" /> Required models {requiredSoulstones}</span>
+        <span><SpendIcon iconKey="collection" /> {props.selectionLabel} {selectedSoulstones}ss</span>
+        <strong><SpendIcon iconKey="soulstone" /> Displayed total {totalSoulstones}</strong>
         {props.collapsed ? (
           <button className="subtleButton" type="button" onClick={() => props.setCollapsed(false)}>
             Edit
@@ -663,7 +676,7 @@ function RecommendationPanel({
                   </button>
                 </h3>
                 <p>
-                  <RulesIcon iconKey="soulstone" /> {recommendation.model.cost} - {recommendation.role} - score {recommendation.score}
+                  <RulesIcon iconKey="soulstone" /> {formatRecommendationCost(recommendation)} - {recommendation.role} - score {recommendation.score}
                 </p>
               </div>
               <span className={recommendation.owned ? "ownedBadge" : "missingBadge"}>
@@ -707,7 +720,7 @@ function DraftCrewPanel({
 }) {
   const [copied, setCopied] = useState(false);
   const requiredCost = requiredModels.reduce((sum, entry) => sum + entry.model.cost * entry.quantity, 0);
-  const hiredCost = path.models.reduce((sum, recommendation) => sum + recommendation.model.cost, 0);
+  const hiredCost = path.models.reduce((sum, recommendation) => sum + recommendation.hireCost, 0);
   const totalCost = requiredCost + hiredCost;
   const remaining = pointLimit - totalCost;
 
@@ -719,7 +732,7 @@ function DraftCrewPanel({
       ...requiredModels.map((entry) => `${entry.quantity}x ${entry.model.name} (${entry.model.cost}ss)`),
       "",
       "Recommended hires:",
-      ...path.models.map((recommendation) => `${recommendation.model.name} (${recommendation.model.cost}ss) - ${recommendation.role}`)
+      ...path.models.map((recommendation) => `${recommendation.model.name} (${formatRecommendationCost(recommendation)}) - ${recommendation.role}`)
     ];
     await navigator.clipboard.writeText(lines.join("\n"));
     setCopied(true);
@@ -756,7 +769,7 @@ function DraftCrewPanel({
             <button className="draftModelButton" type="button" onClick={() => onOpenModel(recommendation.model)}>
               {recommendation.model.name}
             </button>
-            <strong><RulesIcon iconKey="soulstone" /> {recommendation.model.cost}</strong>
+            <strong title={recommendation.hireReason}><RulesIcon iconKey="soulstone" /> {formatRecommendationCost(recommendation)}</strong>
           </div>
         ))}
       </div>
@@ -778,7 +791,7 @@ function LikelyCrewPanel({
           <h2>
             <RulesIcon iconKey="prediction" /> Likely Crew Members
           </h2>
-          <span><RulesIcon iconKey="soulstone" /> {models.reduce((sum, recommendation) => sum + recommendation.model.cost, 0)} likely package</span>
+          <span><RulesIcon iconKey="soulstone" /> {models.reduce((sum, recommendation) => sum + recommendation.hireCost, 0)} likely package</span>
         </div>
       </div>
       <p className="panelHint">
@@ -796,7 +809,7 @@ function LikelyCrewPanel({
                   </button>
                 </h3>
                 <p>
-                  <RulesIcon iconKey="soulstone" /> {recommendation.model.cost} - {recommendation.role} - likelihood {recommendation.score}
+                  <RulesIcon iconKey="soulstone" /> {formatRecommendationCost(recommendation)} - {recommendation.role} - likelihood {recommendation.score}
                 </p>
               </div>
               <span className="ownedBadge"><RulesIcon iconKey="prediction" /> Predicted</span>
@@ -822,12 +835,18 @@ function confidenceLabel(score: number): "High" | "Medium" | "Low" {
   return "Low";
 }
 
+function formatRecommendationCost(recommendation: ModelRecommendation): string {
+  if (recommendation.hireTax <= 0) return `${recommendation.hireCost}ss`;
+  return `${recommendation.hireCost}ss (${recommendation.printedCost}+${recommendation.hireTax})`;
+}
+
 function StatCardModal({ model, onClose }: { model: ModelCard; onClose: () => void }) {
   return (
     <div className="modalBackdrop" role="presentation" onMouseDown={onClose}>
       <section className="statCardModal" role="dialog" aria-modal="true" aria-labelledby="stat-card-title" onMouseDown={(event) => event.stopPropagation()}>
         <div className="statCardTopline">
           <span>{model.faction}</span>
+          <span className="modalHint">Esc closes</span>
           <button className="iconButton" type="button" onClick={onClose} aria-label="Close stat card">
             <X aria-hidden="true" />
           </button>
@@ -1013,6 +1032,12 @@ function RulesIcon({ iconKey }: { iconKey: RulesIconKey }) {
   );
 }
 
+function SpendIcon({ iconKey }: { iconKey: Extract<RulesIconKey, "soulstone" | "collection"> }) {
+  const Icon = iconKey === "collection" ? Library : Gem;
+
+  return <Icon className="spendIcon" aria-hidden="true" strokeWidth={2.8} />;
+}
+
 function StatChip({ iconKey, value }: { iconKey: Extract<RulesIconKey, "defense" | "willpower" | "speed" | "size">; value: number }) {
   return (
     <span className="statChip">
@@ -1117,28 +1142,7 @@ function groupModelsForMaster(
 }
 
 function getMandatoryModelsForMaster(master: ModelCard | undefined, pool: ModelCard[]) {
-  if (!master) return [];
-  const masterKeywords = new Set(master.strategicKeywords.map((keyword) => keyword.toLowerCase()));
-  const leaderQuantity = master.leaderModelCount || 1;
-  const mandatory = [{ model: master, quantity: leaderQuantity }];
-
-  if (master.id === "special-master-viktoria-chambers-ashes-and-blood") {
-    return mandatory;
-  }
-
-  const totems = pool
-    .filter((model) => model.isTotem && model.faction === master.faction)
-    .filter((model) => model.strategicKeywords.some((keyword) => masterKeywords.has(keyword.toLowerCase())))
-    .sort(sortModels)
-    .filter((model, index, candidates) => {
-      if (candidates.length <= 1) return true;
-      const masterText = slugifyForMatch(`${master.name} ${master.sourceFile} ${master.rulesText} ${master.textIndex}`);
-      const matchedTotems = candidates.filter((candidate) => masterText.includes(slugifyForMatch(candidate.name)));
-      return matchedTotems.length === 0 || matchedTotems.some((candidate) => candidate.id === model.id);
-    })
-    .map((model) => ({ model, quantity: 1 }));
-
-  return [...mandatory, ...totems];
+  return getMandatoryCrewEntries(master, pool);
 }
 
 function sortModels(a: ModelCard, b: ModelCard): number {

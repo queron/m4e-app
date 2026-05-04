@@ -902,6 +902,8 @@ function SavedDraftsPanel({
   drafts: SavedDraft[];
   setDrafts: (drafts: SavedDraft[] | ((drafts: SavedDraft[]) => SavedDraft[])) => void;
 }) {
+  const [expanded, setExpanded] = useState(false);
+
   if (drafts.length === 0) return null;
 
   async function copyDraft(draft: SavedDraft) {
@@ -914,20 +916,26 @@ function SavedDraftsPanel({
         <h2>
           <RulesIcon iconKey="draft" /> Saved Drafts
         </h2>
-        <span>{drafts.length} local</span>
+        <button className="subtleButton" type="button" onClick={() => setExpanded((current) => !current)}>
+          {expanded ? "Hide" : `Show ${drafts.length}`}
+        </button>
       </div>
-      <div className="draftList">
-        {drafts.map((draft) => (
-          <div className="draftRow" key={draft.id}>
-            <span>
-              <strong>{draft.name}</strong>
-              <small>{draft.totalCost}ss - {new Date(draft.createdAt).toLocaleDateString()}</small>
-            </span>
-            <button className="subtleButton" type="button" onClick={() => copyDraft(draft)}>Copy</button>
-            <button className="subtleButton" type="button" onClick={() => setDrafts(drafts.filter((item) => item.id !== draft.id))}>Delete</button>
-          </div>
-        ))}
-      </div>
+      {expanded ? (
+        <div className="draftList">
+          {drafts.map((draft) => (
+            <div className="draftRow" key={draft.id}>
+              <span>
+                <strong>{draft.name}</strong>
+                <small>{draft.totalCost}ss - {new Date(draft.createdAt).toLocaleDateString()}</small>
+              </span>
+              <button className="subtleButton" type="button" onClick={() => copyDraft(draft)}>Copy</button>
+              <button className="subtleButton" type="button" onClick={() => setDrafts(drafts.filter((item) => item.id !== draft.id))}>Delete</button>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <p className="panelHint">Saved locally for later planning. Expand only when you need an older draft.</p>
+      )}
     </section>
   );
 }

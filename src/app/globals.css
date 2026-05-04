@@ -456,6 +456,27 @@ select option {
   line-height: 1.35;
 }
 
+.helpDisclosure {
+  position: relative;
+  color: var(--muted);
+}
+
+.helpDisclosure summary {
+  width: fit-content;
+  cursor: pointer;
+  color: var(--parchment-2);
+  font-family: Inter, Arial, sans-serif;
+  font-size: 0.82rem;
+  font-weight: 900;
+  list-style-position: outside;
+}
+
+.helpDisclosure p {
+  margin: 6px 0 0;
+  color: var(--muted);
+  line-height: 1.4;
+}
+
 .spendSummary {
   position: relative;
   display: flex;

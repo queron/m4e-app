@@ -29,7 +29,7 @@ import {
   Waves,
   X
 } from "lucide-react";
-import type { CardCatalog, CrewCard, MatchupAnalysis, ModelCard, ModelRecommendation, RecommendationPath, SynergyGroup, TacticalTag, VulnerabilityFlag } from "@/lib/types";
+import type { CardCatalog, CrewCard, MatchupAnalysis, ModelCard, ModelMatchupEvaluation, ModelRecommendation, RecommendationPath, SynergyGroup, TacticalTag, VulnerabilityFlag } from "@/lib/types";
 import masterPlaystyleNotes from "@/data/master_playstyle_notes.json";
 import { SCHEME_POOLS } from "@/lib/scheme-pools";
 import { STRATEGY_POOLS } from "@/lib/strategy-pools";
@@ -226,6 +226,9 @@ export default function Home() {
   const [savedDrafts, setSavedDrafts] = useState<SavedDraft[]>([]);
   const [statusMessage, setStatusMessage] = useState("");
   const [selectedModel, setSelectedModel] = useState<ModelCard | null>(null);
+  const [selectedModelEvaluation, setSelectedModelEvaluation] = useState<ModelMatchupEvaluation | null>(null);
+  const [selectedModelEvaluationLoading, setSelectedModelEvaluationLoading] = useState(false);
+  const [selectedModelEvaluationError, setSelectedModelEvaluationError] = useState("");
   const modelOpenerRef = useRef<HTMLElement | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [setupCollapsed, setSetupCollapsed] = useState(false);
@@ -326,6 +329,48 @@ export default function Home() {
     window.addEventListener("keydown", closeOnEscape);
     return () => window.removeEventListener("keydown", closeOnEscape);
   }, [selectedModel]);
+
+  useEffect(() => {
+    if (!selectedModel || !playerMasterId || !opponentMasterId) {
+      setSelectedModelEvaluation(null);
+      setSelectedModelEvaluationLoading(false);
+      setSelectedModelEvaluationError("");
+      return;
+    }
+
+    const controller = new AbortController();
+    setSelectedModelEvaluationLoading(true);
+    setSelectedModelEvaluationError("");
+
+    fetch("/api/evaluate", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      signal: controller.signal,
+      body: JSON.stringify({
+        playerMasterId,
+        opponentMasterId,
+        modelId: selectedModel.id,
+        opponentModelIds,
+        strategyPoolId,
+        strategyId
+      })
+    })
+      .then(async (response) => {
+        const payload = await response.json();
+        if (!response.ok) throw new Error(payload.error ?? "Model evaluation failed.");
+        setSelectedModelEvaluation(payload);
+      })
+      .catch((currentError) => {
+        if (controller.signal.aborted) return;
+        setSelectedModelEvaluation(null);
+        setSelectedModelEvaluationError(currentError instanceof Error ? currentError.message : "Model evaluation failed.");
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setSelectedModelEvaluationLoading(false);
+      });
+
+    return () => controller.abort();
+  }, [selectedModel, playerMasterId, opponentMasterId, opponentModelIds, strategyPoolId, strategyId]);
 
   function openModel(model: ModelCard) {
     modelOpenerRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
@@ -941,7 +986,16 @@ export default function Home() {
         </div>
       </aside>
 
-      {selectedModel ? <StatCardModal model={selectedModel} vulnerabilityFlags={selectedModelVulnerabilityFlags} onClose={closeSelectedModel} /> : null}
+      {selectedModel ? (
+        <StatCardModal
+          evaluation={selectedModelEvaluation}
+          evaluationError={selectedModelEvaluationError}
+          evaluationLoading={selectedModelEvaluationLoading}
+          model={selectedModel}
+          vulnerabilityFlags={selectedModelVulnerabilityFlags}
+          onClose={closeSelectedModel}
+        />
+      ) : null}
     </main>
   );
 }
@@ -2462,7 +2516,21 @@ function articleFor(value: string): "a" | "an" {
   return /^[aeiou]/i.test(value) ? "an" : "a";
 }
 
-function StatCardModal({ model, vulnerabilityFlags, onClose }: { model: ModelCard; vulnerabilityFlags: VulnerabilityFlag[]; onClose: () => void }) {
+function StatCardModal({
+  evaluation,
+  evaluationError,
+  evaluationLoading,
+  model,
+  vulnerabilityFlags,
+  onClose
+}: {
+  evaluation: ModelMatchupEvaluation | null;
+  evaluationError: string;
+  evaluationLoading: boolean;
+  model: ModelCard;
+  vulnerabilityFlags: VulnerabilityFlag[];
+  onClose: () => void;
+}) {
   const dialogRef = useRef<HTMLElement | null>(null);
   const closeButtonRef = useRef<HTMLButtonElement | null>(null);
 
@@ -2546,7 +2614,9 @@ function StatCardModal({ model, vulnerabilityFlags, onClose }: { model: ModelCar
             <StatBlockItem iconKey="size" label="Size" value={model.statBlock.size} />
           </div>
 
-          {vulnerabilityFlags.length > 0 ? (
+          <MatchupFitSection evaluation={evaluation} error={evaluationError} loading={evaluationLoading} model={model} />
+
+          {!evaluation && vulnerabilityFlags.length > 0 ? (
             <section className="statCardSection riskSection">
               <h3>Matchup Risks</h3>
               <div className="rulesList">
@@ -2593,6 +2663,80 @@ function StatCardModal({ model, vulnerabilityFlags, onClose }: { model: ModelCar
           </section>
         </article>
       </section>
+    </div>
+  );
+}
+
+function MatchupFitSection({
+  evaluation,
+  error,
+  loading,
+  model
+}: {
+  evaluation: ModelMatchupEvaluation | null;
+  error: string;
+  loading: boolean;
+  model: ModelCard;
+}) {
+  if (loading) {
+    return (
+      <section className="statCardSection matchupFitSection">
+        <h3>Matchup Fit</h3>
+        <p className="emptyRulesText">Evaluating {model.name} against the selected matchup...</p>
+      </section>
+    );
+  }
+
+  if (error) {
+    return (
+      <section className="statCardSection matchupFitSection">
+        <h3>Matchup Fit</h3>
+        <p className="emptyRulesText">{error}</p>
+      </section>
+    );
+  }
+
+  if (!evaluation) return null;
+
+  if (!evaluation.legal || !evaluation.fit) {
+    return (
+      <section className="statCardSection matchupFitSection">
+        <h3>Matchup Fit</h3>
+        <div className="rulesEntry matchupFitCard illegalFitCard">
+          <strong>Not legal for this master</strong>
+          <p>{evaluation.hireReason}</p>
+          {evaluation.struggleNotes.map((note, index) => <p key={`${note}-${index}`}>{note}</p>)}
+        </div>
+      </section>
+    );
+  }
+
+  return (
+    <section className="statCardSection matchupFitSection">
+      <h3>Matchup Fit</h3>
+      <div className="matchupFitCard">
+        <div className="matchupFitSummary">
+          <span className={`fitBadge fit-${evaluation.fit.band.toLowerCase()}`}>{evaluation.fit.band} fit</span>
+          <span>{evaluation.fit.role}</span>
+          <span><RulesIcon iconKey="score" /> {evaluation.fit.score}</span>
+          <span title={evaluation.hireReason}><RulesIcon iconKey="soulstone" /> {evaluation.hireCost}ss{evaluation.hireTax > 0 ? ` (${evaluation.printedCost}+${evaluation.hireTax})` : ""}</span>
+        </div>
+        <FitList title="Why it helps" items={evaluation.whyHelps} />
+        <FitList title="Risks" items={evaluation.struggleNotes.length ? evaluation.struggleNotes : ["No clear matchup risks detected from the current setup."]} />
+        <FitList title="Strategy contribution" items={evaluation.strategyContribution} />
+        {evaluation.duplicateValue ? <p className="duplicateValue"><strong>Duplicate value:</strong> {evaluation.duplicateValue}</p> : null}
+      </div>
+    </section>
+  );
+}
+
+function FitList({ title, items }: { title: string; items: string[] }) {
+  if (items.length === 0) return null;
+
+  return (
+    <div className="fitList">
+      <strong>{title}</strong>
+      <ul>{items.map((item, index) => <li key={`${title}-${index}-${item}`}>{item}</li>)}</ul>
     </div>
   );
 }

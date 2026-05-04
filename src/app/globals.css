@@ -2177,6 +2177,73 @@ li + li {
   line-height: 1.52;
 }
 
+.matchupFitCard {
+  display: grid;
+  gap: 12px;
+  border: 1px solid var(--line-2);
+  border-radius: var(--radius-sm);
+  background: rgba(15, 12, 10, 0.62);
+  padding: 12px;
+}
+
+.illegalFitCard {
+  border-color: rgba(201, 106, 58, 0.65);
+  background: rgba(38, 21, 15, 0.82);
+}
+
+.matchupFitSummary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.matchupFitSummary > span,
+.fitBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  border: 1px solid rgba(196, 154, 70, 0.32);
+  border-radius: 999px;
+  background: rgba(196, 154, 70, 0.095);
+  color: var(--parchment-2);
+  padding: 5px 9px;
+  font-family: Inter, Arial, sans-serif;
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+.fitBadge.fit-high {
+  border-color: rgba(142, 154, 114, 0.5);
+  background: rgba(47, 90, 69, 0.32);
+  color: #cfddb3;
+}
+
+.fitBadge.fit-low {
+  border-color: rgba(182, 91, 98, 0.5);
+  background: rgba(110, 31, 42, 0.28);
+  color: #f0c5c9;
+}
+
+.fitList {
+  display: grid;
+  gap: 6px;
+}
+
+.fitList > strong,
+.duplicateValue strong {
+  color: var(--parchment);
+}
+
+.fitList li,
+.duplicateValue {
+  color: var(--parchment-2);
+  line-height: 1.45;
+}
+
+.duplicateValue {
+  margin: 0;
+}
+
 .riskEntry strong {
   display: inline-flex;
   align-items: center;

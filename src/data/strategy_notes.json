@@ -30,5 +30,43 @@
       "Croix, Overloaded asks whether you can survive ranged pressure while still contesting the strategy.",
       "Models with mobility, concealment, control, or pressure on support pieces tend to matter more than raw durability alone."
     ]
+  },
+  "strategyTags": {
+    "interact": [
+      "Prioritize models that can interact without costing the main damage package its activation pressure."
+    ],
+    "markers": [
+      "Marker strategies reward crews that can place, protect, or remove markers while still threatening the opponent."
+    ],
+    "mobility": [
+      "Mobility is most valuable when it converts into scoring position, not just threat extension."
+    ],
+    "enemyHalf": [
+      "Enemy-half strategies favor pieces that can cross the centre line safely and still contribute after scoring."
+    ],
+    "spread": [
+      "Spread scoring asks for independent models that can operate without constant master support."
+    ],
+    "center": [
+      "Centre scoring rewards durable anchors and control pieces that can survive repeated contesting."
+    ],
+    "control": [
+      "Control pieces matter when they deny scoring AP or force the opponent to spend high-value activations inefficiently."
+    ],
+    "durability": [
+      "Durable models are strongest when they also contest scoring space or protect a carrier."
+    ],
+    "scheme": [
+      "Scheme pressure should come from models that do not need the master to babysit their lane."
+    ],
+    "denial": [
+      "Denial is most useful when it removes opposing scoring options without pulling your whole crew off plan."
+    ],
+    "killing": [
+      "Killing strategies still need activation and position discipline; avoid taking only beaters with no scoring utility."
+    ],
+    "antiScheme": [
+      "Anti-scheme tools should be fast enough to reach the marker or model they are meant to deny."
+    ]
   }
 }

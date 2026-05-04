@@ -1116,6 +1116,15 @@ function RecommendationPanel({
 }) {
   const [expandedModelId, setExpandedModelId] = useState<string | null>(null);
   if (!selectedPath) return null;
+  const maxRecommendationScore = Math.max(0, ...selectedPath.models.map((recommendation) => recommendation.score));
+  const maxBreakdownScore = Math.max(
+    1,
+    ...selectedPath.models.flatMap((recommendation) => [
+      recommendation.scoreBreakdown.masterAbilities,
+      recommendation.scoreBreakdown.crewSynergy,
+      recommendation.scoreBreakdown.compositionMatchup
+    ])
+  );
 
   return (
     <section className="panel recommendationPanel">
@@ -1160,6 +1169,7 @@ function RecommendationPanel({
         {selectedPath.models.map((recommendation) => {
           const modelIssues = selectedPath.validation.modelIssues[recommendation.model.id] ?? [];
           const chips = recommendationChips(recommendation);
+          const fitPercent = normalizedScorePercent(recommendation.score, maxRecommendationScore);
 
           return (
             <article className="recommendation" key={recommendation.model.id}>
@@ -1171,7 +1181,7 @@ function RecommendationPanel({
                     </button>
                   </h3>
                   <p>
-                    <RulesIcon iconKey="soulstone" /> {formatRecommendationCost(recommendation)} - {recommendation.role} - score {recommendation.score}
+                    <RulesIcon iconKey="soulstone" /> {formatRecommendationCost(recommendation)} - {recommendation.role}
                   </p>
                 </div>
                 <span className="badgeGroup">
@@ -1191,18 +1201,36 @@ function RecommendationPanel({
                   </span>
                 ))}
               </div>
+              <div className="fitSummary" aria-label={`Overall fit ${overallFitBand(fitPercent)}. Raw score ${recommendation.score}.`}>
+                <div>
+                  <span>Overall fit: <strong>{overallFitBand(fitPercent)}</strong></span>
+                  <small>Raw score {recommendation.score}</small>
+                </div>
+                <div className="fitBar" aria-hidden="true">
+                  <span style={{ width: `${fitPercent}%` }} />
+                </div>
+              </div>
               {recommendation.hireTax > 0 ? <p className="topReason">Adjusted cost: {recommendation.hireReason}</p> : null}
               {recommendation.why[0] ? <p className="topReason">Top reason: {recommendation.why[0]}</p> : null}
               <div className="scoreGrid">
-                <span title="How directly this pick addresses the opposing master and master-specific pressure.">
-                  Master Counter {recommendation.scoreBreakdown.masterAbilities}
-                </span>
-                <span title="How well this pick works with your leader, keyword, and available allied models.">
-                  Crew Synergy {recommendation.scoreBreakdown.crewSynergy}
-                </span>
-                <span title="How well this pick addresses the strategy, opponent composition, roles, and table demands.">
-                  Strategy/Matchup Fit {recommendation.scoreBreakdown.compositionMatchup}
-                </span>
+                <ScoreContribution
+                  label="Master Counter"
+                  max={maxBreakdownScore}
+                  title="How directly this pick addresses the opposing master and master-specific pressure."
+                  value={recommendation.scoreBreakdown.masterAbilities}
+                />
+                <ScoreContribution
+                  label="Crew Synergy"
+                  max={maxBreakdownScore}
+                  title="How well this pick works with your leader, keyword, and available allied models."
+                  value={recommendation.scoreBreakdown.crewSynergy}
+                />
+                <ScoreContribution
+                  label="Strategy/Matchup Fit"
+                  max={maxBreakdownScore}
+                  title="How well this pick addresses the strategy, opponent composition, roles, and table demands."
+                  value={recommendation.scoreBreakdown.compositionMatchup}
+                />
               </div>
               <button
                 className="detailsButton"
@@ -1321,6 +1349,22 @@ function DraftEmptyState() {
       </div>
       <p>Use a recommendation set from Pick Models to create a draft crew here.</p>
     </section>
+  );
+}
+
+function ScoreContribution({ label, max, title, value }: { label: string; max: number; title: string; value: number }) {
+  const percent = normalizedScorePercent(value, max);
+
+  return (
+    <span className="scoreContribution" title={title} aria-label={`${label} ${value} of ${max}`}>
+      <span className="scoreContributionHeader">
+        <span>{label}</span>
+        <strong>{value}</strong>
+      </span>
+      <span className="miniFitBar" aria-hidden="true">
+        <span style={{ width: `${percent}%` }} />
+      </span>
+    </span>
   );
 }
 
@@ -1579,6 +1623,18 @@ function fitBand(score: number): "High" | "Medium" | "Low" {
   if (score >= 30) return "High";
   if (score >= 16) return "Medium";
   return "Low";
+}
+
+function normalizedScorePercent(score: number, maxScore: number): number {
+  if (maxScore <= 0) return 0;
+  return Math.max(8, Math.min(100, Math.round((score / maxScore) * 100)));
+}
+
+function overallFitBand(percent: number): "Strong" | "Good" | "Niche" | "Low confidence" {
+  if (percent >= 86) return "Strong";
+  if (percent >= 68) return "Good";
+  if (percent >= 42) return "Niche";
+  return "Low confidence";
 }
 
 function hireKindLabel(recommendation: ModelRecommendation): string {

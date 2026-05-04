@@ -649,7 +649,6 @@ function ModelRow({
           <RulesIcon iconKey="soulstone" /> {model.cost} - {renderKeywordSummary(model)}
         </small>
         <small>{model.abilities.slice(0, 2).map((ability) => ability.name).join("; ") || "No parsed abilities"}</small>
-        <span className="actionPreview">{model.actions.slice(0, 2).map((action) => <ActionChip key={`${model.id}-${action.name}`} action={action} />)}</span>
       </span>
       <span className="stats statChips">
         <StatChip iconKey="defense" value={model.statBlock.defense} />

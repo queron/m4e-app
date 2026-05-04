@@ -770,13 +770,6 @@ select option {
   font-size: 1.05em;
 }
 
-.actionPreview {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  min-height: 0;
-}
-
 .actionChip {
   display: inline-flex;
   align-items: center;

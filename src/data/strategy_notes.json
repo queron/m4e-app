@@ -1,0 +1,34 @@
+{
+  "keywords": {
+    "Mercenary": [
+      "Mercenary crews tend to reward decisive trades: identify the opposing scoring pieces early and force them to answer your threat range.",
+      "Protect fast scheme pieces while the main damage package pins the opponent's activation order."
+    ],
+    "Performer": [
+      "Performer crews usually win through movement tricks, marker pressure, and forcing awkward target priority.",
+      "Prioritize models that can score while the leader controls where the fight happens."
+    ],
+    "Kin": [
+      "Kin crews pressure lanes with guns and hand pressure, so resilient or mobile hires help avoid losing the game to early attrition.",
+      "Deny clean firing lanes and threaten their support pieces before the attrition engine stabilizes."
+    ],
+    "Obliteration": [
+      "Obliteration crews use placement, bury, and tempo pressure; bring models that can either score independently or punish exposed arrivals.",
+      "Avoid overcommitting one flank unless your list can recover from displacement."
+    ]
+  },
+  "masters": {
+    "Viktoria Chambers, Ashes And Blood": [
+      "This title wants a compact, aggressive plan with enough independent scoring to avoid becoming all-in on the twins.",
+      "The best support hires either extend threat range, protect the leaders, or score while the leaders trade."
+    ],
+    "Colette Du Bois, Smuggler": [
+      "Colette values flexible action economy and marker interaction; pick pieces that exploit movement windows rather than only adding damage.",
+      "Look for hires that can turn a small positional edge into scoring pressure."
+    ],
+    "Croix, Overloaded": [
+      "Croix, Overloaded asks whether you can survive ranged pressure while still contesting the strategy.",
+      "Models with mobility, concealment, control, or pressure on support pieces tend to matter more than raw durability alone."
+    ]
+  }
+}

@@ -1,5 +1,7 @@
 # M4E Crew Optimizer
 
+[![CI](https://github.com/queron/m4e-app/actions/workflows/ci.yml/badge.svg)](https://github.com/queron/m4e-app/actions/workflows/ci.yml)
+
 A Next.js web app for matchup-aware Malifaux Fourth Edition crew planning.
 
 ## Implementation Plan

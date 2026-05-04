@@ -192,6 +192,9 @@ export type ModelRecommendation = {
   hireTax: number;
   hireKind: HireKind;
   hireReason: string;
+  confidence: "High" | "Medium" | "Low";
+  trace: string[];
+  curatedNotes: string[];
   score: number;
   role: string;
   scoreBreakdown: {

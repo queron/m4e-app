@@ -5,6 +5,7 @@ import {
   getPrimaryKeywords,
   legalModelsForMaster
 } from "./card-data";
+import strategyNotes from "@/data/strategy_notes.json";
 import { buildCrewByScore, validateCrew } from "./crew-validation";
 import { getStrategy, type Strategy } from "./strategy-pools";
 import type {
@@ -50,6 +51,13 @@ const ROLE_RULES: Array<[string, TacticalTag[]]> = [
   ["support", ["healing", "cardPressure", "summon"]],
   ["anchor", ["armor", "incorporeal", "demise"]]
 ];
+
+type StrategyNotes = {
+  keywords: Record<string, string[]>;
+  masters: Record<string, string[]>;
+};
+
+const NOTES = strategyNotes as StrategyNotes;
 
 export function analyzeMatchup(input: PlannerInput): MatchupAnalysis {
   const catalog = getCatalog();
@@ -147,6 +155,7 @@ function scoreLikelyModel(model: ModelCard, master: ModelCard | undefined, crewC
         : `${model.name} is a likely flex hire from the legal pool.`,
       ...synergy.reasons,
       ...strategyFit.reasons,
+      ...curatedNotesFor(model, master).slice(0, 1),
       `It brings ${formatTags(model.tacticalTags.slice(0, 4))}, giving the crew a likely ${inferRole(model)} lane.`
     ]).slice(0, 4),
     relevantTech: likelyRelevantTech(model).slice(0, 5),
@@ -443,7 +452,8 @@ function describeStrengths(master?: ModelCard, crewCard?: CrewCard, strategy?: S
   return [
     `${master.name} naturally plays toward ${formatTags(tags.slice(0, 5))}.`,
     crewCard ? `${crewCard.name} extends that plan through crew-wide ${formatTags(crewCard.tacticalTags.slice(0, 4))} tools.` : "No matching crew card was found in the data, so recommendations lean harder on stat cards.",
-    strategy ? `${strategy.name}: ${strategy.summary}` : ""
+    strategy ? `${strategy.name}: ${strategy.summary}` : "",
+    ...curatedNotesFor(master).slice(0, 2)
   ].filter(Boolean);
 }
 
@@ -544,6 +554,7 @@ function efficiencyBonus(model: ModelCard): number {
 
 function toRecommendation(scored: ScoredModel, master: ModelCard | undefined, ownedIds: Set<string>, treatAsOwned = false): ModelRecommendation {
   const hireDetails = getHireDetails(master, scored.model);
+  const roundedScore = Math.round(scored.score);
 
   return {
     model: scored.model,
@@ -553,7 +564,15 @@ function toRecommendation(scored: ScoredModel, master: ModelCard | undefined, ow
     hireTax: hireDetails.tax,
     hireKind: hireDetails.kind,
     hireReason: hireDetails.reason,
-    score: Math.round(scored.score),
+    confidence: confidenceFromScore(roundedScore),
+    trace: [
+      `Master Counter: ${Math.round(scored.scoreBreakdown.masterAbilities)} from opposing leader and crew-card pressure.`,
+      `Crew Synergy: ${Math.round(scored.scoreBreakdown.crewSynergy)} from keyword, faction, and shared tactical tags.`,
+      `Strategy/Matchup Fit: ${Math.round(scored.scoreBreakdown.compositionMatchup)} from strategy tags, opponent composition, and role coverage.`,
+      `Hire rule: ${hireDetails.reason}`
+    ],
+    curatedNotes: curatedNotesFor(scored.model, master).slice(0, 3),
+    score: roundedScore,
     role: scored.role,
     scoreBreakdown: {
       masterAbilities: Math.round(scored.scoreBreakdown.masterAbilities),
@@ -565,6 +584,29 @@ function toRecommendation(scored: ScoredModel, master: ModelCard | undefined, ow
     priorityTargets: scored.priorityTargets,
     alliedSynergies: scored.alliedSynergies
   };
+}
+
+function confidenceFromScore(score: number): "High" | "Medium" | "Low" {
+  if (score >= 24) return "High";
+  if (score >= 14) return "Medium";
+  return "Low";
+}
+
+function curatedNotesFor(model?: ModelCard, master?: ModelCard): string[] {
+  const notes: string[] = [];
+  if (model) {
+    notes.push(...(NOTES.masters[model.name] ?? []));
+    for (const keyword of getPrimaryKeywords(model)) {
+      notes.push(...(NOTES.keywords[keyword] ?? []));
+    }
+  }
+  if (master && master.id !== model?.id) {
+    notes.push(...(NOTES.masters[master.name] ?? []));
+    for (const keyword of getPrimaryKeywords(master)) {
+      notes.push(...(NOTES.keywords[keyword] ?? []));
+    }
+  }
+  return uniqueSentences(notes);
 }
 
 function formatTags(tags: TacticalTag[]): string {

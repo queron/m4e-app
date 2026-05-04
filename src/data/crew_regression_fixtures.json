@@ -1,0 +1,37 @@
+[
+  {
+    "name": "Outcasts Viktoria twin master accepts Mercenary keyword hire",
+    "faction": "Outcasts",
+    "masterName": "Viktoria Chambers, Ashes And Blood",
+    "syntheticMasterId": "special-master-viktoria-chambers-ashes-and-blood",
+    "hires": ["Ronin"],
+    "expectedLegal": true
+  },
+  {
+    "name": "Performer out-of-keyword Arcanist hire receives +1ss tax",
+    "faction": "Arcanists",
+    "masterName": "Colette Du Bois, Smuggler",
+    "hires": ["Oxfordian Mage"],
+    "expectedLegal": true,
+    "expectedTaxByModel": {
+      "Oxfordian Mage": 1
+    }
+  },
+  {
+    "name": "Cross-faction non-keyword hire is illegal",
+    "faction": "Arcanists",
+    "masterName": "Colette Du Bois, Smuggler",
+    "hires": ["Ronin"],
+    "expectedLegal": false
+  },
+  {
+    "name": "Bayou Kin keyword hire stays at printed cost",
+    "faction": "Bayou",
+    "masterName": "Croix, Overloaded",
+    "hires": ["Francois L, Croix"],
+    "expectedLegal": true,
+    "expectedTaxByModel": {
+      "Francois L, Croix": 0
+    }
+  }
+]

@@ -1,5 +1,5 @@
 import type { CrewValidation, ModelCard } from "./types";
-import { getMandatoryCrewModelCount, getPrimaryKeywords, legalModelsForMaster } from "./card-data";
+import { getHireDetails, getMandatoryCrewModelCount } from "./card-data";
 
 export function validateCrew(
   master: ModelCard | undefined,
@@ -8,15 +8,22 @@ export function validateCrew(
   modelLimit: number
 ): CrewValidation {
   const issues: string[] = [];
-  const totalCost = hiredModels.reduce((sum, model) => sum + model.cost, 0);
-  const legalIds = new Set(legalModelsForMaster(master).map((model) => model.id));
+  const hiredModelCosts = hiredModels.map((model) => {
+    const details = getHireDetails(master, model);
+    return {
+      ...details,
+      modelId: model.id,
+      modelName: model.name
+    };
+  });
+  const totalCost = hiredModelCosts.reduce((sum, model) => sum + model.hireCost, 0);
   const counts = new Map<string, number>();
 
   for (const model of hiredModels) {
     counts.set(model.id, (counts.get(model.id) ?? 0) + 1);
-    if (!legalIds.has(model.id)) {
-      const keywords = getPrimaryKeywords(master).join(", ") || "the master's keyword";
-      issues.push(`${model.name} is outside ${master?.faction ?? "the selected faction"} and does not share ${keywords}.`);
+    const details = getHireDetails(master, model);
+    if (!details.legal) {
+      issues.push(`${model.name} is not a legal hire: ${details.reason}`);
     }
   }
 
@@ -43,7 +50,8 @@ export function validateCrew(
     pointLimit,
     modelCount: hiredModels.length + mandatoryModelCount,
     modelLimit,
-    issues
+    issues,
+    hiredModelCosts
   };
 }
 
@@ -59,17 +67,21 @@ export function buildCrewByScore(
 
   for (const scored of scoredModels.sort((a, b) => b.score - a.score || b.model.cost - a.model.cost)) {
     if (selected.length >= remainingSlots) break;
-    if (scored.model.cost <= 0) continue;
-    if (spent + scored.model.cost > pointLimit) continue;
+    const hireDetails = getHireDetails(master, scored.model);
+    if (!hireDetails.legal || hireDetails.hireCost <= 0) continue;
+    if (spent + hireDetails.hireCost > pointLimit) continue;
     selected.push(scored.model);
-    spent += scored.model.cost;
+    spent += hireDetails.hireCost;
   }
 
   if (selected.length === 0) {
     const cheapest = scoredModels
       .map((item) => item.model)
-      .filter((model) => model.cost > 0 && model.cost <= pointLimit)
-      .sort((a, b) => a.cost - b.cost)[0];
+      .filter((model) => {
+        const hireDetails = getHireDetails(master, model);
+        return hireDetails.legal && hireDetails.hireCost > 0 && hireDetails.hireCost <= pointLimit;
+      })
+      .sort((a, b) => getHireDetails(master, a).hireCost - getHireDetails(master, b).hireCost)[0];
     if (cheapest) selected.push(cheapest);
   }
 

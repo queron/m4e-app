@@ -1,0 +1,190 @@
+import fs from "node:fs";
+import path from "node:path";
+
+const root = process.cwd();
+const cardsPath = path.join(root, "src", "data", "m4e_cards.json");
+const rulesPath = path.join(root, "src", "data", "master_crew_rules.json");
+
+const cards = JSON.parse(fs.readFileSync(cardsPath, "utf8"));
+const masterCrewRules = JSON.parse(fs.readFileSync(rulesPath, "utf8"));
+const issues = [];
+
+const traitKeywords = new Set([
+  "master",
+  "totem",
+  "unique",
+  "living",
+  "construct",
+  "undead",
+  "beast",
+  "effigy",
+  "enforcer",
+  "henchman",
+  "minion",
+  "peon",
+  "tyrant",
+  "versatile"
+]);
+
+function clean(value) {
+  return String(value ?? "")
+    .replace(/[\u2018\u2019]/g, "'")
+    .replace(/[\u201c\u201d]/g, '"')
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function slugify(value) {
+  return clean(value)
+    .toLowerCase()
+    .replace(/&/g, " and ")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
+function compactSlug(value) {
+  return clean(value)
+    .toLowerCase()
+    .replace(/&/g, "and")
+    .replace(/[^a-z0-9]+/g, "");
+}
+
+function normalizeKeywords(keywords = []) {
+  return Array.from(
+    new Set(
+      keywords
+        .map(clean)
+        .flatMap((keyword) => keyword.split(/\s+-\s+| - |,/g))
+        .map((keyword) => keyword.replace(/\(\(?[0-9]+\)?/g, "").replace(/[0-9]+\)/g, "").trim())
+        .filter(Boolean)
+    )
+  );
+}
+
+function normalizeCost(cost) {
+  if (typeof cost === "number") return cost;
+  const parsed = Number.parseInt(String(cost ?? "0"), 10);
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function isTrait(keyword) {
+  return traitKeywords.has(keyword.toLowerCase().replace(/\s*\(.+\)/, "").trim());
+}
+
+function strategicKeywords(card) {
+  return normalizeKeywords(card.keywords).filter((keyword) => !isTrait(keyword));
+}
+
+function hasKeyword(card, keyword) {
+  return normalizeKeywords(card.keywords).some((item) => item.toLowerCase() === keyword);
+}
+
+function generatedUnitId(card) {
+  return slugify([card.faction, card.name, normalizeKeywords(card.keywords).join("-"), normalizeCost(card.cost)].join("-"));
+}
+
+function unitGroupKey(card) {
+  return [clean(card.faction), clean(card.name), normalizeCost(card.cost), normalizeKeywords(card.keywords).join("|")].join("::");
+}
+
+if (!Array.isArray(cards)) {
+  issues.push("m4e_cards.json must contain an array.");
+} else {
+  const ids = new Map();
+  const unitGroups = new Map();
+
+  for (const [index, card] of cards.entries()) {
+    const label = `${clean(card.name) || `card at index ${index}`} (${clean(card.sourceFile) || "no source file"})`;
+
+    if (!card.cardType) issues.push(`${label} is missing cardType.`);
+    if (!card.name) issues.push(`${label} is missing name.`);
+    if (!card.sourceFile) issues.push(`${label} is missing sourceFile.`);
+    if (card.cardType !== "unknown" && !card.faction) issues.push(`${label} is missing faction.`);
+
+    if (card.cardType === "unit") {
+      const cost = normalizeCost(card.cost);
+      if (!Number.isFinite(cost) || cost < 0) issues.push(`${label} has invalid cost: ${card.cost}.`);
+      for (const stat of ["defense", "speed", "willpower", "size"]) {
+        const value = Number(card.statBlock?.[stat] ?? 0);
+        if (!Number.isFinite(value) || value < 0) issues.push(`${label} has invalid ${stat}: ${card.statBlock?.[stat]}.`);
+      }
+
+      const id = generatedUnitId(card);
+      const existing = ids.get(id);
+      if (existing && unitGroupKey(existing) !== unitGroupKey(card)) {
+        issues.push(`${label} generates duplicate model id ${id} with ${existing.name}.`);
+      }
+      ids.set(id, card);
+      unitGroups.set(unitGroupKey(card), card);
+    }
+  }
+
+  const units = Array.from(unitGroups.values()).map((card) => ({
+    ...card,
+    name: clean(card.name),
+    faction: clean(card.faction),
+    sourceFile: clean(card.sourceFile),
+    keywords: normalizeKeywords(card.keywords),
+    rulesBlob: [
+      clean(card.name),
+      clean(card.sourceFile),
+      clean(card.rulesText),
+      ...(card.abilities ?? []).map((ability) => `${clean(ability.name)} ${clean(ability.text)}`),
+      ...(card.actions ?? []).map((action) => `${clean(action.name)} ${clean(action.effect)}`)
+    ].join(" ")
+  }));
+
+  const masters = units.filter((card) => hasKeyword(card, "master"));
+  const totems = units.filter((card) => hasKeyword(card, "totem"));
+
+  for (const rule of masterCrewRules.syntheticMasters ?? []) {
+    const source = units.find((card) => clean(card.faction) === clean(rule.faction) && clean(card.name) === clean(rule.sourceModelName));
+    if (!source) issues.push(`Synthetic master rule ${rule.id} references missing source model ${rule.faction} - ${rule.sourceModelName}.`);
+    if (!rule.requiredCopies || rule.requiredCopies < 1) issues.push(`Synthetic master rule ${rule.id} must define requiredCopies >= 1.`);
+  }
+
+  for (const rule of masterCrewRules.titleTotems ?? []) {
+    const master = masters.find((card) => slugify(card.faction) === slugify(rule.faction) && slugify(card.name) === slugify(rule.masterName));
+    if (!master) {
+      issues.push(`Title totem rule references missing master ${rule.faction} - ${rule.masterName}.`);
+      continue;
+    }
+
+    for (const totemName of rule.totemNames ?? []) {
+      const matches = totems.filter((card) => slugify(card.faction) === slugify(rule.faction) && slugify(card.name) === slugify(totemName));
+      if (matches.length === 0) issues.push(`Title totem rule for ${rule.masterName} references missing totem ${totemName}.`);
+      if (matches.length > 1) issues.push(`Title totem rule for ${rule.masterName} matches multiple totems named ${totemName}.`);
+    }
+  }
+
+  for (const master of masters) {
+    const synthetic = (masterCrewRules.syntheticMasters ?? []).find((rule) => rule.id === generatedUnitId(master));
+    if (synthetic?.suppressTotems) continue;
+
+    const masterKeywords = strategicKeywords(master).map((keyword) => keyword.toLowerCase());
+    const candidates = totems.filter(
+      (totem) =>
+        totem.faction === master.faction &&
+        strategicKeywords(totem).some((keyword) => masterKeywords.includes(keyword.toLowerCase()))
+    );
+    if (candidates.length <= 1) continue;
+
+    const configured = (masterCrewRules.titleTotems ?? []).find(
+      (rule) => slugify(rule.faction) === slugify(master.faction) && slugify(rule.masterName) === slugify(master.name)
+    );
+    const directMatches = candidates.filter((totem) => compactSlug(master.rulesBlob).includes(compactSlug(totem.name)));
+    const resolvedCount = configured ? configured.totemNames.length : directMatches.length;
+
+    if (resolvedCount !== 1) {
+      issues.push(`${master.faction} - ${master.name} has ambiguous totems: ${candidates.map((totem) => totem.name).join(", ")}.`);
+    }
+  }
+}
+
+if (issues.length > 0) {
+  console.error(`Card data validation failed with ${issues.length} issue(s):`);
+  for (const issue of issues) console.error(`- ${issue}`);
+  process.exit(1);
+}
+
+console.log(`Card data validation passed for ${cards.length} cards.`);

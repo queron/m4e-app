@@ -1,0 +1,64 @@
+{
+  "syntheticMasters": [
+    {
+      "id": "special-master-viktoria-chambers-ashes-and-blood",
+      "faction": "Outcasts",
+      "sourceModelName": "Viktoria Chambers, Ashes And Blood",
+      "requiredCopies": 2,
+      "suppressTotems": true,
+      "note": "Twin Masters crew: two Viktoria Chambers, Ashes And Blood leader models and no separate totem."
+    }
+  ],
+  "titleTotems": [
+    {
+      "faction": "Arcanists",
+      "masterName": "Cornelius Basse, Badlands Sheriff",
+      "totemNames": ["Bernadette Basse, Bravo"]
+    },
+    {
+      "faction": "Arcanists",
+      "masterName": "Cornelius Basse, Lone Verdict",
+      "totemNames": ["Bernadette Basse, Furtive"]
+    },
+    {
+      "faction": "Arcanists",
+      "masterName": "Toni Ironsides, Union President",
+      "totemNames": ["M&Su, Fitzsimmons"]
+    },
+    {
+      "faction": "Arcanists",
+      "masterName": "Damian Ravencroft, Aspirant",
+      "totemNames": ["The Puzzle Box, Unsolved"]
+    },
+    {
+      "faction": "Arcanists",
+      "masterName": "Damian Ravencroft, Unbound",
+      "totemNames": ["The Puzzle Box, Solved"]
+    },
+    {
+      "faction": "Guild",
+      "masterName": "Perdita Ortega, La Diabla",
+      "totemNames": ["Papá Loco"]
+    },
+    {
+      "faction": "Neverborn",
+      "masterName": "The Dreamer, Insomniac",
+      "totemNames": ["Lord Chompy Bits, Lurking Lullaby"]
+    },
+    {
+      "faction": "Resurrectionists",
+      "masterName": "Kirai Ankoku, Envoy Of The Court",
+      "totemNames": ["Ikiryo, The Heart That Left"]
+    },
+    {
+      "faction": "Resurrectionists",
+      "masterName": "Kirai Ankoku, Lady Of Vengeance",
+      "totemNames": ["Ikiryo, Spirit Of Vengeance"]
+    },
+    {
+      "faction": "Ten Thunders",
+      "masterName": "Jakob Lynch, Wildcard",
+      "totemNames": ["Hungering Darkness, Beneath The Bets"]
+    }
+  ]
+}

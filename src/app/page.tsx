@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import type { KeyboardEvent as ReactKeyboardEvent } from "react";
 import {
   BadgeQuestionMark,
   BookOpen,
@@ -93,6 +94,7 @@ export default function Home() {
   const [savedDrafts, setSavedDrafts] = useState<SavedDraft[]>([]);
   const [statusMessage, setStatusMessage] = useState("");
   const [selectedModel, setSelectedModel] = useState<ModelCard | null>(null);
+  const modelOpenerRef = useRef<HTMLElement | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [setupCollapsed, setSetupCollapsed] = useState(false);
   const [activeResultTab, setActiveResultTab] = useState<ActiveResultTab>("picks");
@@ -182,12 +184,22 @@ export default function Home() {
     if (!selectedModel) return;
 
     function closeOnEscape(event: KeyboardEvent) {
-      if (event.key === "Escape") setSelectedModel(null);
+      if (event.key === "Escape") closeSelectedModel();
     }
 
     window.addEventListener("keydown", closeOnEscape);
     return () => window.removeEventListener("keydown", closeOnEscape);
   }, [selectedModel]);
+
+  function openModel(model: ModelCard) {
+    modelOpenerRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    setSelectedModel(model);
+  }
+
+  function closeSelectedModel() {
+    setSelectedModel(null);
+    requestAnimationFrame(() => modelOpenerRef.current?.focus());
+  }
 
   const playerMasters = useMemo(
     () => catalog?.masters.filter((model) => model.faction === playerFaction) ?? [],
@@ -523,7 +535,7 @@ export default function Home() {
           selectedCountLabel="in collection"
           collapsed={setupCollapsed}
           setCollapsed={setSetupCollapsed}
-          onOpenModel={setSelectedModel}
+          onOpenModel={openModel}
         />
         <CrewPanel
           title="Opponent"
@@ -547,7 +559,7 @@ export default function Home() {
           selectedCountLabel="known"
           collapsed={setupCollapsed}
           setCollapsed={setSetupCollapsed}
-          onOpenModel={setSelectedModel}
+          onOpenModel={openModel}
         />
       </section>
 
@@ -608,14 +620,14 @@ export default function Home() {
                   }}
                   onSavePlan={saveDraft}
                   onExportPlan={exportDraft}
-                  onOpenModel={setSelectedModel}
+                  onOpenModel={openModel}
                 />
               </div>
               <div className="analysisColumn">
                 <LikelyCrewPanel
                   expectedModels={analysis.opponentCrew.expectedModels}
                   models={analysis.opponentCrew.likelyModels}
-                  onOpenModel={setSelectedModel}
+                  onOpenModel={openModel}
                 />
               </div>
             </>
@@ -644,7 +656,7 @@ export default function Home() {
                 <LikelyCrewPanel
                   expectedModels={analysis.opponentCrew.expectedModels}
                   models={analysis.opponentCrew.likelyModels}
-                  onOpenModel={setSelectedModel}
+                  onOpenModel={openModel}
                 />
               </div>
             </>
@@ -657,7 +669,7 @@ export default function Home() {
                   path={draftPath}
                   pointLimit={pointLimit}
                   summaryContext={draftSummaryContext()}
-                  onOpenModel={setSelectedModel}
+                  onOpenModel={openModel}
                 />
               ) : (
                 <DraftEmptyState />
@@ -678,7 +690,7 @@ export default function Home() {
         </section>
       )}
 
-      {selectedModel ? <StatCardModal model={selectedModel} onClose={() => setSelectedModel(null)} /> : null}
+      {selectedModel ? <StatCardModal model={selectedModel} onClose={closeSelectedModel} /> : null}
     </main>
   );
 }
@@ -1436,13 +1448,56 @@ function articleFor(value: string): "a" | "an" {
 }
 
 function StatCardModal({ model, onClose }: { model: ModelCard; onClose: () => void }) {
+  const dialogRef = useRef<HTMLElement | null>(null);
+  const closeButtonRef = useRef<HTMLButtonElement | null>(null);
+
+  useEffect(() => {
+    closeButtonRef.current?.focus();
+  }, []);
+
+  function trapFocus(event: ReactKeyboardEvent<HTMLElement>) {
+    if (event.key !== "Tab") return;
+    const focusable = dialogRef.current
+      ? Array.from(
+          dialogRef.current.querySelectorAll<HTMLElement>(
+            'a[href], button:not([disabled]), textarea:not([disabled]), input:not([disabled]), select:not([disabled]), details summary, [tabindex]:not([tabindex="-1"])'
+          )
+        ).filter((element) => !element.hasAttribute("disabled") && element.tabIndex !== -1)
+      : [];
+
+    if (focusable.length === 0) {
+      event.preventDefault();
+      return;
+    }
+
+    const first = focusable[0];
+    const last = focusable[focusable.length - 1];
+    const active = document.activeElement;
+
+    if (event.shiftKey && active === first) {
+      event.preventDefault();
+      last.focus();
+    } else if (!event.shiftKey && active === last) {
+      event.preventDefault();
+      first.focus();
+    }
+  }
+
   return (
     <div className="modalBackdrop" role="presentation" onMouseDown={onClose}>
-      <section className="statCardModal" role="dialog" aria-modal="true" aria-labelledby="stat-card-title" onMouseDown={(event) => event.stopPropagation()}>
+      <section
+        ref={dialogRef}
+        className="statCardModal"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="stat-card-title"
+        onKeyDown={trapFocus}
+        onMouseDown={(event) => event.stopPropagation()}
+      >
         <div className="statCardTopline">
           <span>{model.faction}</span>
           <span className="modalHint">Esc closes</span>
-          <button className="iconButton" type="button" onClick={onClose} aria-label="Close stat card" autoFocus>
+          <button ref={closeButtonRef} className="iconButton" type="button" onClick={onClose} aria-label="Close stat card">
             <X aria-hidden="true" />
           </button>
         </div>

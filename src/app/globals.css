@@ -449,6 +449,16 @@ select option {
   font-weight: 800;
 }
 
+.panelHeader small {
+  display: block;
+  margin-top: 2px;
+  color: var(--accent);
+  font-family: Inter, Arial, sans-serif;
+  font-size: 0.72rem;
+  font-weight: 900;
+  letter-spacing: 0.03em;
+}
+
 .panelHelper {
   position: relative;
   margin: 0 0 12px;

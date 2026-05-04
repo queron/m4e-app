@@ -400,23 +400,18 @@ export default function Home() {
 
       {analysis ? (
         <section className="analysisGrid">
-          <div className="strategyContext">
+          <div className="postAnalyzeSummary">
             <div>
               <h2>
-                <RulesIcon iconKey="strategy" /> {analysis.match.strategy?.name ?? strategy.name}
+                {analysis.playerCrew.master?.name ?? "Player"} vs {analysis.opponentCrew.master?.name ?? "Opponent"}
               </h2>
-              <p>{analysis.match.strategy?.summary ?? strategy.summary}</p>
+              <p>{analysis.match.strategy?.name ?? strategy.name} - {strategyPool.name} - {analysis.match.pointLimit}ss</p>
             </div>
-            <span>{strategyPool.name}</span>
+            <button className="subtleButton" type="button" onClick={() => setSetupCollapsed(false)}>
+              Edit setup
+            </button>
           </div>
           <div className="analysisColumn">
-            <CrewAnalysisCard
-              title="My Crew"
-              subtitle={`${analysis.playerCrew.primaryKeywords.join(", ")} - ${analysis.match.strategy?.name ?? "No strategy"}`}
-              playstyle={analysis.playerCrew.playstyle}
-              strengths={analysis.playerCrew.strengths}
-              vulnerabilities={analysis.playerCrew.vulnerabilities}
-            />
             <RecommendationPanel
               pathKind={pathKind}
               setPathKind={setPathKind}
@@ -428,12 +423,20 @@ export default function Home() {
               onExportPlan={exportDraft}
               onOpenModel={setSelectedModel}
             />
+            <CrewAnalysisCard
+              title="My Crew"
+              subtitle={`${analysis.playerCrew.primaryKeywords.join(", ")} - ${analysis.match.strategy?.name ?? "No strategy"}`}
+              playstyle={analysis.playerCrew.playstyle}
+              strengths={analysis.playerCrew.strengths}
+              vulnerabilities={analysis.playerCrew.vulnerabilities}
+            />
             {draftPath ? (
               <DraftCrewPanel requiredModels={playerRequiredModels} path={draftPath} pointLimit={pointLimit} onOpenModel={setSelectedModel} />
             ) : null}
             <SavedDraftsPanel drafts={savedDrafts} setDrafts={setSavedDrafts} />
           </div>
           <div className="analysisColumn">
+            <LikelyCrewPanel models={analysis.opponentCrew.likelyModels} onOpenModel={setSelectedModel} />
             <CrewAnalysisCard
               title="Opponent Crew"
               subtitle={`${analysis.opponentCrew.primaryKeywords.join(", ")} - ${analysis.match.strategy?.name ?? "No strategy"}`}
@@ -443,7 +446,6 @@ export default function Home() {
               strengthTitle="Likely Pressure"
               vulnerabilityTitle="Your Pressure Points"
             />
-            <LikelyCrewPanel models={analysis.opponentCrew.likelyModels} onOpenModel={setSelectedModel} />
           </div>
         </section>
       ) : (

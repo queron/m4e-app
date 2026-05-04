@@ -360,7 +360,8 @@ select option {
   color: #e6c27a;
 }
 
-.strategyContext {
+.strategyContext,
+.postAnalyzeSummary {
   grid-column: 1 / -1;
   display: flex;
   align-items: start;
@@ -373,17 +374,20 @@ select option {
   box-shadow: var(--shadow);
 }
 
-.strategyContext h2 {
+.strategyContext h2,
+.postAnalyzeSummary h2 {
   margin-bottom: 4px;
 }
 
-.strategyContext p {
+.strategyContext p,
+.postAnalyzeSummary p {
   margin: 0;
   color: var(--muted);
   line-height: 1.45;
 }
 
-.strategyContext span {
+.strategyContext span,
+.postAnalyzeSummary span {
   flex: 0 0 auto;
   border: 1px solid var(--line);
   border-radius: 999px;
@@ -392,6 +396,11 @@ select option {
   font-family: Inter, Arial, sans-serif;
   font-size: 0.74rem;
   font-weight: 900;
+}
+
+.postAnalyzeSummary .subtleButton {
+  align-self: center;
+  min-width: 120px;
 }
 
 .analysisColumn {

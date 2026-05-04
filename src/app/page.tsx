@@ -1022,7 +1022,7 @@ function CrewPanel(props: {
       <input
         className="search"
         value={props.search}
-        placeholder="Filter models, abilities, keywords"
+        placeholder="Search models, abilities, actions, rules, keywords"
         onChange={(event) => props.setSearch(event.target.value)}
       />
       <div className="listControls">
@@ -1068,11 +1068,12 @@ function CrewPanel(props: {
                   onToggle={entry.forced ? undefined : () => toggle(entry.model.id)}
                   onQuantityChange={entry.forced ? undefined : (quantity) => setModelQuantity(entry.model, quantity)}
                   onOpenModel={() => props.onOpenModel(entry.model)}
+                  searchSnippet={searchMatchSnippet(entry.model, props.search)}
                   forced={entry.forced}
                 />
               ))
             ) : (
-              <div className="modelSectionEmpty">No matching models</div>
+              <div className="modelSectionEmpty">No matching models, abilities, actions, rules, or keywords</div>
             )}
           </div>
         ))}
@@ -1214,6 +1215,7 @@ function ModelRow({
   onToggle,
   onQuantityChange,
   onOpenModel,
+  searchSnippet,
   forced = false
 }: {
   model: ModelCard;
@@ -1224,6 +1226,7 @@ function ModelRow({
   onToggle?: () => void;
   onQuantityChange?: (quantity: number) => void;
   onOpenModel: () => void;
+  searchSnippet?: string;
   forced?: boolean;
 }) {
   const canSetQuantity = selected && !forced && model.maxCopies > 1;
@@ -1251,6 +1254,7 @@ function ModelRow({
           <RulesIcon iconKey="soulstone" /> {model.cost} - {renderKeywordSummary(model)}
         </small>
         <small>{model.abilities.slice(0, 2).map((ability) => ability.name).join("; ") || "No parsed abilities"}</small>
+        {searchSnippet ? <small className="searchMatchSnippet">{searchSnippet}</small> : null}
       </span>
       <span className="stats statChips">
         <StatChip iconKey="defense" value={model.statBlock.defense} />
@@ -2361,6 +2365,43 @@ function strategyReasons(items: string[], strategyName?: string): string[] {
   if (!strategyName) return [];
   const strategyNeedle = strategyName.toLowerCase();
   return items.filter((item) => item.toLowerCase().includes(strategyNeedle));
+}
+
+function searchMatchSnippet(model: ModelCard, search: string): string | undefined {
+  const query = search.trim().toLowerCase();
+  if (!query) return undefined;
+
+  const visibleIdentity = [model.name, model.faction, model.keywords.join(" ")].join(" ").toLowerCase();
+  if (visibleIdentity.includes(query)) return undefined;
+
+  const ability = model.abilities.find((candidate) => [candidate.name, candidate.text].join(" ").toLowerCase().includes(query));
+  if (ability) return `Matched ability: ${clipMatchText([ability.name, ability.text].join(" "), query)}`;
+
+  const action = model.actions.find((candidate) =>
+    [
+      candidate.name,
+      candidate.effect,
+      ...(candidate.triggers ?? []).map((trigger) => `${trigger.name} ${trigger.effect ?? ""}`)
+    ].join(" ").toLowerCase().includes(query)
+  );
+  if (action) return `Matched action: ${clipMatchText([action.name, action.effect].join(" "), query)}`;
+
+  if (model.rulesText.toLowerCase().includes(query)) {
+    return `Matched rules: ${clipMatchText(model.rulesText, query)}`;
+  }
+
+  return undefined;
+}
+
+function clipMatchText(text: string, query: string): string {
+  const normalized = text.replace(/\s+/g, " ").trim();
+  const index = normalized.toLowerCase().indexOf(query);
+  if (index < 0) return normalized.slice(0, 80);
+  const start = Math.max(0, index - 24);
+  const end = Math.min(normalized.length, index + query.length + 48);
+  const prefix = start > 0 ? "... " : "";
+  const suffix = end < normalized.length ? " ..." : "";
+  return `${prefix}${normalized.slice(start, end)}${suffix}`;
 }
 
 function matchesSearch(model: ModelCard, search: string): boolean {

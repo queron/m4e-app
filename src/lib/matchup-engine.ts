@@ -82,7 +82,14 @@ export function analyzeMatchup(input: PlannerInput): MatchupAnalysis {
   const scoredAvailable = availableCandidates.map((model) =>
     scoreModel(model, playerMaster, playerCrewCard, opponentMaster, opponentCrewCard, opponentCrew, strategy)
   );
-  const likelyOpponentModels = buildLikelyCrewMembers(opponentMaster, opponentCrewCard, opponentCandidates, input.pointLimit, strategy);
+  const knownOpponentIds = new Set(opponentModels.map((model) => model.id));
+  const likelyOpponentModels = buildLikelyCrewMembers(
+    opponentMaster,
+    opponentCrewCard,
+    opponentCandidates.filter((model) => !knownOpponentIds.has(model.id)),
+    input.pointLimit,
+    strategy
+  );
 
   return {
     generatedAt: new Date().toISOString(),

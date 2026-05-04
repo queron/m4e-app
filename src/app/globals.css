@@ -616,6 +616,19 @@ li + li {
   color: var(--parchment);
 }
 
+.planButton {
+  position: relative;
+  width: 100%;
+  min-height: 38px;
+  margin: 0 0 12px;
+  border: 1px solid var(--accent);
+  border-radius: 7px;
+  background: rgba(176, 138, 60, 0.12);
+  color: var(--parchment);
+  font-family: Inter, Arial, sans-serif;
+  font-weight: 900;
+}
+
 .recommendationList {
   position: relative;
   display: grid;
@@ -684,6 +697,45 @@ li + li {
 .recSection li {
   color: var(--parchment-2);
   line-height: 1.48;
+}
+
+.draftPanel {
+  border-color: rgba(176, 138, 60, 0.48);
+}
+
+.draftList {
+  position: relative;
+  display: grid;
+  gap: 8px;
+}
+
+.draftList h3 {
+  margin: 8px 0 0;
+  color: var(--accent);
+  font-family: Inter, Arial, sans-serif;
+  font-size: 0.78rem;
+  font-weight: 900;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.draftRow {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  border: 1px solid var(--line-2);
+  border-radius: 7px;
+  background: rgba(15, 12, 10, 0.58);
+  padding: 9px 10px;
+}
+
+.draftRow span {
+  color: var(--parchment-2);
+}
+
+.draftRow strong {
+  color: var(--accent);
+  font-family: Inter, Arial, sans-serif;
 }
 
 .faction-the-guild {

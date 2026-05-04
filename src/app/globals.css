@@ -338,7 +338,15 @@ select option {
 
 .search {
   position: relative;
-  margin: 12px 0;
+  margin: 12px 0 8px;
+}
+
+.helperText {
+  position: relative;
+  margin: 0 0 12px;
+  color: var(--muted);
+  font-size: 0.9rem;
+  line-height: 1.4;
 }
 
 .modelList {

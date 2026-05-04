@@ -211,7 +211,9 @@ export default function Home() {
           setSelectedIds={setOwnedModelIds}
           search={collectionSearch}
           setSearch={setCollectionSearch}
-          selectionLabel="Owned"
+          selectionLabel="In Collection"
+          helperText="Select models you own. Available recommendations will build from this collection pool."
+          selectedCountLabel="collection"
           collapsed={setupCollapsed}
           setCollapsed={setSetupCollapsed}
         />
@@ -231,6 +233,8 @@ export default function Home() {
           search={opponentSearch}
           setSearch={setOpponentSearch}
           selectionLabel="Seen"
+          helperText="Mark opposing models you know or expect. Leave empty to predict from their legal pool."
+          selectedCountLabel="known"
           collapsed={setupCollapsed}
           setCollapsed={setSetupCollapsed}
         />
@@ -286,6 +290,8 @@ function CrewPanel(props: {
   search: string;
   setSearch: (value: string) => void;
   selectionLabel: string;
+  helperText: string;
+  selectedCountLabel: string;
   collapsed: boolean;
   setCollapsed: (value: boolean) => void;
 }) {
@@ -321,12 +327,12 @@ function CrewPanel(props: {
       <div className="panelHeader">
         <h2>{props.title}</h2>
         <span>
-          {mandatoryModels.reduce((sum, entry) => sum + entry.quantity, 0)} required / {props.selectedIds.length} selected / {totalSoulstones}ss
+          {mandatoryModels.reduce((sum, entry) => sum + entry.quantity, 0)} required / {props.selectedIds.length} {props.selectedCountLabel} / {totalSoulstones}ss
         </span>
       </div>
       <div className="spendSummary">
         <span>Required {requiredSoulstones}ss</span>
-        <span>Selected {selectedSoulstones}ss</span>
+        <span>{props.selectionLabel} {selectedSoulstones}ss</span>
         <strong>Total {totalSoulstones}ss</strong>
         {props.collapsed ? (
           <button className="subtleButton" type="button" onClick={() => props.setCollapsed(false)}>
@@ -375,6 +381,7 @@ function CrewPanel(props: {
         placeholder="Filter models, abilities, keywords"
         onChange={(event) => props.setSearch(event.target.value)}
       />
+      <p className="helperText">{props.helperText}</p>
       <div className="modelList">
         {sections.map((section) => (
           <div className="modelSection" key={section.title}>

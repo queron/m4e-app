@@ -29,6 +29,7 @@ import {
   X
 } from "lucide-react";
 import type { CardCatalog, MatchupAnalysis, ModelCard, ModelRecommendation, RecommendationPath, SynergyGroup, TacticalTag } from "@/lib/types";
+import { SCHEME_POOLS } from "@/lib/scheme-pools";
 import { STRATEGY_POOLS } from "@/lib/strategy-pools";
 import { getMandatoryCrewEntries } from "@/lib/mandatory-crew";
 import {
@@ -98,6 +99,7 @@ export default function Home() {
   const [pointLimit, setPointLimit] = useState(DEFAULT_POINT_LIMIT);
   const [strategyPoolId, setStrategyPoolId] = useState(STRATEGY_POOLS[0].id);
   const [strategyId, setStrategyId] = useState(STRATEGY_POOLS[0].strategies[0].id);
+  const [schemePoolId, setSchemePoolId] = useState(SCHEME_POOLS[0].id);
   const [pathKind, setPathKind] = useState<PathKind>("available");
   const [collectionSearch, setCollectionSearch] = useState("");
   const [opponentSearch, setOpponentSearch] = useState("");
@@ -132,6 +134,7 @@ export default function Home() {
         if (restored?.pointLimit) setPointLimit(restored.pointLimit);
         if (restored?.strategyPoolId) setStrategyPoolId(restored.strategyPoolId);
         if (restored?.strategyId) setStrategyId(restored.strategyId);
+        if (restored?.schemePoolId) setSchemePoolId(restored.schemePoolId);
         if (!restored?.ownedModelIds) setOwnedModelIds(readStoredIds(COLLECTION_STORAGE_KEY));
         setSavedDrafts(readStoredDrafts());
       })
@@ -320,6 +323,7 @@ export default function Home() {
           pointLimit,
           strategyPoolId,
           strategyId,
+          schemePoolId,
           modelLimit: INTERNAL_MODEL_LIMIT
         })
       });
@@ -369,7 +373,8 @@ export default function Home() {
       opponentModelIds,
       pointLimit,
       strategyPoolId,
-      strategyId
+      strategyId,
+      schemePoolId
     };
     const url = new URL(window.location.href);
     url.searchParams.set(SHARE_PARAM, encodeSharePayload(payload));
@@ -535,6 +540,16 @@ export default function Home() {
             </select>
           </label>
           <label>
+            Scheme Pool
+            <select value={schemePoolId} onChange={(event) => setSchemePoolId(event.target.value)}>
+              {SCHEME_POOLS.map((pool) => (
+                <option key={pool.id} value={pool.id}>
+                  {pool.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label>
             Soulstones
             <input value={pointLimit} min={1} max={150} type="number" onChange={(event) => setPointLimit(Number(event.target.value))} />
           </label>
@@ -670,6 +685,7 @@ export default function Home() {
               Draft Crew
             </button>
           </div>
+          {analysis.schemeWatchlist ? <SchemeWatchlistPanel watchlist={analysis.schemeWatchlist} /> : null}
           {activeResultTab === "picks" ? (
             <>
               <div className="analysisColumn">
@@ -1232,6 +1248,38 @@ function CrewAnalysisCard({
         <h3>{vulnerabilityTitle}</h3>
         <ul>{vulnerabilities.map((item, index) => <li key={`${vulnerabilityTitle}-${index}-${item}`}>{item}</li>)}</ul>
       </article>
+    </section>
+  );
+}
+
+function SchemeWatchlistPanel({ watchlist }: { watchlist: NonNullable<MatchupAnalysis["schemeWatchlist"]> }) {
+  return (
+    <details className="schemeWatchlist">
+      <summary>Scheme Watchlist</summary>
+      <div className="schemeWatchlistGrid">
+        <SchemeWatchlistColumn title="Good for your crew" items={watchlist.goodForPlayer} />
+        <SchemeWatchlistColumn title="Watch opponent for" items={watchlist.opponentThreats} />
+      </div>
+    </details>
+  );
+}
+
+function SchemeWatchlistColumn({ title, items }: { title: string; items: NonNullable<MatchupAnalysis["schemeWatchlist"]>["goodForPlayer"] }) {
+  return (
+    <section>
+      <h3>{title}</h3>
+      {items.length > 0 ? (
+        <ul>
+          {items.map((item) => (
+            <li key={item.scheme.id}>
+              <strong>{item.scheme.name}</strong>
+              <span>{item.rationale}</span>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p>No strong scheme lane identified from current crew tags.</p>
+      )}
     </section>
   );
 }
@@ -2393,6 +2441,7 @@ function readSharedSetup(): Partial<{
   pointLimit: number;
   strategyPoolId: string;
   strategyId: string;
+  schemePoolId: string;
 }> | null {
   if (typeof window === "undefined") return null;
   const encoded = new URL(window.location.href).searchParams.get(SHARE_PARAM);

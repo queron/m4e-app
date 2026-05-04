@@ -51,6 +51,13 @@ type SavedDraft = {
   summary: string;
 };
 
+type DraftSummaryContext = {
+  strategyPoolName: string;
+  strategyName: string;
+  playerMasterName?: string;
+  opponentMasterName?: string;
+};
+
 const DEFAULT_POINT_LIMIT = 50;
 const INTERNAL_MODEL_LIMIT = 99;
 const COLLECTION_STORAGE_KEY = "m4e.collection.v1";
@@ -262,7 +269,7 @@ export default function Home() {
   function saveDraft(path: RecommendationPath) {
     const requiredCost = playerRequiredModels.reduce((sum, entry) => sum + entry.model.cost * entry.quantity, 0);
     const totalCost = requiredCost + path.totalCost;
-    const summary = buildDraftSummary(playerRequiredModels, path, pointLimit);
+    const summary = buildDraftSummary(playerRequiredModels, path, pointLimit, draftSummaryContext());
     const draft: SavedDraft = {
       id: `${Date.now()}`,
       name: `${playerMaster?.name ?? "Crew"} into ${opponentMaster?.name ?? "opponent"}`,
@@ -276,8 +283,17 @@ export default function Home() {
   }
 
   async function exportDraft(path: RecommendationPath) {
-    await navigator.clipboard.writeText(buildDraftSummary(playerRequiredModels, path, pointLimit));
+    await navigator.clipboard.writeText(buildDraftSummary(playerRequiredModels, path, pointLimit, draftSummaryContext()));
     setStatusMessage("Draft export copied.");
+  }
+
+  function draftSummaryContext(): DraftSummaryContext {
+    return {
+      strategyPoolName: strategyPool.name,
+      strategyName: strategy.name,
+      playerMasterName: playerMaster?.name,
+      opponentMasterName: opponentMaster?.name
+    };
   }
 
   if (!catalog) {
@@ -512,7 +528,13 @@ export default function Home() {
           {activeResultTab === "draft" ? (
             <div className="draftResults">
               {draftPath ? (
-                <DraftCrewPanel requiredModels={playerRequiredModels} path={draftPath} pointLimit={pointLimit} onOpenModel={setSelectedModel} />
+                <DraftCrewPanel
+                  requiredModels={playerRequiredModels}
+                  path={draftPath}
+                  pointLimit={pointLimit}
+                  summaryContext={draftSummaryContext()}
+                  onOpenModel={setSelectedModel}
+                />
               ) : (
                 <DraftEmptyState />
               )}
@@ -931,11 +953,13 @@ function DraftCrewPanel({
   requiredModels,
   path,
   pointLimit,
+  summaryContext,
   onOpenModel
 }: {
   requiredModels: Array<{ model: ModelCard; quantity: number }>;
   path: RecommendationPath;
   pointLimit: number;
+  summaryContext: DraftSummaryContext;
   onOpenModel: (model: ModelCard) => void;
 }) {
   const [copied, setCopied] = useState(false);
@@ -945,16 +969,7 @@ function DraftCrewPanel({
   const remaining = pointLimit - totalCost;
 
   async function copyDraft() {
-    const lines = [
-      `Draft crew - ${totalCost}/${pointLimit}ss`,
-      "",
-      "Required:",
-      ...requiredModels.map((entry) => `${entry.quantity}x ${entry.model.name} (${entry.model.cost}ss)`),
-      "",
-      "Draft hires:",
-      ...path.models.map((recommendation) => `${recommendation.model.name} (${formatRecommendationCost(recommendation)}) - ${recommendation.role}`)
-    ];
-    await navigator.clipboard.writeText(lines.join("\n"));
+    await navigator.clipboard.writeText(buildDraftSummary(requiredModels, path, pointLimit, summaryContext));
     setCopied(true);
   }
 
@@ -1611,12 +1626,16 @@ function encodeSharePayload(value: unknown): string {
 function buildDraftSummary(
   requiredModels: Array<{ model: ModelCard; quantity: number }>,
   path: RecommendationPath,
-  pointLimit: number
+  pointLimit: number,
+  context: DraftSummaryContext
 ): string {
   const requiredCost = requiredModels.reduce((sum, entry) => sum + entry.model.cost * entry.quantity, 0);
   const totalCost = requiredCost + path.totalCost;
   return [
     `Draft crew - ${totalCost}/${pointLimit}ss`,
+    `Strategy: ${context.strategyName} (${context.strategyPoolName})`,
+    context.playerMasterName ? `Player: ${context.playerMasterName}` : undefined,
+    context.opponentMasterName ? `Opponent: ${context.opponentMasterName}` : undefined,
     "",
     "Required:",
     ...requiredModels.map((entry) => `${entry.quantity}x ${entry.model.name} (${entry.model.cost}ss)`),

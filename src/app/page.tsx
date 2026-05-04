@@ -470,7 +470,11 @@ export default function Home() {
                 />
               </div>
               <div className="analysisColumn">
-                <LikelyCrewPanel models={analysis.opponentCrew.likelyModels} onOpenModel={setSelectedModel} />
+                <LikelyCrewPanel
+                  expectedModels={analysis.opponentCrew.expectedModels}
+                  models={analysis.opponentCrew.likelyModels}
+                  onOpenModel={setSelectedModel}
+                />
               </div>
             </>
           ) : null}
@@ -495,7 +499,11 @@ export default function Home() {
                   strengthTitle="Likely Pressure"
                   vulnerabilityTitle="Your Pressure Points"
                 />
-                <LikelyCrewPanel models={analysis.opponentCrew.likelyModels} onOpenModel={setSelectedModel} />
+                <LikelyCrewPanel
+                  expectedModels={analysis.opponentCrew.expectedModels}
+                  models={analysis.opponentCrew.likelyModels}
+                  onOpenModel={setSelectedModel}
+                />
               </div>
             </>
           ) : null}
@@ -1046,13 +1054,20 @@ function SavedDraftsPanel({
 }
 
 function LikelyCrewPanel({
+  expectedModels,
   models,
   onOpenModel
 }: {
+  expectedModels: MatchupAnalysis["opponentCrew"]["expectedModels"];
   models: MatchupAnalysis["opponentCrew"]["likelyModels"];
   onOpenModel: (model: ModelCard) => void;
 }) {
   const [expandedModelId, setExpandedModelId] = useState<string | null>(null);
+  const expectedEntries = countExpectedModels(expectedModels);
+  const expectedCount = expectedEntries.reduce((sum, entry) => sum + entry.quantity, 0);
+  const expectedIds = new Set(expectedEntries.map((entry) => entry.model.id));
+  const predictedModels = models.filter((recommendation) => !expectedIds.has(recommendation.model.id));
+  const predictedCost = predictedModels.reduce((sum, recommendation) => sum + recommendation.hireCost, 0);
 
   return (
     <section className="panel recommendationPanel">
@@ -1061,17 +1076,48 @@ function LikelyCrewPanel({
           <h2>
             <RulesIcon iconKey="prediction" /> Opponent Picks
           </h2>
-          <span><RulesIcon iconKey="soulstone" /> {models.reduce((sum, recommendation) => sum + recommendation.hireCost, 0)} likely package</span>
+          <span>
+            {expectedCount > 0
+              ? `${expectedCount} expected / ${predictedModels.length} predicted`
+              : <><RulesIcon iconKey="soulstone" /> {predictedCost} likely package</>}
+          </span>
         </div>
       </div>
+      {expectedEntries.length > 0 ? (
+        <div className="opponentIntelBlock">
+          <h3>Expected from Intel</h3>
+          <div className="recommendationList compactRecommendationList">
+            {expectedEntries.map(({ model, quantity }) => (
+              <article className="recommendation" key={model.id}>
+                <div className="recHeader">
+                  <div>
+                    <h3>
+                      <button className="modelNameButton recNameButton" type="button" onClick={() => onOpenModel(model)}>
+                        {model.name}{quantity > 1 ? ` x${quantity}` : ""}
+                      </button>
+                    </h3>
+                    <p>
+                      <RulesIcon iconKey="soulstone" /> {model.cost * quantity}ss - expected opponent model
+                    </p>
+                  </div>
+                  <span className="expectedBadge">Expected</span>
+                </div>
+              </article>
+            ))}
+          </div>
+        </div>
+      ) : null}
       <HelpDisclosure
         className="panelHint"
-        label="Predicted picks"
+        label="Predicted by App"
         text="Estimated from legal pool, keyword fit, role coverage, strategy needs, and point efficiency. These are not confirmed opponent selections."
       />
 
       <div className="recommendationList">
-        {models.map((recommendation) => (
+        {predictedModels.length === 0 ? (
+          <div className="infoCallout">No additional predicted models beyond your opponent intel.</div>
+        ) : null}
+        {predictedModels.map((recommendation) => (
           <article className="recommendation" key={recommendation.model.id}>
             <div className="recHeader">
               <div>
@@ -1149,6 +1195,19 @@ function modelUseNotes(recommendation: ModelRecommendation, strategyName?: strin
 
 function uniqueItems(items: string[]): string[] {
   return Array.from(new Set(items.filter(Boolean)));
+}
+
+function countExpectedModels(models: ModelCard[]): Array<{ model: ModelCard; quantity: number }> {
+  const byId = new Map<string, { model: ModelCard; quantity: number }>();
+  for (const model of models) {
+    const entry = byId.get(model.id);
+    if (entry) {
+      entry.quantity += 1;
+    } else {
+      byId.set(model.id, { model, quantity: 1 });
+    }
+  }
+  return Array.from(byId.values());
 }
 
 function articleFor(value: string): "a" | "an" {

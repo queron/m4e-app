@@ -231,6 +231,7 @@ export type MatchupAnalysis = {
     primaryKeywords: string[];
     plan: string;
     pressurePoints: string[];
+    expectedModels: ModelCard[];
     likelyModels: ModelRecommendation[];
   };
   paths: {

@@ -107,6 +107,7 @@ export function analyzeMatchup(input: PlannerInput): MatchupAnalysis {
       primaryKeywords: getPrimaryKeywords(opponentMaster),
       plan: describeOpponentPlan(opponentMaster, opponentCrewCard, opponentCrew, strategy),
       pressurePoints: describeOpponentPressure(opponentCrew),
+      expectedModels: opponentModels,
       likelyModels: likelyOpponentModels
     },
     paths: {

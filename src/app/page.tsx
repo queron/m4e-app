@@ -325,9 +325,9 @@ function CrewPanel(props: {
         </span>
       </div>
       <div className="spendSummary">
-        <span>Required {requiredSoulstones}ss</span>
-        <span>Selected {selectedSoulstones}ss</span>
-        <strong>Total {totalSoulstones}ss</strong>
+        <span>Required models {requiredSoulstones}ss</span>
+        <span>Manual selections {selectedSoulstones}ss</span>
+        <strong>Displayed total {totalSoulstones}ss</strong>
         {props.collapsed ? (
           <button className="subtleButton" type="button" onClick={() => props.setCollapsed(false)}>
             Edit
@@ -375,6 +375,7 @@ function CrewPanel(props: {
         placeholder="Filter models, abilities, keywords"
         onChange={(event) => props.setSearch(event.target.value)}
       />
+      <p className="requiredHelper">Leader and associated totem models are included automatically and cannot be removed from this crew setup.</p>
       <div className="modelList">
         {sections.map((section) => (
           <div className="modelSection" key={section.title}>
@@ -428,9 +429,13 @@ function ModelRow({
 
   return (
     <div className={`modelRow ${selected ? "selected" : ""} ${forced ? "forced" : ""}`}>
-      <button className="check" onClick={onToggle} type="button" disabled={forced}>
-        {selected ? "x" : ""}
-      </button>
+      {forced ? (
+        <span className="check forcedCheck">Req</span>
+      ) : (
+        <button className="check" onClick={onToggle} type="button">
+          {selected ? "x" : ""}
+        </button>
+      )}
       <span className="modelMain">
         <strong>{model.name}</strong>
         <small>

@@ -338,7 +338,15 @@ select option {
 
 .search {
   position: relative;
-  margin: 12px 0;
+  margin: 12px 0 8px;
+}
+
+.requiredHelper {
+  position: relative;
+  margin: 0 0 12px;
+  color: var(--muted);
+  font-size: 0.9rem;
+  line-height: 1.4;
 }
 
 .modelList {
@@ -451,6 +459,16 @@ select option {
   font-size: 0.8rem;
   font-weight: 900;
   padding: 0;
+}
+
+.forcedCheck {
+  width: auto;
+  min-width: 32px;
+  padding: 0 5px;
+  color: var(--parchment);
+  border-color: var(--accent);
+  background: rgba(176, 138, 60, 0.18);
+  font-size: 0.62rem;
 }
 
 .modelMain {

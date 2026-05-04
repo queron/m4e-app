@@ -1,6 +1,6 @@
 "use client";
 
-import { Component, useEffect, useMemo, useRef, useState } from "react";
+import { Component, useEffect, useId, useMemo, useRef, useState } from "react";
 import type { ErrorInfo, ReactNode } from "react";
 import type { KeyboardEvent as ReactKeyboardEvent } from "react";
 import {
@@ -917,22 +917,14 @@ function CrewPanel(props: {
             ))}
           </select>
         </label>
-        <label>
-          Master
-          <select
-            value={props.masterId}
-            onChange={(event) => {
-              props.setMasterId(event.target.value);
-              props.setSelectedIds([]);
-            }}
-          >
-            {props.masters.map((master) => (
-              <option key={master.id} value={master.id}>
-                {master.name}
-              </option>
-            ))}
-          </select>
-        </label>
+        <MasterCombobox
+          masters={props.masters}
+          value={props.masterId}
+          onChange={(masterId) => {
+            props.setMasterId(masterId);
+            props.setSelectedIds([]);
+          }}
+        />
       </div>
       <input
         className="search"
@@ -974,6 +966,118 @@ function CrewPanel(props: {
         </>
       )}
     </section>
+  );
+}
+
+function MasterCombobox({ masters, value, onChange }: { masters: ModelCard[]; value: string; onChange: (value: string) => void }) {
+  const fieldId = useId();
+  const listId = `${fieldId}-listbox`;
+  const selectedMaster = masters.find((master) => master.id === value);
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState("");
+  const [activeIndex, setActiveIndex] = useState(0);
+  const wrapperRef = useRef<HTMLDivElement | null>(null);
+  const filteredMasters = useMemo(() => {
+    const needle = query.trim().toLowerCase();
+    if (!needle) return masters;
+    return masters.filter((master) =>
+      [master.name, master.faction, master.strategicKeywords.join(" "), master.keywords.join(" ")]
+        .join(" ")
+        .toLowerCase()
+        .includes(needle)
+    );
+  }, [masters, query]);
+
+  useEffect(() => {
+    if (!open) return;
+
+    function closeOnOutsideClick(event: MouseEvent) {
+      if (wrapperRef.current?.contains(event.target as Node)) return;
+      setOpen(false);
+      setQuery("");
+    }
+
+    document.addEventListener("mousedown", closeOnOutsideClick);
+    return () => document.removeEventListener("mousedown", closeOnOutsideClick);
+  }, [open]);
+
+  useEffect(() => {
+    setActiveIndex(0);
+  }, [query, value]);
+
+  function choose(master: ModelCard) {
+    onChange(master.id);
+    setOpen(false);
+    setQuery("");
+  }
+
+  function onSearchKeyDown(event: ReactKeyboardEvent<HTMLInputElement>) {
+    if (event.key === "ArrowDown") {
+      event.preventDefault();
+      if (filteredMasters.length === 0) return;
+      setActiveIndex((current) => Math.min(current + 1, filteredMasters.length - 1));
+    }
+    if (event.key === "ArrowUp") {
+      event.preventDefault();
+      if (filteredMasters.length === 0) return;
+      setActiveIndex((current) => Math.max(current - 1, 0));
+    }
+    if (event.key === "Enter" && filteredMasters[activeIndex]) {
+      event.preventDefault();
+      choose(filteredMasters[activeIndex]);
+    }
+    if (event.key === "Escape") {
+      setOpen(false);
+      setQuery("");
+    }
+  }
+
+  return (
+    <div className="comboField" ref={wrapperRef}>
+      <span className="comboLabel">Master</span>
+      <button
+        aria-controls={listId}
+        aria-expanded={open}
+        aria-haspopup="listbox"
+        className="comboButton"
+        type="button"
+        onClick={() => setOpen((current) => !current)}
+      >
+        {selectedMaster?.name ?? "Choose master"}
+      </button>
+      {open ? (
+        <div className="comboPopover">
+          <input
+            autoFocus
+            className="comboSearch"
+            placeholder="Search master or keyword"
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            onKeyDown={onSearchKeyDown}
+          />
+          <div className="comboList" id={listId} role="listbox" aria-label="Master options">
+            {filteredMasters.length > 0 ? (
+              filteredMasters.map((master, index) => (
+                <button
+                  aria-selected={master.id === value}
+                  className={`comboOption ${index === activeIndex ? "active" : ""}`}
+                  key={master.id}
+                  role="option"
+                  type="button"
+                  onMouseEnter={() => setActiveIndex(index)}
+                  onClick={() => choose(master)}
+                >
+                  <span>{master.name}</span>
+                  <small>{master.strategicKeywords.join(", ") || master.keywords.slice(0, 3).join(", ") || "Master"}</small>
+                </button>
+              ))
+            ) : (
+              <div className="comboEmpty">No masters match.</div>
+            )}
+          </div>
+        </div>
+      ) : null}
+    </div>
   );
 }
 

@@ -348,7 +348,11 @@ export default function Home() {
           <button className="subtleButton" type="button" onClick={clearCollection}>Clear collection</button>
         </div>
         <p className="matchSummary">{strategy.summary}</p>
-        <p className="matchHint">You can analyze with only both masters selected, then refine the results by marking models in your collection.</p>
+        <HelpDisclosure
+          className="matchHint"
+          label="Analyze with masters only"
+          text="You can run analysis with just both masters selected, then refine Available results by marking models in your collection."
+        />
       </section>
 
       <section className="plannerGrid">
@@ -516,7 +520,15 @@ function CrewPanel(props: {
           {mandatoryModels.reduce((sum, entry) => sum + entry.quantity, 0)} required / {props.selectedIds.length} {props.selectedCountLabel} / {totalSoulstones}ss
         </span>
       </div>
-      <p className="panelHelper">{props.title === "Player" ? "Choose your collection, inspect cards, then compare recommended hires." : "Mark known enemy models or leave empty for predicted picks."}</p>
+      <HelpDisclosure
+        className="panelHelper"
+        label={props.title === "Player" ? "What I own" : "Opponent intel"}
+        text={
+          props.title === "Player"
+            ? "Selected models constrain Available recommendations. Draft crews are built separately from this collection."
+            : "Mark known or expected enemy models to sharpen target priority. Leave empty to predict from their legal pool."
+        }
+      />
       <div className="spendSummary">
         <span>Required {requiredSoulstones}ss</span>
         <span>{props.selectionLabel} {selectedSoulstones}ss</span>
@@ -568,8 +580,7 @@ function CrewPanel(props: {
         placeholder="Filter models, abilities, keywords"
         onChange={(event) => props.setSearch(event.target.value)}
       />
-      <p className="helperText">{props.helperText}</p>
-      <p className="requiredHelper">Leader and associated totem models are included automatically and cannot be removed from this crew setup.</p>
+      <HelpDisclosure className="helperText" label="Required models" text="Leader and associated totem models are included automatically and cannot be removed from this crew setup." />
       <div className="modelList">
         {sections.map((section) => (
           <div className="modelSection" key={section.title}>
@@ -956,9 +967,11 @@ function LikelyCrewPanel({
           <span><RulesIcon iconKey="soulstone" /> {models.reduce((sum, recommendation) => sum + recommendation.hireCost, 0)} likely package</span>
         </div>
       </div>
-      <p className="panelHint">
-        Predictions are estimates based on keyword fit, role coverage, strategy needs, and point efficiency. They are not confirmed opponent selections.
-      </p>
+      <HelpDisclosure
+        className="panelHint"
+        label="Predicted picks"
+        text="Estimated from legal pool, keyword fit, role coverage, strategy needs, and point efficiency. These are not confirmed opponent selections."
+      />
 
       <div className="recommendationList">
         {models.map((recommendation) => (
@@ -993,6 +1006,15 @@ function LikelyCrewPanel({
         ))}
       </div>
     </section>
+  );
+}
+
+function HelpDisclosure({ label, text, className }: { label: string; text: string; className?: string }) {
+  return (
+    <details className={`helpDisclosure ${className ?? ""}`}>
+      <summary>{label}</summary>
+      <p>{text}</p>
+    </details>
   );
 }
 

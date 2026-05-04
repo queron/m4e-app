@@ -260,6 +260,30 @@ select option {
   margin: 0 0 12px;
 }
 
+.setupStepper {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+  margin: -6px 0 18px;
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.setupStepper span {
+  border: 1px solid rgba(176, 138, 60, 0.28);
+  border-radius: 999px;
+  background: rgba(17, 14, 11, 0.68);
+  padding: 7px 10px;
+  text-align: center;
+}
+
+.setupStepper span:nth-child(2) {
+  border-color: rgba(196, 154, 70, 0.58);
+  color: var(--parchment);
+  background: rgba(196, 154, 70, 0.12);
+}
+
 .primary {
   min-height: 42px;
   border: 1px solid #c4a257;
@@ -1661,6 +1685,7 @@ li + li {
   .topbar,
   .matchGrid,
   .formGrid,
+  .setupStepper,
   .scoreGrid {
     grid-template-columns: 1fr;
     display: grid;
@@ -1725,6 +1750,7 @@ li + li {
   .topbar,
   .matchPanel,
   .plannerGrid,
+  .setupStepper,
   .segment,
   .resultTabs,
   .planButton,

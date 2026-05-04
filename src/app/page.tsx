@@ -28,7 +28,8 @@ import {
   Waves,
   X
 } from "lucide-react";
-import type { CardCatalog, MatchupAnalysis, ModelCard, ModelRecommendation, RecommendationPath, SynergyGroup, TacticalTag } from "@/lib/types";
+import type { CardCatalog, CrewCard, MatchupAnalysis, ModelCard, ModelRecommendation, RecommendationPath, SynergyGroup, TacticalTag } from "@/lib/types";
+import masterPlaystyleNotes from "@/data/master_playstyle_notes.json";
 import { SCHEME_POOLS } from "@/lib/scheme-pools";
 import { STRATEGY_POOLS } from "@/lib/strategy-pools";
 import { getMandatoryCrewEntries } from "@/lib/mandatory-crew";
@@ -85,6 +86,13 @@ type AnalyzeReadiness = {
   emptyState: string;
   disabledButtonLabel: string;
 };
+type MasterProfile = {
+  gamePlan: string;
+  tableJobs: string[];
+  pressureVectors: TacticalTag[];
+  commonRisks: string[];
+};
+type MasterProfileNoteMap = Record<string, Partial<MasterProfile>>;
 
 const ROLE_FILTERS: Array<{ label: string; value: RoleFilter }> = [
   { label: "All roles", value: "all" },
@@ -145,6 +153,47 @@ function buildAnalyzeReadiness({
     detail: "Ready: Available recommendations use your marked collection.",
     emptyState: "Ready to analyze. Available recommendations will use your marked collection.",
     disabledButtonLabel: "Analyze"
+  };
+}
+
+function findCrewCardForSelectedMaster(master: ModelCard | undefined, catalog: CardCatalog | null): CrewCard | undefined {
+  if (!master || !catalog) return undefined;
+  const normalizedMaster = slugifyForMatch(master.name);
+  const masterFamily = slugifyForMatch(master.name.split(",")[0] ?? master.name);
+  return catalog.crewCards.find((crewCard) => {
+    const source = slugifyForMatch(crewCard.sourceFile);
+    return source.includes(normalizedMaster) || source.includes(masterFamily);
+  });
+}
+
+function buildMasterProfile(master: ModelCard | undefined, crewCard?: CrewCard): MasterProfile {
+  if (!master) {
+    return {
+      gamePlan: "Choose a master to see its game plan.",
+      tableJobs: ["Select a faction and master"],
+      pressureVectors: [],
+      commonRisks: ["No master selected"]
+    };
+  }
+
+  const curated = (masterPlaystyleNotes as MasterProfileNoteMap)[master.name] ?? {};
+  const tags = Array.from(new Set([...master.tacticalTags, ...(crewCard?.tacticalTags ?? [])]));
+  const primaryTags = tags.slice(0, 4);
+  const role = modelRole({ tacticalTags: tags });
+
+  return {
+    gamePlan: curated.gamePlan ?? `${master.name} usually starts from a ${role} posture built around ${formatVisibleTags(primaryTags)}.`,
+    tableJobs: curated.tableJobs ?? [
+      `Lead with ${role} pieces`,
+      `Hire support that reinforces ${formatVisibleTags(primaryTags.slice(0, 3))}`,
+      "Keep one model free for scenario work"
+    ],
+    pressureVectors: curated.pressureVectors ?? primaryTags,
+    commonRisks: curated.commonRisks ?? [
+      "Can become predictable if every hire doubles down on the same tags",
+      "Needs at least one independent scorer or denial piece",
+      crewCard ? `Crew card leans ${formatVisibleTags(crewCard.tacticalTags.slice(0, 3))}; protect that plan from direct counters.` : "Crew-card data is limited, so verify table roles before finalizing."
+    ]
   };
 }
 
@@ -296,6 +345,22 @@ export default function Home() {
   const opponentMaster = useMemo(
     () => catalog?.models.find((model) => model.id === opponentMasterId),
     [catalog, opponentMasterId]
+  );
+  const playerCrewCard = useMemo(
+    () => findCrewCardForSelectedMaster(playerMaster, catalog),
+    [catalog, playerMaster]
+  );
+  const opponentCrewCard = useMemo(
+    () => findCrewCardForSelectedMaster(opponentMaster, catalog),
+    [catalog, opponentMaster]
+  );
+  const playerMasterProfile = useMemo(
+    () => buildMasterProfile(playerMaster, playerCrewCard),
+    [playerMaster, playerCrewCard]
+  );
+  const opponentMasterProfile = useMemo(
+    () => buildMasterProfile(opponentMaster, opponentCrewCard),
+    [opponentMaster, opponentCrewCard]
   );
 
   useEffect(() => {
@@ -650,6 +715,7 @@ export default function Home() {
           masters={opponentMasters}
           master={opponentMaster}
           allModels={catalog.models}
+          profile={opponentMasterProfile}
           masterId={opponentMasterId}
           setMasterId={setOpponentMasterId}
           pool={opponentPool}
@@ -674,6 +740,7 @@ export default function Home() {
           masters={playerMasters}
           master={playerMaster}
           allModels={catalog.models}
+          profile={playerMasterProfile}
           masterId={playerMasterId}
           setMasterId={setPlayerMasterId}
           pool={playerPool}
@@ -779,6 +846,10 @@ export default function Home() {
           ) : null}
           {activeResultTab === "matchup" ? (
             <>
+              <MasterProfilePair
+                playerProfile={buildMasterProfile(analysis.playerCrew.master, analysis.playerCrew.crewCard)}
+                opponentProfile={buildMasterProfile(analysis.opponentCrew.master, analysis.opponentCrew.crewCard)}
+              />
               <div className="analysisColumn">
                 <CrewAnalysisCard
                   title="My Crew"
@@ -923,6 +994,7 @@ function CrewPanel(props: {
   masters: ModelCard[];
   master?: ModelCard;
   allModels: ModelCard[];
+  profile: MasterProfile;
   masterId: string;
   setMasterId: (value: string) => void;
   pool: ModelCard[];
@@ -1049,6 +1121,7 @@ function CrewPanel(props: {
           }}
         />
       </div>
+      <MasterProfileDisclosure profile={props.profile} />
       <input
         className="search"
         value={props.search}
@@ -1424,6 +1497,60 @@ function MatchupBriefPanel({ brief }: { brief: MatchupAnalysis["matchupBrief"] }
 }
 
 function BriefColumn({ title, items }: { title: string; items: string[] }) {
+  return (
+    <div>
+      <h3>{title}</h3>
+      <ul>
+        {items.slice(0, 4).map((item, index) => (
+          <li key={`${title}-${index}`}>{item}</li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+function MasterProfilePair({ playerProfile, opponentProfile }: { playerProfile: MasterProfile; opponentProfile: MasterProfile }) {
+  return (
+    <section className="masterProfilePair">
+      <MasterProfileCard title="My master plan" profile={playerProfile} />
+      <MasterProfileCard title="Opponent master plan" profile={opponentProfile} />
+    </section>
+  );
+}
+
+function MasterProfileDisclosure({ profile }: { profile: MasterProfile }) {
+  return (
+    <details className="masterProfileDisclosure">
+      <summary>Master profile</summary>
+      <MasterProfileBody profile={profile} />
+    </details>
+  );
+}
+
+function MasterProfileCard({ title, profile }: { title: string; profile: MasterProfile }) {
+  return (
+    <section className="panel masterProfileCard">
+      <div className="panelHeader">
+        <h2>{title}</h2>
+        <span>{profile.pressureVectors.slice(0, 2).join(", ")}</span>
+      </div>
+      <MasterProfileBody profile={profile} />
+    </section>
+  );
+}
+
+function MasterProfileBody({ profile }: { profile: MasterProfile }) {
+  return (
+    <div className="masterProfileBody">
+      <p><strong>Game plan:</strong> {profile.gamePlan}</p>
+      <ProfileList title="Table jobs" items={profile.tableJobs} />
+      <ProfileList title="Pressure vectors" items={profile.pressureVectors.map(tacticalTagLabel)} />
+      <ProfileList title="Common risks" items={profile.commonRisks} />
+    </div>
+  );
+}
+
+function ProfileList({ title, items }: { title: string; items: string[] }) {
   return (
     <div>
       <h3>{title}</h3>

@@ -1495,6 +1495,7 @@ function RecommendationPanel({
           const modelIssues = selectedPath.validation.modelIssues[recommendation.model.id] ?? [];
           const chips = recommendationChips(recommendation);
           const fitPercent = normalizedScorePercent(recommendation.score, maxRecommendationScore);
+          const plan = recommendationPlan(recommendation, strategyName);
 
           return (
             <article className="recommendation" key={recommendation.model.id}>
@@ -1535,8 +1536,11 @@ function RecommendationPanel({
                   <span style={{ width: `${fitPercent}%` }} />
                 </div>
               </div>
-              {recommendation.hireTax > 0 ? <p className="topReason">Adjusted cost: {recommendation.hireReason}</p> : null}
-              {recommendation.why[0] ? <p className="topReason">Top reason: {recommendation.why[0]}</p> : null}
+              <div className="recPlan">
+                <p><strong>Why this pick:</strong> {plan.why}</p>
+                <p><strong>Table job:</strong> {plan.tableJob}</p>
+                {plan.tradeoff ? <p><strong>Risk/tradeoff:</strong> {plan.tradeoff}</p> : null}
+              </div>
               <div className="scoreGrid">
                 <ScoreContribution
                   label="Master Counter"
@@ -1567,7 +1571,7 @@ function RecommendationPanel({
               </button>
               {expandedModelId === recommendation.model.id ? (
                 <>
-                  <RecSection title="How to Use" items={modelUseNotes(recommendation, strategyName)} />
+                  <RecSection title="How to Use" items={modelUseNotes(recommendation, strategyName, plan)} />
                   <RecSection title="Key Tech" items={recommendation.relevantTech} />
                   <RecSection title="Targets" items={recommendation.priorityTargets} />
                   <RecSection title="Synergy" items={recommendation.alliedSynergies} />
@@ -1997,6 +2001,27 @@ function recommendationChips(recommendation: ModelRecommendation): Array<{ label
   ];
 }
 
+function recommendationPlan(recommendation: ModelRecommendation, strategyName?: string) {
+  const why = recommendation.why[0] ?? `${recommendation.model.name} fills a ${recommendation.role} slot into this matchup.`;
+  const strategyLine = strategyReasons(recommendation.why, strategyName)[0];
+  const tableJob = strategyLine
+    ?? `Use it as ${articleFor(recommendation.role)} ${recommendation.role} to cover ${formatVisibleTags(topTacticalTags(recommendation.model.tacticalTags))}.`;
+  const tradeoff = recommendation.hireTax > 0
+    ? recommendation.hireReason
+    : !recommendation.owned
+      ? "Not in the marked collection, so it only appears on the Optimal path."
+      : recommendation.confidence === "Low"
+        ? "Lower-confidence fit; confirm the crew still has enough support and scoring coverage."
+        : undefined;
+
+  return { why, tableJob, tradeoff };
+}
+
+function formatVisibleTags(tags: TacticalTag[]) {
+  if (tags.length === 0) return "general matchup needs";
+  return tags.map(tacticalTagLabel).join(", ");
+}
+
 function tacticalRoleLabel(role: string): string {
   return role
     .split(/\s+/)
@@ -2084,12 +2109,13 @@ function formatExportHireLine(recommendation: ModelRecommendation): string {
   return `${recommendation.model.name} (${formatRecommendationCost(recommendation)}) - ${recommendation.role}${reason}`;
 }
 
-function modelUseNotes(recommendation: ModelRecommendation, strategyName?: string): string[] {
+function modelUseNotes(recommendation: ModelRecommendation, strategyName: string | undefined, plan: ReturnType<typeof recommendationPlan>): string[] {
+  const collapsedLines = new Set([plan.why, plan.tableJob, plan.tradeoff].filter(Boolean));
   return uniqueItems([
     ...recommendation.why,
     ...strategyReasons(recommendation.why, strategyName),
     `Use ${recommendation.model.name} as ${articleFor(recommendation.role)} ${recommendation.role}.`
-  ]);
+  ]).filter((item) => !collapsedLines.has(item)).slice(0, 4);
 }
 
 function uniqueItems(items: string[]): string[] {

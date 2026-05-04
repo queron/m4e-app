@@ -1430,6 +1430,26 @@ li + li {
   line-height: 1.45;
 }
 
+.recPlan {
+  display: grid;
+  gap: 8px;
+  margin: 0 0 12px;
+  border-left: 3px solid var(--accent);
+  border-radius: var(--radius-sm);
+  background: rgba(196, 154, 70, 0.075);
+  padding: 10px 12px;
+}
+
+.recPlan p {
+  margin: 0;
+  color: var(--parchment-2);
+  line-height: 1.45;
+}
+
+.recPlan strong {
+  color: var(--parchment);
+}
+
 .recChipRow {
   display: flex;
   flex-wrap: wrap;

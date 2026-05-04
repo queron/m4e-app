@@ -1521,7 +1521,7 @@ function LikelyCrewPanel({
       <HelpDisclosure
         className="panelHint"
         label="Predicted by App"
-        text="Estimated from legal pool, keyword fit, role coverage, strategy needs, and point efficiency. These are not confirmed opponent selections."
+        text="Estimated from legal pool, keyword fit, table job coverage, strategy needs, and hire cost. These are not confirmed opponent selections."
       />
 
       <div className="recommendationList">
@@ -1702,7 +1702,7 @@ function modelUseNotes(recommendation: ModelRecommendation, strategyName?: strin
   return uniqueItems([
     ...recommendation.why,
     ...strategyReasons(recommendation.why, strategyName),
-    `${recommendation.model.name} should play as ${articleFor(recommendation.role)} ${recommendation.role}.`
+    `Use ${recommendation.model.name} as ${articleFor(recommendation.role)} ${recommendation.role}.`
   ]);
 }
 

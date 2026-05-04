@@ -967,9 +967,13 @@ function LikelyCrewPanel({
                   <RulesIcon iconKey="soulstone" /> {formatRecommendationCost(recommendation)} - {recommendation.role} - likelihood {recommendation.score}
                 </p>
               </div>
-              <span className="ownedBadge"><RulesIcon iconKey="prediction" /> Predicted</span>
+              <span className="badgeGroup">
+                <span className="ownedBadge"><RulesIcon iconKey="prediction" /> Predicted</span>
+                <span className={`confidenceBadge confidence-${recommendation.confidence.toLowerCase()}`}>
+                  {recommendation.confidence}
+                </span>
+              </span>
             </div>
-            <p className="confidenceBand">{recommendation.confidence} confidence prediction</p>
             <div className="scoreGrid twoScores">
               <span><RulesIcon iconKey="keyword" /> Synergy {recommendation.scoreBreakdown.crewSynergy}</span>
               <span><RulesIcon iconKey="score" /> Role {recommendation.scoreBreakdown.compositionMatchup}</span>

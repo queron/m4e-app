@@ -78,6 +78,7 @@ const SHARE_PARAM = "setup";
 type ModelSortMode = "name" | "costAsc" | "costDesc" | "role";
 type RoleFilter = "all" | "beater" | "scheme" | "support" | "anchor" | "control";
 type RecommendationSortMode = "fit" | "cost" | "role" | "name" | "owned";
+type ModelDensity = "compact" | "detailed";
 type AnalyzeReadiness = {
   status: string;
   detail: string;
@@ -935,6 +936,8 @@ function CrewPanel(props: {
 }) {
   const [modelSort, setModelSort] = useState<ModelSortMode>("name");
   const [roleFilter, setRoleFilter] = useState<RoleFilter>("all");
+  const [modelDensity, setModelDensity] = useState<ModelDensity>("compact");
+  const [collapsedSections, setCollapsedSections] = useState<Record<string, boolean>>({});
   const selected = new Set(props.selectedIds);
   const selectedCounts = countSelectedIds(props.selectedIds);
   const mandatoryModels = getMandatoryModelsForMaster(props.master, props.allModels);
@@ -956,6 +959,27 @@ function CrewPanel(props: {
     mandatoryModels,
     modelSort
   );
+
+  useEffect(() => {
+    const compactViewport = window.matchMedia("(max-width: 720px)").matches;
+    if (!compactViewport) {
+      setCollapsedSections({});
+      return;
+    }
+    setCollapsedSections({
+      "Versatile Models": true,
+      "Faction Models": true
+    });
+  }, [props.faction, props.masterId]);
+
+  function isSectionCollapsed(title: string) {
+    if (props.search.trim()) return false;
+    return Boolean(collapsedSections[title]);
+  }
+
+  function toggleSection(title: string) {
+    setCollapsedSections((current) => ({ ...current, [title]: !current[title] }));
+  }
 
   function toggle(id: string) {
     props.setSelectedIds(selected.has(id) ? props.selectedIds.filter((item) => item !== id) : [...props.selectedIds, id]);
@@ -1045,18 +1069,32 @@ function CrewPanel(props: {
             ))}
           </select>
         </label>
+        <label>
+          Density
+          <select value={modelDensity} onChange={(event) => setModelDensity(event.target.value as ModelDensity)}>
+            <option value="compact">Compact</option>
+            <option value="detailed">Detailed</option>
+          </select>
+        </label>
       </div>
       <HelpDisclosure className="helperText" label="Required models" text="Leader and associated totem models are included automatically and cannot be removed from this crew setup." />
       <div className="modelList">
         {sections.map((section) => (
           <div className="modelSection" key={section.title}>
             <div className="modelSectionHeader">
-              <h3>
+              <button
+                aria-expanded={!isSectionCollapsed(section.title)}
+                className="sectionToggle"
+                type="button"
+                onClick={() => toggleSection(section.title)}
+              >
                 <RulesIcon iconKey={sectionIcon(section.title)} /> {section.title}
-              </h3>
+              </button>
               <span>{section.models.length}</span>
             </div>
-            {section.models.length > 0 ? (
+            {isSectionCollapsed(section.title) ? (
+              <div className="modelSectionCollapsed">{section.models.length} models hidden</div>
+            ) : section.models.length > 0 ? (
               expandSectionEntries(section.models).map((entry, index) => (
                 <ModelRow
                   key={`${section.title}-${entry.model.id}-${index}`}
@@ -1069,6 +1107,7 @@ function CrewPanel(props: {
                   onQuantityChange={entry.forced ? undefined : (quantity) => setModelQuantity(entry.model, quantity)}
                   onOpenModel={() => props.onOpenModel(entry.model)}
                   searchSnippet={searchMatchSnippet(entry.model, props.search)}
+                  density={modelDensity}
                   forced={entry.forced}
                 />
               ))
@@ -1216,6 +1255,7 @@ function ModelRow({
   onQuantityChange,
   onOpenModel,
   searchSnippet,
+  density,
   forced = false
 }: {
   model: ModelCard;
@@ -1227,12 +1267,14 @@ function ModelRow({
   onQuantityChange?: (quantity: number) => void;
   onOpenModel: () => void;
   searchSnippet?: string;
+  density: ModelDensity;
   forced?: boolean;
 }) {
   const canSetQuantity = selected && !forced && model.maxCopies > 1;
+  const showAbilityPreview = density === "detailed" || Boolean(searchSnippet);
 
   return (
-    <div className={`modelRow ${selected ? "selected" : ""} ${forced ? "forced" : ""}`}>
+    <div className={`modelRow ${selected ? "selected" : ""} ${forced ? "forced" : ""} density-${density}`}>
       {forced ? (
         <span className="check forcedCheck">Req</span>
       ) : (
@@ -1253,7 +1295,7 @@ function ModelRow({
         <small>
           <RulesIcon iconKey="soulstone" /> {model.cost} - {renderKeywordSummary(model)}
         </small>
-        <small>{model.abilities.slice(0, 2).map((ability) => ability.name).join("; ") || "No parsed abilities"}</small>
+        {showAbilityPreview ? <small>{model.abilities.slice(0, 2).map((ability) => ability.name).join("; ") || "No parsed abilities"}</small> : null}
         {searchSnippet ? <small className="searchMatchSnippet">{searchSnippet}</small> : null}
       </span>
       <span className="stats statChips">

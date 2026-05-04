@@ -1,4 +1,5 @@
 import type { Strategy } from "./strategy-pools";
+import type { Scheme, SchemePool } from "./scheme-pools";
 
 export type CardType = "unit" | "crew" | "upgrade" | "unknown";
 
@@ -148,6 +149,7 @@ export type PlannerInput = {
   modelLimit?: number;
   strategyPoolId?: string;
   strategyId?: string;
+  schemePoolId?: string;
 };
 
 export type CrewValidation = {
@@ -222,8 +224,10 @@ export type MatchupAnalysis = {
   match: {
     strategy?: Strategy;
     strategyPoolId?: string;
+    schemePool?: SchemePool;
     pointLimit: number;
   };
+  schemeWatchlist?: SchemeWatchlist;
   playerCrew: {
     master?: ModelCard;
     crewCard?: CrewCard;
@@ -247,4 +251,14 @@ export type MatchupAnalysis = {
     available: RecommendationPath;
     optimal: RecommendationPath;
   };
+};
+
+export type SchemeWatchlistItem = {
+  scheme: Scheme;
+  rationale: string;
+};
+
+export type SchemeWatchlist = {
+  goodForPlayer: SchemeWatchlistItem[];
+  opponentThreats: SchemeWatchlistItem[];
 };

@@ -7,6 +7,7 @@ import {
 } from "./card-data";
 import strategyNotes from "@/data/strategy_notes.json";
 import { buildCrewByScore, validateCrew } from "./crew-validation";
+import { getSchemePool, type Scheme, type SchemePool } from "./scheme-pools";
 import { getStrategy, type Strategy } from "./strategy-pools";
 import type {
   CrewCard,
@@ -72,6 +73,7 @@ export function analyzeMatchup(input: PlannerInput): MatchupAnalysis {
   const hasOwnedPool = ownedIds.size > 0;
   const modelLimit = input.modelLimit ?? 99;
   const strategy = getStrategy(input.strategyPoolId, input.strategyId);
+  const schemePool = getSchemePool(input.schemePoolId);
   const playerCrewCard = findCrewCardForMaster(playerMaster);
   const opponentCrewCard = findCrewCardForMaster(opponentMaster);
 
@@ -84,6 +86,7 @@ export function analyzeMatchup(input: PlannerInput): MatchupAnalysis {
   const scoredAvailable = availableCandidates.map((model) =>
     scoreModel(model, playerMaster, playerCrewCard, opponentMaster, opponentCrewCard, opponentCrew, strategy)
   );
+  const playerPlanSources = [playerMaster, playerCrewCard].filter(Boolean) as Array<ModelCard | CrewCard>;
   const knownOpponentIds = new Set(opponentModels.map((model) => model.id));
   const likelyOpponentModels = buildLikelyCrewMembers(
     opponentMaster,
@@ -98,8 +101,10 @@ export function analyzeMatchup(input: PlannerInput): MatchupAnalysis {
     match: {
       strategy,
       strategyPoolId: input.strategyPoolId,
+      schemePool,
       pointLimit: input.pointLimit
     },
+    schemeWatchlist: buildSchemeWatchlist(schemePool, playerPlanSources, opponentCrew),
     playerCrew: {
       master: playerMaster,
       crewCard: playerCrewCard,
@@ -267,6 +272,34 @@ function buildSynergyGroups(master: ModelCard | undefined, recommendations: Mode
   }
 
   return groups.slice(0, 3);
+}
+
+function buildSchemeWatchlist(schemePool: SchemePool, playerSources: Array<ModelCard | CrewCard>, opponentCrew: ModelCard[]) {
+  const playerTags = new Set<TacticalTag>(playerSources.flatMap((source) => source.tacticalTags));
+  const opponentTags = new Set<TacticalTag>(opponentCrew.flatMap((model) => model.tacticalTags));
+
+  const scoreScheme = (scheme: Scheme, tags: Set<TacticalTag>) => scheme.tags.filter((tag) => tags.has(tag)).length;
+  const goodForPlayer = schemePool.schemes
+    .map((scheme) => ({ scheme, score: scoreScheme(scheme, playerTags) }))
+    .filter((item) => item.score > 0)
+    .sort((a, b) => b.score - a.score || a.scheme.name.localeCompare(b.scheme.name))
+    .slice(0, 5)
+    .map(({ scheme }) => ({
+      scheme,
+      rationale: `Your crew shows ${formatTags(scheme.tags.filter((tag) => playerTags.has(tag)))}, so ${scheme.name} may be a live scoring lane.`
+    }));
+
+  const opponentThreats = schemePool.schemes
+    .map((scheme) => ({ scheme, score: scoreScheme(scheme, opponentTags) }))
+    .filter((item) => item.score > 0)
+    .sort((a, b) => b.score - a.score || a.scheme.name.localeCompare(b.scheme.name))
+    .slice(0, 5)
+    .map(({ scheme }) => ({
+      scheme,
+      rationale: `Watch for opposing ${formatTags(scheme.tags.filter((tag) => opponentTags.has(tag)))}, which can make ${scheme.name} easier to threaten.`
+    }));
+
+  return { goodForPlayer, opponentThreats };
 }
 
 type ScoredModel = {

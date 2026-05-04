@@ -808,6 +808,14 @@ select option {
   margin-bottom: 8px;
 }
 
+.comboHint {
+  display: block;
+  margin: -2px 2px 8px;
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 500;
+}
+
 .comboList {
   display: grid;
   gap: 4px;

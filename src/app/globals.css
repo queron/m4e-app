@@ -852,6 +852,53 @@ select option {
   font-weight: 600;
 }
 
+.expectedGuide {
+  display: grid;
+  gap: 10px;
+  margin: 12px 0 18px;
+  border: 1px solid var(--line-2);
+  border-radius: var(--radius-md);
+  background: rgba(15, 12, 10, 0.32);
+  padding: 12px;
+}
+
+.expectedGuide strong {
+  color: var(--parchment);
+}
+
+.expectedGuide p {
+  margin: 4px 0 0;
+  color: var(--muted);
+  line-height: 1.4;
+}
+
+.expectedGuideActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.expectedSuggestions {
+  display: grid;
+  gap: 8px;
+}
+
+.expectedSuggestions article {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 10px;
+  border: 1px solid var(--line-2);
+  border-radius: var(--radius-sm);
+  background: rgba(20, 16, 12, 0.66);
+  padding: 9px;
+}
+
+.expectedSuggestions span {
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
 .collapsedPanel {
   box-shadow: none;
 }
@@ -2206,6 +2253,10 @@ li + li {
   .quantityControl,
   .pill {
     grid-column: 2;
+  }
+
+  .expectedSuggestions article {
+    grid-template-columns: 1fr;
   }
 
   .modalBackdrop {

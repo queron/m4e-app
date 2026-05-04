@@ -8,6 +8,7 @@ const rulesPath = path.join(root, "src", "data", "master_crew_rules.json");
 const cards = JSON.parse(fs.readFileSync(cardsPath, "utf8"));
 const masterCrewRules = JSON.parse(fs.readFileSync(rulesPath, "utf8"));
 const issues = [];
+const warnings = [];
 
 const traitKeywords = new Set([
   "master",
@@ -87,6 +88,49 @@ function unitGroupKey(card) {
   return [clean(card.faction), clean(card.name), normalizeCost(card.cost), normalizeKeywords(card.keywords).join("|")].join("::");
 }
 
+function sourceFilenameNameHint(card) {
+  const parsed = path.parse(clean(card.sourceFile));
+  const tokens = parsed.name
+    .replace(/^M4E_/i, "")
+    .replace(/^Stat_/i, "")
+    .replace(/^Crew_/i, "")
+    .replace(/^Upgrade_/i, "")
+    .split(/[_\W]+/g)
+    .map((token) => token.toLowerCase())
+    .filter(Boolean);
+  const noise = new Set([
+    clean(card.faction).toLowerCase(),
+    ...normalizeKeywords(card.keywords).map((keyword) => keyword.toLowerCase()),
+    "m4e",
+    "stat",
+    "crew",
+    "upgrade"
+  ]);
+  return tokens
+    .filter((token) => token.length > 2 && !noise.has(token))
+    .filter((token) => !/^[a-z]$/.test(token) && !/^[a-j]$/.test(token));
+}
+
+function suspiciousNameIssues(card, label) {
+  const found = [];
+  const name = clean(card.name);
+  const nameTokens = name.toLowerCase().split(/[^a-z0-9]+/g).filter(Boolean);
+  const compactName = compactSlug(name);
+  const sourceHint = sourceFilenameNameHint(card).slice(-2);
+
+  if (sourceHint.length >= 2 && sourceHint.every((token) => !compactName.includes(token))) {
+    found.push(`${label} has no recognizable overlap with source filename hint ${sourceHint.join(", ")}.`);
+  }
+
+  for (const token of nameTokens) {
+    if (token.length >= 10 && /([a-z]{5,}).*\1/.test(token)) {
+      found.push(`${label} has suspicious repeated text in name token "${token}".`);
+    }
+  }
+
+  return found;
+}
+
 if (!Array.isArray(cards)) {
   issues.push("m4e_cards.json must contain an array.");
 } else {
@@ -102,6 +146,7 @@ if (!Array.isArray(cards)) {
     if (card.cardType !== "unknown" && !card.faction) issues.push(`${label} is missing faction.`);
 
     if (card.cardType === "unit") {
+      warnings.push(...suspiciousNameIssues(card, label));
       const cost = normalizeCost(card.cost);
       if (!Number.isFinite(cost) || cost < 0) issues.push(`${label} has invalid cost: ${card.cost}.`);
       for (const stat of ["defense", "speed", "willpower", "size"]) {
@@ -181,6 +226,11 @@ if (!Array.isArray(cards)) {
       issues.push(`${master.faction} - ${master.name} has ambiguous totems: ${candidates.map((totem) => totem.name).join(", ")}.`);
     }
   }
+}
+
+if (warnings.length > 0) {
+  console.warn(`Card data validation warning(s):`);
+  for (const warning of warnings) console.warn(`- ${warning}`);
 }
 
 if (issues.length > 0) {

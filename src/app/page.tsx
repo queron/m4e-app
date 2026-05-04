@@ -1018,6 +1018,7 @@ function CrewPanel(props: {
   const [roleFilter, setRoleFilter] = useState<RoleFilter>("all");
   const [modelDensity, setModelDensity] = useState<ModelDensity>("compact");
   const [collapsedSections, setCollapsedSections] = useState<Record<string, boolean>>({});
+  const [showExpectedSuggestions, setShowExpectedSuggestions] = useState(false);
   const selected = new Set(props.selectedIds);
   const selectedCounts = countSelectedIds(props.selectedIds);
   const mandatoryModels = getMandatoryModelsForMaster(props.master, props.allModels);
@@ -1029,6 +1030,7 @@ function CrewPanel(props: {
   const selectedSoulstones = selectedModels.reduce((sum, model) => sum + model.cost, 0);
   const totalSoulstones = requiredSoulstones + selectedSoulstones;
   const isPlayerPanel = props.title === "Player";
+  const suggestedExpectedModels = isPlayerPanel ? [] : suggestedThreatModels(props.pool, props.master, selected);
   const filteredPool = props.pool
     .filter((model) => !mandatoryIds.has(model.id))
     .filter((model) => modelMatchesRoleFilter(model, roleFilter));
@@ -1086,6 +1088,21 @@ function CrewPanel(props: {
         label={props.modeLabel}
         text={props.helperText}
       />
+      {!isPlayerPanel ? (
+        <ExpectedModelGuide
+          selectedCount={props.selectedIds.length}
+          suggestions={suggestedExpectedModels}
+          showSuggestions={showExpectedSuggestions}
+          setShowSuggestions={setShowExpectedSuggestions}
+          onAddTopSuggestions={() => {
+            const nextIds = Array.from(new Set([...props.selectedIds, ...suggestedExpectedModels.slice(0, 3).map((model) => model.id)]));
+            props.setSelectedIds(nextIds);
+          }}
+          onClear={() => props.setSelectedIds([])}
+          onAddModel={(model) => props.setSelectedIds(Array.from(new Set([...props.selectedIds, model.id])))}
+          onOpenModel={props.onOpenModel}
+        />
+      ) : null}
       <div className="spendSummary">
         <span>Required {requiredSoulstones}ss</span>
         <span>{props.selectedSummaryLabel ?? props.selectionLabel} {selectedSoulstones}ss</span>
@@ -1320,6 +1337,64 @@ function MasterCombobox({ masters, value, onChange }: { masters: ModelCard[]; va
               <div className="comboEmpty">No masters match.</div>
             )}
           </div>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function ExpectedModelGuide({
+  selectedCount,
+  suggestions,
+  showSuggestions,
+  setShowSuggestions,
+  onAddTopSuggestions,
+  onClear,
+  onAddModel,
+  onOpenModel
+}: {
+  selectedCount: number;
+  suggestions: ModelCard[];
+  showSuggestions: boolean;
+  setShowSuggestions: (value: boolean) => void;
+  onAddTopSuggestions: () => void;
+  onClear: () => void;
+  onAddModel: (model: ModelCard) => void;
+  onOpenModel: (model: ModelCard) => void;
+}) {
+  return (
+    <div className="expectedGuide">
+      <div>
+        <strong>{selectedCount === 0 ? "Not sure what they bring?" : `${selectedCount} expected model${selectedCount === 1 ? "" : "s"} marked`}</strong>
+        <p>Expected models are likely or known enemy picks. They sharpen opponent analysis without claiming the list is confirmed.</p>
+      </div>
+      <div className="expectedGuideActions">
+        <button className="subtleButton" type="button" onClick={onAddTopSuggestions} disabled={suggestions.length === 0}>
+          Mark top 3 suggestions
+        </button>
+        <button className="subtleButton" type="button" onClick={() => setShowSuggestions(!showSuggestions)}>
+          {showSuggestions ? "Hide suggested threats" : "Show suggested threats"}
+        </button>
+        {selectedCount > 0 ? (
+          <button className="subtleButton" type="button" onClick={onClear}>
+            Clear expected
+          </button>
+        ) : null}
+      </div>
+      {showSuggestions ? (
+        <div className="expectedSuggestions">
+          {suggestions.slice(0, 6).map((model) => (
+            <article key={model.id}>
+              <button className="modelNameButton" type="button" onClick={() => onOpenModel(model)}>
+                {model.name}
+              </button>
+              <span>{model.cost}ss - {modelRole(model)}</span>
+              <button className="subtleButton" type="button" onClick={() => onAddModel(model)}>
+                Mark expected
+              </button>
+            </article>
+          ))}
+          {suggestions.length === 0 ? <p>No unmarked suggestions are available for this filter.</p> : null}
         </div>
       ) : null}
     </div>
@@ -2731,6 +2806,20 @@ function modelMatchesRoleFilter(model: ModelCard, roleFilter: RoleFilter): boole
   if (roleFilter === "anchor") return tags.has("armor") || tags.has("incorporeal") || tags.has("demise");
   if (roleFilter === "control") return tags.has("control") || tags.has("stunned") || tags.has("slow") || tags.has("staggered") || tags.has("injured");
   return true;
+}
+
+function suggestedThreatModels(pool: ModelCard[], master: ModelCard | undefined, selected: Set<string>): ModelCard[] {
+  const masterKeywords = new Set(master?.strategicKeywords.map((keyword) => keyword.toLowerCase()) ?? []);
+  return pool
+    .filter((model) => !selected.has(model.id))
+    .map((model) => {
+      const keywordFit = model.strategicKeywords.some((keyword) => masterKeywords.has(keyword.toLowerCase())) ? 8 : 0;
+      const roleFit = model.tacticalTags.some((tag) => ["damage", "control", "mobility", "scheme", "marker"].includes(tag)) ? 4 : 0;
+      const costFit = Math.min(4, Math.max(0, model.cost - 5));
+      return { model, score: keywordFit + roleFit + costFit };
+    })
+    .sort((left, right) => right.score - left.score || right.model.cost - left.model.cost || left.model.name.localeCompare(right.model.name))
+    .map((entry) => entry.model);
 }
 
 function modelRole(model: Pick<ModelCard, "tacticalTags">): string {

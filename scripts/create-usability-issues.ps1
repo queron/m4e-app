@@ -9,10 +9,7 @@ function Ensure-Label {
     [Parameter(Mandatory = $true)][string]$Description
   )
 
-  gh label create $Name --repo $repo --color $Color --description $Description 2>$null
-  if ($LASTEXITCODE -ne 0) {
-    gh label edit $Name --repo $repo --color $Color --description $Description | Out-Null
-  }
+  gh label create $Name --repo $repo --color $Color --description $Description --force | Out-Null
 }
 
 function New-UsabilityIssue {

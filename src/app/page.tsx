@@ -74,6 +74,18 @@ const INTERNAL_MODEL_LIMIT = 99;
 const COLLECTION_STORAGE_KEY = "m4e.collection.v1";
 const DRAFT_STORAGE_KEY = "m4e.drafts.v1";
 const SHARE_PARAM = "setup";
+type ModelSortMode = "name" | "costAsc" | "costDesc" | "role";
+type RoleFilter = "all" | "beater" | "scheme" | "support" | "anchor" | "control";
+type RecommendationSortMode = "fit" | "cost" | "role" | "name" | "owned";
+
+const ROLE_FILTERS: Array<{ label: string; value: RoleFilter }> = [
+  { label: "All roles", value: "all" },
+  { label: "Beater", value: "beater" },
+  { label: "Scheme", value: "scheme" },
+  { label: "Support", value: "support" },
+  { label: "Anchor", value: "anchor" },
+  { label: "Control", value: "control" }
+];
 
 export default function Home() {
   const [catalog, setCatalog] = useState<CardCatalog | null>(null);
@@ -846,6 +858,8 @@ function CrewPanel(props: {
   setCollapsed: (value: boolean) => void;
   onOpenModel: (model: ModelCard) => void;
 }) {
+  const [modelSort, setModelSort] = useState<ModelSortMode>("name");
+  const [roleFilter, setRoleFilter] = useState<RoleFilter>("all");
   const selected = new Set(props.selectedIds);
   const selectedCounts = countSelectedIds(props.selectedIds);
   const mandatoryModels = getMandatoryModelsForMaster(props.master, props.allModels);
@@ -857,11 +871,15 @@ function CrewPanel(props: {
   const selectedSoulstones = selectedModels.reduce((sum, model) => sum + model.cost, 0);
   const totalSoulstones = requiredSoulstones + selectedSoulstones;
   const isPlayerPanel = props.title === "Player";
+  const filteredPool = props.pool
+    .filter((model) => !mandatoryIds.has(model.id))
+    .filter((model) => modelMatchesRoleFilter(model, roleFilter));
   const sections = groupModelsForMaster(
-    props.pool.filter((model) => !mandatoryIds.has(model.id)),
+    filteredPool,
     props.master,
     props.faction,
-    mandatoryModels
+    mandatoryModels,
+    modelSort
   );
 
   function toggle(id: string) {
@@ -932,6 +950,27 @@ function CrewPanel(props: {
         placeholder="Filter models, abilities, keywords"
         onChange={(event) => props.setSearch(event.target.value)}
       />
+      <div className="listControls">
+        <label>
+          Sort
+          <select value={modelSort} onChange={(event) => setModelSort(event.target.value as ModelSortMode)}>
+            <option value="name">Name</option>
+            <option value="costAsc">Cost low</option>
+            <option value="costDesc">Cost high</option>
+            <option value="role">Role</option>
+          </select>
+        </label>
+        <label>
+          Role
+          <select value={roleFilter} onChange={(event) => setRoleFilter(event.target.value as RoleFilter)}>
+            {ROLE_FILTERS.map((filter) => (
+              <option key={filter.value} value={filter.value}>
+                {filter.label}
+              </option>
+            ))}
+          </select>
+        </label>
+      </div>
       <HelpDisclosure className="helperText" label="Required models" text="Leader and associated totem models are included automatically and cannot be removed from this crew setup." />
       <div className="modelList">
         {sections.map((section) => (
@@ -1219,7 +1258,9 @@ function RecommendationPanel({
   onOpenModel: (model: ModelCard) => void;
 }) {
   const [expandedModelId, setExpandedModelId] = useState<string | null>(null);
+  const [recommendationSort, setRecommendationSort] = useState<RecommendationSortMode>("fit");
   if (!selectedPath) return null;
+  const sortedRecommendations = sortRecommendations(selectedPath.models, recommendationSort);
   const maxRecommendationScore = Math.max(0, ...selectedPath.models.map((recommendation) => recommendation.score));
   const maxBreakdownScore = Math.max(
     1,
@@ -1260,6 +1301,18 @@ function RecommendationPanel({
           Copy export
         </button>
       </div>
+      <div className="listControls compactListControls">
+        <label>
+          Sort recommendations
+          <select value={recommendationSort} onChange={(event) => setRecommendationSort(event.target.value as RecommendationSortMode)}>
+            <option value="fit">Fit</option>
+            <option value="cost">Cost</option>
+            <option value="role">Role</option>
+            <option value="name">Name</option>
+            <option value="owned">Owned</option>
+          </select>
+        </label>
+      </div>
 
       {!selectedPath.validation.legal ? (
         <div className="warning">{selectedPath.validation.issues.join(" ")}</div>
@@ -1270,7 +1323,7 @@ function RecommendationPanel({
       ) : null}
 
       <div className="recommendationList">
-        {selectedPath.models.map((recommendation) => {
+        {sortedRecommendations.map((recommendation) => {
           const modelIssues = selectedPath.validation.modelIssues[recommendation.model.id] ?? [];
           const chips = recommendationChips(recommendation);
           const fitPercent = normalizedScorePercent(recommendation.score, maxRecommendationScore);
@@ -1578,10 +1631,14 @@ function LikelyCrewPanel({
   onOpenModel: (model: ModelCard) => void;
 }) {
   const [expandedModelId, setExpandedModelId] = useState<string | null>(null);
+  const [predictionSort, setPredictionSort] = useState<RecommendationSortMode>("fit");
   const expectedEntries = countExpectedModels(expectedModels);
   const expectedCount = expectedEntries.reduce((sum, entry) => sum + entry.quantity, 0);
   const expectedIds = new Set(expectedEntries.map((entry) => entry.model.id));
-  const predictedModels = models.filter((recommendation) => !expectedIds.has(recommendation.model.id));
+  const predictedModels = sortRecommendations(
+    models.filter((recommendation) => !expectedIds.has(recommendation.model.id)),
+    predictionSort
+  );
   const predictedCost = predictedModels.reduce((sum, recommendation) => sum + recommendation.hireCost, 0);
 
   return (
@@ -1627,6 +1684,17 @@ function LikelyCrewPanel({
         label="Predicted by App"
         text="Estimated from legal pool, keyword fit, table job coverage, strategy needs, and hire cost. These are not confirmed opponent selections."
       />
+      <div className="listControls compactListControls">
+        <label>
+          Sort predictions
+          <select value={predictionSort} onChange={(event) => setPredictionSort(event.target.value as RecommendationSortMode)}>
+            <option value="fit">Likelihood</option>
+            <option value="cost">Cost</option>
+            <option value="role">Role</option>
+            <option value="name">Name</option>
+          </select>
+        </label>
+      </div>
 
       <div className="recommendationList">
         {predictedModels.length === 0 ? (
@@ -1698,6 +1766,16 @@ function confidenceLabel(score: number): "High" | "Medium" | "Low" {
 function formatRecommendationCost(recommendation: ModelRecommendation): string {
   if (recommendation.hireTax <= 0) return `${recommendation.hireCost}ss`;
   return `${recommendation.hireCost}ss (${recommendation.printedCost}+${recommendation.hireTax})`;
+}
+
+function sortRecommendations(recommendations: ModelRecommendation[], sortMode: RecommendationSortMode): ModelRecommendation[] {
+  return [...recommendations].sort((a, b) => {
+    if (sortMode === "cost") return a.hireCost - b.hireCost || b.score - a.score;
+    if (sortMode === "role") return a.role.localeCompare(b.role) || b.score - a.score;
+    if (sortMode === "name") return a.model.name.localeCompare(b.model.name);
+    if (sortMode === "owned") return Number(b.owned) - Number(a.owned) || b.score - a.score;
+    return b.score - a.score || a.hireCost - b.hireCost;
+  });
 }
 
 function recommendationChips(recommendation: ModelRecommendation): Array<{ label: string; title: string }> {
@@ -2148,18 +2226,20 @@ function groupModelsForMaster(
   pool: ModelCard[],
   master: ModelCard | undefined,
   faction: string,
-  mandatoryModels: Array<{ model: ModelCard; quantity: number }>
+  mandatoryModels: Array<{ model: ModelCard; quantity: number }>,
+  sortMode: ModelSortMode = "name"
 ) {
   const masterKeywords = new Set(master?.strategicKeywords.map((keyword) => keyword.toLowerCase()) ?? []);
   const isKeywordModel = (model: ModelCard) =>
     model.strategicKeywords.some((keyword) => masterKeywords.has(keyword.toLowerCase()));
   const isVersatile = (model: ModelCard) => model.keywords.some((keyword) => keyword.toLowerCase() === "versatile");
 
-  const keywordModels = pool.filter(isKeywordModel).sort(sortModels);
-  const versatileModels = pool.filter((model) => !isKeywordModel(model) && isVersatile(model)).sort(sortModels);
-  const factionModels = pool
-    .filter((model) => !isKeywordModel(model) && !isVersatile(model) && model.faction === faction)
-    .sort(sortModels);
+  const keywordModels = sortModelList(pool.filter(isKeywordModel), sortMode);
+  const versatileModels = sortModelList(pool.filter((model) => !isKeywordModel(model) && isVersatile(model)), sortMode);
+  const factionModels = sortModelList(
+    pool.filter((model) => !isKeywordModel(model) && !isVersatile(model) && model.faction === faction),
+    sortMode
+  );
 
   return [
     { title: "Leader & Totem", models: mandatoryModels.map((entry) => ({ ...entry, forced: true })) },
@@ -2173,8 +2253,36 @@ function getMandatoryModelsForMaster(master: ModelCard | undefined, pool: ModelC
   return getMandatoryCrewEntries(master, pool);
 }
 
-function sortModels(a: ModelCard, b: ModelCard): number {
+function sortModelList(models: ModelCard[], sortMode: ModelSortMode): ModelCard[] {
+  return [...models].sort((a, b) => sortModels(a, b, sortMode));
+}
+
+function sortModels(a: ModelCard, b: ModelCard, sortMode: ModelSortMode = "name"): number {
+  if (sortMode === "costAsc") return a.cost - b.cost || a.name.localeCompare(b.name);
+  if (sortMode === "costDesc") return b.cost - a.cost || a.name.localeCompare(b.name);
+  if (sortMode === "role") return modelRole(a).localeCompare(modelRole(b)) || a.name.localeCompare(b.name);
   return a.name.localeCompare(b.name) || a.cost - b.cost;
+}
+
+function modelMatchesRoleFilter(model: ModelCard, roleFilter: RoleFilter): boolean {
+  if (roleFilter === "all") return true;
+  const tags = new Set(model.tacticalTags);
+  if (roleFilter === "beater") return tags.has("damage") || tags.has("burst") || tags.has("melee") || tags.has("ranged");
+  if (roleFilter === "scheme") return tags.has("scheme") || tags.has("mobility") || tags.has("placement") || tags.has("marker");
+  if (roleFilter === "support") return tags.has("healing") || tags.has("cardPressure") || tags.has("summon");
+  if (roleFilter === "anchor") return tags.has("armor") || tags.has("incorporeal") || tags.has("demise");
+  if (roleFilter === "control") return tags.has("control") || tags.has("stunned") || tags.has("slow") || tags.has("staggered") || tags.has("injured");
+  return true;
+}
+
+function modelRole(model: Pick<ModelCard, "tacticalTags">): string {
+  const tags = new Set(model.tacticalTags);
+  if (tags.has("damage") || tags.has("burst")) return "beater";
+  if (tags.has("scheme") || tags.has("mobility") || tags.has("placement")) return "scheme runner";
+  if (tags.has("control") || tags.has("stunned") || tags.has("slow") || tags.has("staggered") || tags.has("injured")) return "control";
+  if (tags.has("healing") || tags.has("cardPressure") || tags.has("summon")) return "support";
+  if (tags.has("armor") || tags.has("incorporeal") || tags.has("demise")) return "anchor";
+  return "tech pick";
 }
 
 function toSectionEntry(model: ModelCard): ModelSectionEntry {

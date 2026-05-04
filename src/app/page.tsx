@@ -868,60 +868,65 @@ function RecommendationPanel({
       ) : null}
 
       <div className="recommendationList">
-        {selectedPath.models.map((recommendation) => (
-          <article className="recommendation" key={recommendation.model.id}>
-            <div className="recHeader">
-              <div>
-                <h3>
-                  <button className="modelNameButton recNameButton" type="button" onClick={() => onOpenModel(recommendation.model)}>
-                    {recommendation.model.name}
-                  </button>
-                </h3>
-                <p>
-                  <RulesIcon iconKey="soulstone" /> {formatRecommendationCost(recommendation)} - {recommendation.role} - score {recommendation.score}
-                </p>
+        {selectedPath.models.map((recommendation) => {
+          const modelIssues = selectedPath.validation.modelIssues[recommendation.model.id] ?? [];
+
+          return (
+            <article className="recommendation" key={recommendation.model.id}>
+              <div className="recHeader">
+                <div>
+                  <h3>
+                    <button className="modelNameButton recNameButton" type="button" onClick={() => onOpenModel(recommendation.model)}>
+                      {recommendation.model.name}
+                    </button>
+                  </h3>
+                  <p>
+                    <RulesIcon iconKey="soulstone" /> {formatRecommendationCost(recommendation)} - {recommendation.role} - score {recommendation.score}
+                  </p>
+                </div>
+                <span className="badgeGroup">
+                  <span className={recommendation.owned ? "ownedBadge" : "missingBadge"}>
+                    {recommendation.owned ? "Owned" : "Not owned"}
+                  </span>
+                  <span className={`confidenceBadge confidence-${recommendation.confidence.toLowerCase()}`}>
+                    {recommendation.confidence}
+                  </span>
+                </span>
               </div>
-              <span className="badgeGroup">
-                <span className={recommendation.owned ? "ownedBadge" : "missingBadge"}>
-                  {recommendation.owned ? "Owned" : "Not owned"}
+              {modelIssues.length > 0 ? <InlineIssues issues={modelIssues} /> : null}
+              {recommendation.why[0] ? <p className="topReason">Top reason: {recommendation.why[0]}</p> : null}
+              <div className="scoreGrid">
+                <span title="How directly this pick addresses the opposing master and master-specific pressure.">
+                  Master Counter {recommendation.scoreBreakdown.masterAbilities}
                 </span>
-                <span className={`confidenceBadge confidence-${recommendation.confidence.toLowerCase()}`}>
-                  {recommendation.confidence}
+                <span title="How well this pick works with your leader, keyword, and available allied models.">
+                  Crew Synergy {recommendation.scoreBreakdown.crewSynergy}
                 </span>
-              </span>
-            </div>
-            {recommendation.why[0] ? <p className="topReason">Top reason: {recommendation.why[0]}</p> : null}
-            <div className="scoreGrid">
-              <span title="How directly this pick addresses the opposing master and master-specific pressure.">
-                Master Counter {recommendation.scoreBreakdown.masterAbilities}
-              </span>
-              <span title="How well this pick works with your leader, keyword, and available allied models.">
-                Crew Synergy {recommendation.scoreBreakdown.crewSynergy}
-              </span>
-              <span title="How well this pick addresses the strategy, opponent composition, roles, and table demands.">
-                Strategy/Matchup Fit {recommendation.scoreBreakdown.compositionMatchup}
-              </span>
-            </div>
-            <button
-              className="detailsButton"
-              type="button"
-              aria-expanded={expandedModelId === recommendation.model.id}
-              onClick={() => setExpandedModelId((current) => (current === recommendation.model.id ? null : recommendation.model.id))}
-            >
-              {expandedModelId === recommendation.model.id ? "Hide details" : "Details"}
-            </button>
-            {expandedModelId === recommendation.model.id ? (
-              <>
-                <RecSection title="How to Use" items={modelUseNotes(recommendation, strategyName)} />
-                <RecSection title="Key Tech" items={recommendation.relevantTech} />
-                <RecSection title="Targets" items={recommendation.priorityTargets} />
-                <RecSection title="Synergy" items={recommendation.alliedSynergies} />
-                <RecSection title="Score Trace" items={recommendation.trace} />
-                <RecSection title="Notes" items={recommendation.curatedNotes} />
-              </>
-            ) : null}
-          </article>
-        ))}
+                <span title="How well this pick addresses the strategy, opponent composition, roles, and table demands.">
+                  Strategy/Matchup Fit {recommendation.scoreBreakdown.compositionMatchup}
+                </span>
+              </div>
+              <button
+                className="detailsButton"
+                type="button"
+                aria-expanded={expandedModelId === recommendation.model.id}
+                onClick={() => setExpandedModelId((current) => (current === recommendation.model.id ? null : recommendation.model.id))}
+              >
+                {expandedModelId === recommendation.model.id ? "Hide details" : "Details"}
+              </button>
+              {expandedModelId === recommendation.model.id ? (
+                <>
+                  <RecSection title="How to Use" items={modelUseNotes(recommendation, strategyName)} />
+                  <RecSection title="Key Tech" items={recommendation.relevantTech} />
+                  <RecSection title="Targets" items={recommendation.priorityTargets} />
+                  <RecSection title="Synergy" items={recommendation.alliedSynergies} />
+                  <RecSection title="Score Trace" items={recommendation.trace} />
+                  <RecSection title="Notes" items={recommendation.curatedNotes} />
+                </>
+              ) : null}
+            </article>
+          );
+        })}
       </div>
     </section>
   );
@@ -987,14 +992,30 @@ function DraftCrewPanel({
         <h3>Draft Hires</h3>
         {path.models.map((recommendation) => (
           <div className="draftRow" key={recommendation.model.id}>
-            <button className="draftModelButton" type="button" onClick={() => onOpenModel(recommendation.model)}>
-              {recommendation.model.name}
-            </button>
-            <strong title={recommendation.hireReason}><RulesIcon iconKey="soulstone" /> {formatRecommendationCost(recommendation)}</strong>
+            <span>
+              <button className="draftModelButton" type="button" onClick={() => onOpenModel(recommendation.model)}>
+                {recommendation.model.name}
+              </button>
+              <InlineIssues issues={path.validation.modelIssues[recommendation.model.id] ?? []} />
+            </span>
+            <strong title={recommendation.hireReason}>
+              <RulesIcon iconKey="soulstone" /> {formatRecommendationCost(recommendation)}
+            </strong>
           </div>
         ))}
       </div>
     </section>
+  );
+}
+
+function InlineIssues({ issues }: { issues: string[] }) {
+  if (issues.length === 0) return null;
+  return (
+    <ul className="inlineIssues">
+      {issues.map((issue, index) => (
+        <li key={`${issue}-${index}`}>{issue}</li>
+      ))}
+    </ul>
   );
 }
 

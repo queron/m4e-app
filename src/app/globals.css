@@ -1021,6 +1021,14 @@ select option {
   color: #f0b781;
 }
 
+.inlineIssues {
+  margin: 8px 0 0;
+  padding-left: 18px;
+  color: #f0b781;
+  font-size: 0.78rem;
+  line-height: 1.35;
+}
+
 .summaryBlock {
   position: relative;
   border-top: 1px solid var(--line-2);

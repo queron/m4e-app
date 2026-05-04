@@ -719,6 +719,7 @@ export default function Home() {
               Edit setup
             </button>
           </div>
+          <MatchupBriefPanel brief={analysis.matchupBrief} />
           <div className="resultTabs" role="tablist" aria-label="Analysis views">
             <button
               className={activeResultTab === "picks" ? "active" : ""}
@@ -1401,6 +1402,37 @@ function SchemeWatchlistColumn({ title, items }: { title: string; items: NonNull
         <p>No strong scheme lane identified from current crew tags.</p>
       )}
     </section>
+  );
+}
+
+function MatchupBriefPanel({ brief }: { brief: MatchupAnalysis["matchupBrief"] }) {
+  return (
+    <section className="panel matchupBrief">
+      <div className="panelHeader">
+        <h2>
+          <RulesIcon iconKey="strategy" /> Matchup Brief
+        </h2>
+        <span>Scan first</span>
+      </div>
+      <div className="briefGrid">
+        <BriefColumn title="Watch for" items={brief.watchFor} />
+        <BriefColumn title="Answer with" items={brief.answerWith} />
+        <BriefColumn title="Priority hires" items={brief.priorityHires} />
+      </div>
+    </section>
+  );
+}
+
+function BriefColumn({ title, items }: { title: string; items: string[] }) {
+  return (
+    <div>
+      <h3>{title}</h3>
+      <ul>
+        {items.slice(0, 4).map((item, index) => (
+          <li key={`${title}-${index}`}>{item}</li>
+        ))}
+      </ul>
+    </div>
   );
 }
 

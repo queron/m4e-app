@@ -519,7 +519,38 @@ export default function Home() {
         />
       </section>
 
+      <nav className="setupStepper" aria-label="Counter-pick setup sequence">
+        <span>1. Match</span>
+        <span>2. Opponent Intel</span>
+        <span>3. Player Collection</span>
+        <span>4. Analyze</span>
+      </nav>
+
       <section className="plannerGrid">
+        <CrewPanel
+          title="Opponent"
+          displayTitle="Opponent Intel"
+          factions={catalog.factions}
+          faction={opponentFaction}
+          setFaction={setOpponentFaction}
+          masters={opponentMasters}
+          master={opponentMaster}
+          allModels={catalog.models}
+          masterId={opponentMasterId}
+          setMasterId={setOpponentMasterId}
+          pool={opponentPool}
+          selectedIds={opponentModelIds}
+          setSelectedIds={setOpponentModelIds}
+          search={opponentSearch}
+          setSearch={setOpponentSearch}
+          selectionLabel="Expected"
+          modeLabel="What I know they may take"
+          helperText="Start here for counter-planning: choose the opposing master, then mark enemy models you know or expect. Leave empty to predict from their legal pool."
+          selectedCountLabel="known"
+          collapsed={setupCollapsed}
+          setCollapsed={setSetupCollapsed}
+          onOpenModel={openModel}
+        />
         <CrewPanel
           title="Player"
           displayTitle="Player Collection"
@@ -540,32 +571,8 @@ export default function Home() {
           selectedSummaryLabel="Collection marked"
           totalSummaryLabel="Displayed total"
           modeLabel="What I own"
-          helperText="What I own: mark models in your collection. This builds the Available recommendation pool, not your hired crew."
+          helperText="Then mark models in your collection. This builds the Available recommendation pool, not your hired crew."
           selectedCountLabel="in collection"
-          collapsed={setupCollapsed}
-          setCollapsed={setSetupCollapsed}
-          onOpenModel={openModel}
-        />
-        <CrewPanel
-          title="Opponent"
-          displayTitle="Opponent Intel"
-          factions={catalog.factions}
-          faction={opponentFaction}
-          setFaction={setOpponentFaction}
-          masters={opponentMasters}
-          master={opponentMaster}
-          allModels={catalog.models}
-          masterId={opponentMasterId}
-          setMasterId={setOpponentMasterId}
-          pool={opponentPool}
-          selectedIds={opponentModelIds}
-          setSelectedIds={setOpponentModelIds}
-          search={opponentSearch}
-          setSearch={setOpponentSearch}
-          selectionLabel="Expected"
-          modeLabel="What I know they may take"
-          helperText="What I know they may take: mark enemy models you know or expect. Leave empty to predict from their legal pool."
-          selectedCountLabel="known"
           collapsed={setupCollapsed}
           setCollapsed={setSetupCollapsed}
           onOpenModel={openModel}
@@ -695,7 +702,7 @@ export default function Home() {
         </section>
       ) : (
         <section className="emptyState">
-          Pick both masters, mark the models you own, add known opposing models, then run the matchup.
+          Choose match context, identify the opposing master, mark your collection if you want Available recommendations, then run the matchup.
         </section>
       )}
 

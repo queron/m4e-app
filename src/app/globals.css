@@ -1235,6 +1235,25 @@ li + li {
   line-height: 1.45;
 }
 
+.recChipRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0 0 12px;
+}
+
+.recChip {
+  border: 1px solid rgba(196, 154, 70, 0.32);
+  border-radius: 999px;
+  background: rgba(196, 154, 70, 0.095);
+  color: var(--parchment-2);
+  padding: 5px 9px;
+  font-family: Inter, Arial, sans-serif;
+  font-size: 0.72rem;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
 .panelHint {
   margin: -4px 0 12px;
   color: var(--parchment-2);

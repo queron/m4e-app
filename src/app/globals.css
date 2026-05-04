@@ -71,7 +71,7 @@ button {
   position: relative;
   width: min(1440px, calc(100vw - 40px));
   margin: 0 auto;
-  padding: 40px 0 72px;
+  padding: 40px 0 132px;
 }
 
 .topbar {
@@ -283,6 +283,57 @@ select option {
 .primary:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+}
+
+.stickyAnalyzeBar {
+  position: fixed;
+  z-index: 40;
+  left: 50%;
+  bottom: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  width: min(920px, calc(100vw - 36px));
+  padding: 12px 14px 12px 16px;
+  border: 1px solid rgba(196, 154, 70, 0.48);
+  border-radius: var(--radius-lg);
+  background:
+    linear-gradient(90deg, rgba(196, 154, 70, 0.12), transparent 55%),
+    rgba(19, 14, 10, 0.94);
+  box-shadow: 0 18px 44px rgba(0, 0, 0, 0.42), inset 0 1px 0 rgba(255, 239, 197, 0.08);
+  transform: translateX(-50%);
+  backdrop-filter: blur(12px);
+}
+
+.stickyAnalyzeBar strong,
+.stickyAnalyzeBar span {
+  display: block;
+}
+
+.stickyAnalyzeBar strong {
+  color: var(--parchment);
+  font-family: "Source Serif 4", Georgia, serif;
+  font-size: 0.98rem;
+  font-weight: 700;
+}
+
+.stickyAnalyzeBar span {
+  margin-top: 2px;
+  color: var(--muted);
+  font-size: 0.78rem;
+  line-height: 1.35;
+}
+
+.stickyAnalyzeActions {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 10px;
+}
+
+.stickyAnalyzeActions .primary {
+  min-width: 150px;
 }
 
 .plannerGrid,
@@ -1599,6 +1650,7 @@ li + li {
   .shell {
     width: min(100vw - 20px, 1500px);
     padding-top: 16px;
+    padding-bottom: 176px;
   }
 
   .topbar {
@@ -1645,6 +1697,23 @@ li + li {
   .scoreGrid.twoScores {
     grid-template-columns: 1fr;
   }
+
+  .stickyAnalyzeBar {
+    bottom: 10px;
+    display: grid;
+    gap: 10px;
+    width: calc(100vw - 20px);
+  }
+
+  .stickyAnalyzeActions {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+
+  .stickyAnalyzeActions .primary,
+  .stickyAnalyzeActions .subtleButton {
+    width: 100%;
+  }
 }
 
 @media print {
@@ -1662,6 +1731,10 @@ li + li {
   .actionBar,
   .subtleButton,
   .modalBackdrop {
+    display: none !important;
+  }
+
+  .stickyAnalyzeBar {
     display: none !important;
   }
 

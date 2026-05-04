@@ -751,6 +751,7 @@ function RecommendationPanel({
   onExportPlan: (path: RecommendationPath) => void;
   onOpenModel: (model: ModelCard) => void;
 }) {
+  const [expandedModelId, setExpandedModelId] = useState<string | null>(null);
   if (!selectedPath) return null;
 
   return (
@@ -821,13 +822,25 @@ function RecommendationPanel({
                 Strategy/Matchup Fit {recommendation.scoreBreakdown.compositionMatchup}
               </span>
             </div>
-            <RecSection title="Why Pick" items={recommendation.why} />
-            <RecSection title="Strategy" items={strategyReasons(recommendation.why, strategyName)} />
-            <RecSection title="Score Trace" items={recommendation.trace} />
-            <RecSection title="Notes" items={recommendation.curatedNotes} />
-            <RecSection title="Key Tech" items={recommendation.relevantTech} />
-            <RecSection title="Targets" items={recommendation.priorityTargets} />
-            <RecSection title="Synergy" items={recommendation.alliedSynergies} />
+            <button
+              className="detailsButton"
+              type="button"
+              aria-expanded={expandedModelId === recommendation.model.id}
+              onClick={() => setExpandedModelId((current) => (current === recommendation.model.id ? null : recommendation.model.id))}
+            >
+              {expandedModelId === recommendation.model.id ? "Hide details" : "Details"}
+            </button>
+            {expandedModelId === recommendation.model.id ? (
+              <>
+                <RecSection title="Why Pick" items={recommendation.why} />
+                <RecSection title="Strategy" items={strategyReasons(recommendation.why, strategyName)} />
+                <RecSection title="Score Trace" items={recommendation.trace} />
+                <RecSection title="Notes" items={recommendation.curatedNotes} />
+                <RecSection title="Key Tech" items={recommendation.relevantTech} />
+                <RecSection title="Targets" items={recommendation.priorityTargets} />
+                <RecSection title="Synergy" items={recommendation.alliedSynergies} />
+              </>
+            ) : null}
           </article>
         ))}
       </div>
@@ -957,6 +970,8 @@ function LikelyCrewPanel({
   models: MatchupAnalysis["opponentCrew"]["likelyModels"];
   onOpenModel: (model: ModelCard) => void;
 }) {
+  const [expandedModelId, setExpandedModelId] = useState<string | null>(null);
+
   return (
     <section className="panel recommendationPanel">
       <div className="panelHeader">
@@ -998,10 +1013,22 @@ function LikelyCrewPanel({
               <span>Synergy {recommendation.scoreBreakdown.crewSynergy}</span>
               <span>Role {recommendation.scoreBreakdown.compositionMatchup}</span>
             </div>
-            <RecSection title="Why Likely" items={recommendation.why} />
-            <RecSection title="Basis" items={recommendation.trace} />
-            <RecSection title="Key Tech" items={recommendation.relevantTech} />
-            <RecSection title="Synergy" items={recommendation.alliedSynergies} />
+            <button
+              className="detailsButton"
+              type="button"
+              aria-expanded={expandedModelId === recommendation.model.id}
+              onClick={() => setExpandedModelId((current) => (current === recommendation.model.id ? null : recommendation.model.id))}
+            >
+              {expandedModelId === recommendation.model.id ? "Hide details" : "Details"}
+            </button>
+            {expandedModelId === recommendation.model.id ? (
+              <>
+                <RecSection title="Why Likely" items={recommendation.why} />
+                <RecSection title="Basis" items={recommendation.trace} />
+                <RecSection title="Key Tech" items={recommendation.relevantTech} />
+                <RecSection title="Synergy" items={recommendation.alliedSynergies} />
+              </>
+            ) : null}
           </article>
         ))}
       </div>

@@ -1103,6 +1103,28 @@ select option {
   color: #f0b781;
 }
 
+.recoveryState {
+  display: grid;
+  gap: 12px;
+}
+
+.recoveryState h1,
+.recoveryState h2,
+.recoveryState p {
+  margin: 0;
+}
+
+.recoveryState p {
+  color: var(--muted);
+  line-height: 1.45;
+}
+
+.recoveryActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
 .inlineIssues {
   margin: 8px 0 0;
   padding-left: 18px;

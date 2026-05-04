@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { Component, useEffect, useMemo, useRef, useState } from "react";
+import type { ErrorInfo, ReactNode } from "react";
 import type { KeyboardEvent as ReactKeyboardEvent } from "react";
 import {
   BadgeQuestionMark,
@@ -122,7 +123,10 @@ export default function Home() {
         if (!restored?.ownedModelIds) setOwnedModelIds(readStoredIds(COLLECTION_STORAGE_KEY));
         setSavedDrafts(readStoredDrafts());
       })
-      .catch(() => setError("Card data could not be loaded."));
+      .catch((currentError) => {
+        console.error("Card data load failed.", { currentError });
+        setError("Card data could not be loaded. Refresh the app or check your connection.");
+      });
   }, []);
 
   useEffect(() => {
@@ -317,10 +321,30 @@ export default function Home() {
       setSetupCollapsed(true);
       setStatusMessage("Analysis ready. Setup panels collapsed for comparison.");
     } catch (currentError) {
-      setError(currentError instanceof Error ? currentError.message : "Analysis failed.");
+      console.error("Analysis failed.", {
+        currentError,
+        context: {
+          activeResultTab,
+          hasAnalysis: Boolean(analysis),
+          opponentMasterId,
+          playerMasterId,
+          pointLimit,
+          setupCollapsed,
+          strategyId,
+          strategyPoolId
+        }
+      });
+      setError(currentError instanceof Error ? `Analysis failed: ${currentError.message}` : "Analysis failed while generating matchup.");
     } finally {
       setIsAnalyzing(false);
     }
+  }
+
+  function clearAnalysisAndKeepSetup() {
+    setAnalysis(null);
+    setDraftPath(null);
+    setSetupCollapsed(false);
+    setStatusMessage("Analysis cleared. Setup selections are still available.");
   }
 
   async function shareSetup() {
@@ -580,6 +604,19 @@ export default function Home() {
       </section>
 
       {analysis ? (
+        <ResultsErrorBoundary
+          context={{
+            activeResultTab,
+            hasAnalysis: Boolean(analysis),
+            opponentMasterId,
+            playerMasterId,
+            setupCollapsed,
+            strategyId,
+            strategyPoolId
+          }}
+          onClearAnalysis={clearAnalysisAndKeepSetup}
+          resetKey={`${analysis.match.strategy?.id ?? strategyId}-${activeResultTab}-${setupCollapsed}`}
+        >
         <section className="analysisGrid">
           <div className="postAnalyzeSummary">
             <div>
@@ -700,6 +737,7 @@ export default function Home() {
             </div>
           ) : null}
         </section>
+        </ResultsErrorBoundary>
       ) : (
         <section className="emptyState">
           Choose match context, identify the opposing master, mark your collection if you want Available recommendations, then run the matchup.
@@ -728,6 +766,58 @@ export default function Home() {
       {selectedModel ? <StatCardModal model={selectedModel} onClose={closeSelectedModel} /> : null}
     </main>
   );
+}
+
+type ResultsErrorBoundaryProps = {
+  children: ReactNode;
+  context: Record<string, unknown>;
+  onClearAnalysis: () => void;
+  resetKey: string;
+};
+
+type ResultsErrorBoundaryState = {
+  error: Error | null;
+};
+
+class ResultsErrorBoundary extends Component<ResultsErrorBoundaryProps, ResultsErrorBoundaryState> {
+  state: ResultsErrorBoundaryState = { error: null };
+
+  static getDerivedStateFromError(error: Error): ResultsErrorBoundaryState {
+    return { error };
+  }
+
+  componentDidCatch(error: Error, errorInfo: ErrorInfo) {
+    console.error("Analysis render failed.", {
+      context: this.props.context,
+      error,
+      errorInfo
+    });
+  }
+
+  componentDidUpdate(previousProps: ResultsErrorBoundaryProps) {
+    if (previousProps.resetKey !== this.props.resetKey && this.state.error) {
+      this.setState({ error: null });
+    }
+  }
+
+  render() {
+    if (!this.state.error) return this.props.children;
+
+    return (
+      <section className="emptyState recoveryState" role="alert">
+        <h2>Something went wrong while showing this plan.</h2>
+        <p>Reload the app, or clear the analysis and keep the current setup selections.</p>
+        <div className="recoveryActions">
+          <button className="primary" type="button" onClick={() => window.location.reload()}>
+            Reload app
+          </button>
+          <button className="subtleButton" type="button" onClick={this.props.onClearAnalysis}>
+            Clear analysis and keep setup
+          </button>
+        </div>
+      </section>
+    );
+  }
 }
 
 function CrewPanel(props: {

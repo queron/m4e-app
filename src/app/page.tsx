@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   BadgeQuestionMark,
   BookOpen,
@@ -88,6 +88,10 @@ export default function Home() {
   const [setupCollapsed, setSetupCollapsed] = useState(false);
   const [activeResultTab, setActiveResultTab] = useState<ActiveResultTab>("picks");
   const [error, setError] = useState("");
+  const [isOffline, setIsOffline] = useState(false);
+  const [updateAvailable, setUpdateAvailable] = useState(false);
+  const waitingWorkerRef = useRef<ServiceWorker | null>(null);
+  const refreshingForUpdateRef = useRef(false);
 
   useEffect(() => {
     fetch("/api/cards")
@@ -111,9 +115,59 @@ export default function Home() {
   }, []);
 
   useEffect(() => {
-    if (!("serviceWorker" in navigator)) return;
-    navigator.serviceWorker.register("/sw.js").catch(() => undefined);
+    setIsOffline(!navigator.onLine);
+
+    function updateOnlineStatus() {
+      setIsOffline(!navigator.onLine);
+    }
+
+    window.addEventListener("online", updateOnlineStatus);
+    window.addEventListener("offline", updateOnlineStatus);
+
+    if (!("serviceWorker" in navigator)) {
+      return () => {
+        window.removeEventListener("online", updateOnlineStatus);
+        window.removeEventListener("offline", updateOnlineStatus);
+      };
+    }
+
+    function markUpdateReady(worker: ServiceWorker | null) {
+      if (!worker) return;
+      waitingWorkerRef.current = worker;
+      setUpdateAvailable(true);
+    }
+
+    navigator.serviceWorker.register("/sw.js").then((registration) => {
+      markUpdateReady(registration.waiting);
+      registration.addEventListener("updatefound", () => {
+        const installingWorker = registration.installing;
+        if (!installingWorker) return;
+        installingWorker.addEventListener("statechange", () => {
+          if (installingWorker.state === "installed" && navigator.serviceWorker.controller) {
+            markUpdateReady(installingWorker);
+          }
+        });
+      });
+    }).catch(() => undefined);
+
+    function reloadWhenUpdated() {
+      if (!refreshingForUpdateRef.current) return;
+      window.location.reload();
+    }
+
+    navigator.serviceWorker.addEventListener("controllerchange", reloadWhenUpdated);
+
+    return () => {
+      window.removeEventListener("online", updateOnlineStatus);
+      window.removeEventListener("offline", updateOnlineStatus);
+      navigator.serviceWorker.removeEventListener("controllerchange", reloadWhenUpdated);
+    };
   }, []);
+
+  function refreshForUpdate() {
+    refreshingForUpdateRef.current = true;
+    waitingWorkerRef.current?.postMessage({ type: "SKIP_WAITING" });
+  }
 
   useEffect(() => {
     if (!selectedModel) return;
@@ -317,6 +371,15 @@ export default function Home() {
 
       {error ? <div className="error">{error}</div> : null}
       {statusMessage ? <div className="infoCallout globalStatus">{statusMessage}</div> : null}
+      {isOffline ? <div className="infoCallout globalStatus">Offline mode: using cached app shell and card data when available.</div> : null}
+      {updateAvailable ? (
+        <div className="infoCallout globalStatus updateStatus">
+          <span>New card data or app updates are available.</span>
+          <button className="subtleButton" type="button" onClick={refreshForUpdate}>
+            Refresh to update
+          </button>
+        </div>
+      ) : null}
 
       <section className="panel matchPanel">
         <div className="panelHeader">

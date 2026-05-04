@@ -852,6 +852,10 @@ select option {
   padding: 12px;
 }
 
+.searchMatchSnippet {
+  color: var(--accent);
+}
+
 .search {
   position: relative;
   margin: 16px 0 10px;

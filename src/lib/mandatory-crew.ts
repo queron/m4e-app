@@ -52,6 +52,16 @@ export function getMandatoryCrewEntries(master: ModelCard | undefined, pool: Mod
 export function getMandatoryCrewDiagnostics(masters: ModelCard[], pool: ModelCard[]): string[] {
   const issues: string[] = [];
 
+  for (const rule of RULES.syntheticMasters) {
+    const source = pool.find((model) => sameText(model.faction, rule.faction) && sameText(model.name, rule.sourceModelName));
+    if (!source) {
+      issues.push(`Synthetic master rule ${rule.id} references missing source model: ${rule.faction} - ${rule.sourceModelName}.`);
+    }
+    if (!rule.requiredCopies || rule.requiredCopies < 1) {
+      issues.push(`Synthetic master rule ${rule.id} must define requiredCopies >= 1.`);
+    }
+  }
+
   for (const rule of RULES.titleTotems) {
     const master = masters.find((candidate) => sameText(candidate.faction, rule.faction) && sameText(candidate.name, rule.masterName));
     if (!master) {

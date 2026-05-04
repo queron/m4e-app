@@ -360,7 +360,8 @@ select option {
   color: #e6c27a;
 }
 
-.strategyContext {
+.strategyContext,
+.postAnalyzeSummary {
   grid-column: 1 / -1;
   display: flex;
   align-items: start;
@@ -373,17 +374,20 @@ select option {
   box-shadow: var(--shadow);
 }
 
-.strategyContext h2 {
+.strategyContext h2,
+.postAnalyzeSummary h2 {
   margin-bottom: 4px;
 }
 
-.strategyContext p {
+.strategyContext p,
+.postAnalyzeSummary p {
   margin: 0;
   color: var(--muted);
   line-height: 1.45;
 }
 
-.strategyContext span {
+.strategyContext span,
+.postAnalyzeSummary span {
   flex: 0 0 auto;
   border: 1px solid var(--line);
   border-radius: 999px;
@@ -394,11 +398,56 @@ select option {
   font-weight: 900;
 }
 
+.resultTabs {
+  grid-column: 1 / -1;
+  display: inline-grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  width: min(680px, 100%);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  overflow: hidden;
+  background: #17130f;
+}
+
+.resultTabs button {
+  min-height: 42px;
+  border: 0;
+  border-right: 1px solid var(--line);
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  font-family: Inter, Arial, sans-serif;
+  font-size: 0.82rem;
+  font-weight: 900;
+}
+
+.resultTabs button:last-child {
+  border-right: 0;
+}
+
+.resultTabs button.active {
+  background: linear-gradient(180deg, rgba(196, 154, 70, 0.32), rgba(196, 154, 70, 0.16));
+  color: var(--parchment);
+}
+
+.postAnalyzeSummary .subtleButton {
+  align-self: center;
+  min-width: 120px;
+}
+
 .analysisColumn {
   display: grid;
   grid-template-rows: subgrid;
   grid-row: span 3;
   gap: 16px;
+}
+
+.draftResults {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 16px;
+  align-items: start;
 }
 
 .analysisPanel,
@@ -466,6 +515,27 @@ select option {
   line-height: 1.35;
 }
 
+.helpDisclosure {
+  position: relative;
+  color: var(--muted);
+}
+
+.helpDisclosure summary {
+  width: fit-content;
+  cursor: pointer;
+  color: var(--parchment-2);
+  font-family: Inter, Arial, sans-serif;
+  font-size: 0.82rem;
+  font-weight: 900;
+  list-style-position: outside;
+}
+
+.helpDisclosure p {
+  margin: 6px 0 0;
+  color: var(--muted);
+  line-height: 1.4;
+}
+
 .spendSummary {
   position: relative;
   display: flex;
@@ -494,20 +564,6 @@ select option {
   border-color: color-mix(in srgb, var(--faction-accent), var(--accent) 40%);
   color: var(--parchment);
   background: color-mix(in srgb, var(--faction-accent), #15110d 78%);
-}
-
-.spendIcon {
-  display: block;
-  flex: 0 0 auto;
-  width: 18px;
-  height: 18px;
-  margin-right: 7px;
-  color: var(--accent);
-  stroke: currentColor;
-}
-
-.spendSummary strong .spendIcon {
-  color: var(--parchment);
 }
 
 .subtleButton {
@@ -780,13 +836,6 @@ select option {
   font-size: 1.05em;
 }
 
-.actionPreview {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  min-height: 0;
-}
-
 .actionChip {
   display: inline-flex;
   align-items: center;
@@ -893,6 +942,39 @@ select option {
   border-color: rgba(142, 154, 114, 0.5);
   background: rgba(47, 90, 69, 0.35);
   color: #cfddb3;
+}
+
+.badgeGroup {
+  display: inline-flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
+.confidenceBadge {
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid rgba(142, 154, 114, 0.42);
+  border-radius: 999px;
+  background: rgba(47, 90, 69, 0.24);
+  color: #cfddb3;
+  padding: 6px 9px;
+  font-family: Inter, Arial, sans-serif;
+  font-size: 0.76rem;
+  font-weight: 900;
+  white-space: nowrap;
+}
+
+.confidence-medium {
+  border-color: rgba(196, 154, 70, 0.5);
+  background: rgba(196, 154, 70, 0.18);
+  color: var(--parchment);
+}
+
+.confidence-low {
+  border-color: rgba(182, 91, 98, 0.5);
+  background: rgba(110, 31, 42, 0.28);
+  color: #f0c5c9;
 }
 
 .missingBadge {
@@ -1018,23 +1100,10 @@ li + li {
   line-height: 1.45;
 }
 
-.panelHint,
-.confidenceBand {
+.panelHint {
   margin: -4px 0 12px;
   color: var(--parchment-2);
   line-height: 1.45;
-}
-
-.confidenceBand {
-  display: inline-block;
-  border: 1px solid rgba(142, 154, 114, 0.42);
-  border-radius: 999px;
-  background: rgba(47, 90, 69, 0.24);
-  color: #cfddb3;
-  padding: 4px 9px;
-  font-family: Inter, Arial, sans-serif;
-  font-size: 0.72rem;
-  font-weight: 900;
 }
 
 .scoreGrid {
@@ -1063,6 +1132,17 @@ li + li {
   grid-template-columns: repeat(2, 1fr);
 }
 
+.detailsButton {
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: rgba(15, 12, 10, 0.62);
+  color: var(--accent);
+  padding: 6px 12px;
+  font-family: Inter, Arial, sans-serif;
+  font-size: 0.76rem;
+  font-weight: 900;
+}
+
 .recSection {
   border-top: 1px solid var(--line-2);
   padding-top: 10px;
@@ -1076,6 +1156,12 @@ li + li {
 
 .draftPanel {
   border-color: rgba(176, 138, 60, 0.48);
+}
+
+.draftEmptyState p {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.55;
 }
 
 .draftList {
@@ -1435,6 +1521,10 @@ li + li {
     grid-template-columns: 1fr;
   }
 
+  .draftResults {
+    grid-template-columns: 1fr;
+  }
+
   .analysisColumn {
     display: grid;
     grid-template-rows: none;
@@ -1509,6 +1599,7 @@ li + li {
   .matchPanel,
   .plannerGrid,
   .segment,
+  .resultTabs,
   .planButton,
   .actionBar,
   .subtleButton,

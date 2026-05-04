@@ -1119,6 +1119,9 @@ function MasterCombobox({ masters, value, onChange }: { masters: ModelCard[]; va
     setActiveIndex(0);
   }, [query, value]);
 
+  const activeMaster = filteredMasters[activeIndex];
+  const activeOptionId = activeMaster ? `${listId}-${activeMaster.id}` : undefined;
+
   function choose(master: ModelCard) {
     onChange(master.id);
     setOpen(false);
@@ -1162,19 +1165,26 @@ function MasterCombobox({ masters, value, onChange }: { masters: ModelCard[]; va
       {open ? (
         <div className="comboPopover">
           <input
+            aria-activedescendant={activeOptionId}
+            aria-autocomplete="list"
+            aria-controls={listId}
+            aria-expanded={open}
             autoFocus
             className="comboSearch"
-            placeholder="Search master or keyword"
+            placeholder="Search by master, title, or keyword"
+            role="combobox"
             value={query}
             onChange={(event) => setQuery(event.target.value)}
             onKeyDown={onSearchKeyDown}
           />
+          <span className="comboHint">Search by master, title, or keyword.</span>
           <div className="comboList" id={listId} role="listbox" aria-label="Master options">
             {filteredMasters.length > 0 ? (
               filteredMasters.map((master, index) => (
                 <button
                   aria-selected={master.id === value}
                   className={`comboOption ${index === activeIndex ? "active" : ""}`}
+                  id={`${listId}-${master.id}`}
                   key={master.id}
                   role="option"
                   type="button"

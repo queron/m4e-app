@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import type { KeyboardEvent as ReactKeyboardEvent } from "react";
 import {
   BadgeQuestionMark,
   BookOpen,
@@ -46,9 +47,25 @@ type SavedDraft = {
   id: string;
   name: string;
   createdAt: string;
+  updatedAt?: string;
   totalCost: number;
   modelIds: string[];
   summary: string;
+  playerFaction?: string;
+  playerMasterId?: string;
+  opponentFaction?: string;
+  opponentMasterId?: string;
+  pointLimit?: number;
+  strategyPoolId?: string;
+  strategyId?: string;
+  path?: RecommendationPath;
+};
+
+type DraftSummaryContext = {
+  strategyPoolName: string;
+  strategyName: string;
+  playerMasterName?: string;
+  opponentMasterName?: string;
 };
 
 const DEFAULT_POINT_LIMIT = 50;
@@ -77,10 +94,15 @@ export default function Home() {
   const [savedDrafts, setSavedDrafts] = useState<SavedDraft[]>([]);
   const [statusMessage, setStatusMessage] = useState("");
   const [selectedModel, setSelectedModel] = useState<ModelCard | null>(null);
+  const modelOpenerRef = useRef<HTMLElement | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [setupCollapsed, setSetupCollapsed] = useState(false);
   const [activeResultTab, setActiveResultTab] = useState<ActiveResultTab>("picks");
   const [error, setError] = useState("");
+  const [isOffline, setIsOffline] = useState(false);
+  const [updateAvailable, setUpdateAvailable] = useState(false);
+  const waitingWorkerRef = useRef<ServiceWorker | null>(null);
+  const refreshingForUpdateRef = useRef(false);
 
   useEffect(() => {
     fetch("/api/cards")
@@ -104,20 +126,80 @@ export default function Home() {
   }, []);
 
   useEffect(() => {
-    if (!("serviceWorker" in navigator)) return;
-    navigator.serviceWorker.register("/sw.js").catch(() => undefined);
+    setIsOffline(!navigator.onLine);
+
+    function updateOnlineStatus() {
+      setIsOffline(!navigator.onLine);
+    }
+
+    window.addEventListener("online", updateOnlineStatus);
+    window.addEventListener("offline", updateOnlineStatus);
+
+    if (!("serviceWorker" in navigator)) {
+      return () => {
+        window.removeEventListener("online", updateOnlineStatus);
+        window.removeEventListener("offline", updateOnlineStatus);
+      };
+    }
+
+    function markUpdateReady(worker: ServiceWorker | null) {
+      if (!worker) return;
+      waitingWorkerRef.current = worker;
+      setUpdateAvailable(true);
+    }
+
+    navigator.serviceWorker.register("/sw.js").then((registration) => {
+      markUpdateReady(registration.waiting);
+      registration.addEventListener("updatefound", () => {
+        const installingWorker = registration.installing;
+        if (!installingWorker) return;
+        installingWorker.addEventListener("statechange", () => {
+          if (installingWorker.state === "installed" && navigator.serviceWorker.controller) {
+            markUpdateReady(installingWorker);
+          }
+        });
+      });
+    }).catch(() => undefined);
+
+    function reloadWhenUpdated() {
+      if (!refreshingForUpdateRef.current) return;
+      window.location.reload();
+    }
+
+    navigator.serviceWorker.addEventListener("controllerchange", reloadWhenUpdated);
+
+    return () => {
+      window.removeEventListener("online", updateOnlineStatus);
+      window.removeEventListener("offline", updateOnlineStatus);
+      navigator.serviceWorker.removeEventListener("controllerchange", reloadWhenUpdated);
+    };
   }, []);
+
+  function refreshForUpdate() {
+    refreshingForUpdateRef.current = true;
+    waitingWorkerRef.current?.postMessage({ type: "SKIP_WAITING" });
+  }
 
   useEffect(() => {
     if (!selectedModel) return;
 
     function closeOnEscape(event: KeyboardEvent) {
-      if (event.key === "Escape") setSelectedModel(null);
+      if (event.key === "Escape") closeSelectedModel();
     }
 
     window.addEventListener("keydown", closeOnEscape);
     return () => window.removeEventListener("keydown", closeOnEscape);
   }, [selectedModel]);
+
+  function openModel(model: ModelCard) {
+    modelOpenerRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    setSelectedModel(model);
+  }
+
+  function closeSelectedModel() {
+    setSelectedModel(null);
+    requestAnimationFrame(() => modelOpenerRef.current?.focus());
+  }
 
   const playerMasters = useMemo(
     () => catalog?.masters.filter((model) => model.faction === playerFaction) ?? [],
@@ -262,22 +344,83 @@ export default function Home() {
   function saveDraft(path: RecommendationPath) {
     const requiredCost = playerRequiredModels.reduce((sum, entry) => sum + entry.model.cost * entry.quantity, 0);
     const totalCost = requiredCost + path.totalCost;
-    const summary = buildDraftSummary(playerRequiredModels, path, pointLimit);
+    const summary = buildDraftSummary(playerRequiredModels, path, pointLimit, draftSummaryContext());
     const draft: SavedDraft = {
       id: `${Date.now()}`,
       name: `${playerMaster?.name ?? "Crew"} into ${opponentMaster?.name ?? "opponent"}`,
       createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
       totalCost,
       modelIds: path.models.map((recommendation) => recommendation.model.id),
+      playerFaction,
+      playerMasterId,
+      opponentFaction,
+      opponentMasterId,
+      pointLimit,
+      strategyPoolId,
+      strategyId,
+      path,
       summary
     };
     setSavedDrafts((drafts) => [draft, ...drafts].slice(0, 12));
     setStatusMessage("Draft saved locally.");
   }
 
+  function loadDraft(draft: SavedDraft) {
+    if (draft.playerFaction) setPlayerFaction(draft.playerFaction);
+    if (draft.playerMasterId) setPlayerMasterId(draft.playerMasterId);
+    if (draft.opponentFaction) setOpponentFaction(draft.opponentFaction);
+    if (draft.opponentMasterId) setOpponentMasterId(draft.opponentMasterId);
+    if (draft.pointLimit) setPointLimit(draft.pointLimit);
+    if (draft.strategyPoolId) setStrategyPoolId(draft.strategyPoolId);
+    if (draft.strategyId) setStrategyId(draft.strategyId);
+    setDraftPath(draft.path ?? null);
+    setActiveResultTab("draft");
+    setSetupCollapsed(false);
+    setStatusMessage("Draft loaded. Review opponent intel before analyzing again.");
+  }
+
+  function duplicateDraft(draft: SavedDraft) {
+    const now = new Date().toISOString();
+    setSavedDrafts((drafts) => [
+      {
+        ...draft,
+        id: `${Date.now()}`,
+        name: `Copy of ${draft.name}`,
+        createdAt: now,
+        updatedAt: now
+      },
+      ...drafts
+    ].slice(0, 12));
+    setStatusMessage("Draft duplicated.");
+  }
+
+  function renameDraft(draftId: string, name: string) {
+    const trimmed = name.trim();
+    if (!trimmed) return;
+    setSavedDrafts((drafts) =>
+      drafts.map((draft) => (draft.id === draftId ? { ...draft, name: trimmed, updatedAt: new Date().toISOString() } : draft))
+    );
+    setStatusMessage("Draft renamed.");
+  }
+
+  function deleteDraft(draftId: string) {
+    setSavedDrafts((drafts) => drafts.filter((draft) => draft.id !== draftId));
+    setStatusMessage("Draft deleted.");
+  }
+
   async function exportDraft(path: RecommendationPath) {
-    await navigator.clipboard.writeText(buildDraftSummary(playerRequiredModels, path, pointLimit));
+    await navigator.clipboard.writeText(buildDraftSummary(playerRequiredModels, path, pointLimit, draftSummaryContext()));
     setStatusMessage("Draft export copied.");
+  }
+
+  function draftSummaryContext(): DraftSummaryContext {
+    return {
+      strategyPoolName: strategyPool.name,
+      strategyName: strategy.name,
+      playerMasterName: playerMaster?.name,
+      opponentMasterName: opponentMaster?.name
+    };
   }
 
   if (!catalog) {
@@ -301,6 +444,15 @@ export default function Home() {
 
       {error ? <div className="error">{error}</div> : null}
       {statusMessage ? <div className="infoCallout globalStatus">{statusMessage}</div> : null}
+      {isOffline ? <div className="infoCallout globalStatus">Offline mode: using cached app shell and card data when available.</div> : null}
+      {updateAvailable ? (
+        <div className="infoCallout globalStatus updateStatus">
+          <span>New card data or app updates are available.</span>
+          <button className="subtleButton" type="button" onClick={refreshForUpdate}>
+            Refresh to update
+          </button>
+        </div>
+      ) : null}
 
       <section className="panel matchPanel">
         <div className="panelHeader">
@@ -383,7 +535,7 @@ export default function Home() {
           selectedCountLabel="in collection"
           collapsed={setupCollapsed}
           setCollapsed={setSetupCollapsed}
-          onOpenModel={setSelectedModel}
+          onOpenModel={openModel}
         />
         <CrewPanel
           title="Opponent"
@@ -407,7 +559,7 @@ export default function Home() {
           selectedCountLabel="known"
           collapsed={setupCollapsed}
           setCollapsed={setSetupCollapsed}
-          onOpenModel={setSelectedModel}
+          onOpenModel={openModel}
         />
       </section>
 
@@ -468,14 +620,14 @@ export default function Home() {
                   }}
                   onSavePlan={saveDraft}
                   onExportPlan={exportDraft}
-                  onOpenModel={setSelectedModel}
+                  onOpenModel={openModel}
                 />
               </div>
               <div className="analysisColumn">
                 <LikelyCrewPanel
                   expectedModels={analysis.opponentCrew.expectedModels}
                   models={analysis.opponentCrew.likelyModels}
-                  onOpenModel={setSelectedModel}
+                  onOpenModel={openModel}
                 />
               </div>
             </>
@@ -504,7 +656,7 @@ export default function Home() {
                 <LikelyCrewPanel
                   expectedModels={analysis.opponentCrew.expectedModels}
                   models={analysis.opponentCrew.likelyModels}
-                  onOpenModel={setSelectedModel}
+                  onOpenModel={openModel}
                 />
               </div>
             </>
@@ -512,11 +664,23 @@ export default function Home() {
           {activeResultTab === "draft" ? (
             <div className="draftResults">
               {draftPath ? (
-                <DraftCrewPanel requiredModels={playerRequiredModels} path={draftPath} pointLimit={pointLimit} onOpenModel={setSelectedModel} />
+                <DraftCrewPanel
+                  requiredModels={playerRequiredModels}
+                  path={draftPath}
+                  pointLimit={pointLimit}
+                  summaryContext={draftSummaryContext()}
+                  onOpenModel={openModel}
+                />
               ) : (
                 <DraftEmptyState />
               )}
-              <SavedDraftsPanel drafts={savedDrafts} setDrafts={setSavedDrafts} />
+              <SavedDraftsPanel
+                drafts={savedDrafts}
+                onLoad={loadDraft}
+                onDuplicate={duplicateDraft}
+                onRename={renameDraft}
+                onDelete={deleteDraft}
+              />
             </div>
           ) : null}
         </section>
@@ -526,7 +690,7 @@ export default function Home() {
         </section>
       )}
 
-      {selectedModel ? <StatCardModal model={selectedModel} onClose={() => setSelectedModel(null)} /> : null}
+      {selectedModel ? <StatCardModal model={selectedModel} onClose={closeSelectedModel} /> : null}
     </main>
   );
 }
@@ -868,61 +1032,66 @@ function RecommendationPanel({
       ) : null}
 
       <div className="recommendationList">
-        {selectedPath.models.map((recommendation) => (
-          <article className="recommendation" key={recommendation.model.id}>
-            <div className="recHeader">
-              <div>
-                <h3>
-                  <button className="modelNameButton recNameButton" type="button" onClick={() => onOpenModel(recommendation.model)}>
-                    {recommendation.model.name}
-                  </button>
-                </h3>
-                <p>
-                  <RulesIcon iconKey="soulstone" /> {formatRecommendationCost(recommendation)} - {recommendation.role} - score {recommendation.score}
-                </p>
+        {selectedPath.models.map((recommendation) => {
+          const modelIssues = selectedPath.validation.modelIssues[recommendation.model.id] ?? [];
+
+          return (
+            <article className="recommendation" key={recommendation.model.id}>
+              <div className="recHeader">
+                <div>
+                  <h3>
+                    <button className="modelNameButton recNameButton" type="button" onClick={() => onOpenModel(recommendation.model)}>
+                      {recommendation.model.name}
+                    </button>
+                  </h3>
+                  <p>
+                    <RulesIcon iconKey="soulstone" /> {formatRecommendationCost(recommendation)} - {recommendation.role} - score {recommendation.score}
+                  </p>
+                </div>
+                <span className="badgeGroup">
+                  <span className={recommendation.owned ? "ownedBadge" : "missingBadge"}>
+                    {recommendation.owned ? "Owned" : "Not owned"}
+                  </span>
+                  <span className={`confidenceBadge confidence-${recommendation.confidence.toLowerCase()}`}>
+                    {recommendation.confidence}
+                  </span>
+                </span>
               </div>
-              <span className="badgeGroup">
-                <span className={recommendation.owned ? "ownedBadge" : "missingBadge"}>
-                  {recommendation.owned ? "Owned" : "Not owned"}
+              {modelIssues.length > 0 ? <InlineIssues issues={modelIssues} /> : null}
+              {recommendation.hireTax > 0 ? <p className="topReason">Adjusted cost: {recommendation.hireReason}</p> : null}
+              {recommendation.why[0] ? <p className="topReason">Top reason: {recommendation.why[0]}</p> : null}
+              <div className="scoreGrid">
+                <span title="How directly this pick addresses the opposing master and master-specific pressure.">
+                  Master Counter {recommendation.scoreBreakdown.masterAbilities}
                 </span>
-                <span className={`confidenceBadge confidence-${recommendation.confidence.toLowerCase()}`}>
-                  {recommendation.confidence}
+                <span title="How well this pick works with your leader, keyword, and available allied models.">
+                  Crew Synergy {recommendation.scoreBreakdown.crewSynergy}
                 </span>
-              </span>
-            </div>
-            {recommendation.hireTax > 0 ? <p className="topReason">Adjusted cost: {recommendation.hireReason}</p> : null}
-            {recommendation.why[0] ? <p className="topReason">Top reason: {recommendation.why[0]}</p> : null}
-            <div className="scoreGrid">
-              <span title="How directly this pick addresses the opposing master and master-specific pressure.">
-                Master Counter {recommendation.scoreBreakdown.masterAbilities}
-              </span>
-              <span title="How well this pick works with your leader, keyword, and available allied models.">
-                Crew Synergy {recommendation.scoreBreakdown.crewSynergy}
-              </span>
-              <span title="How well this pick addresses the strategy, opponent composition, roles, and table demands.">
-                Strategy/Matchup Fit {recommendation.scoreBreakdown.compositionMatchup}
-              </span>
-            </div>
-            <button
-              className="detailsButton"
-              type="button"
-              aria-expanded={expandedModelId === recommendation.model.id}
-              onClick={() => setExpandedModelId((current) => (current === recommendation.model.id ? null : recommendation.model.id))}
-            >
-              {expandedModelId === recommendation.model.id ? "Hide details" : "Details"}
-            </button>
-            {expandedModelId === recommendation.model.id ? (
-              <>
-                <RecSection title="How to Use" items={modelUseNotes(recommendation, strategyName)} />
-                <RecSection title="Key Tech" items={recommendation.relevantTech} />
-                <RecSection title="Targets" items={recommendation.priorityTargets} />
-                <RecSection title="Synergy" items={recommendation.alliedSynergies} />
-                <RecSection title="Score Trace" items={recommendation.trace} />
-                <RecSection title="Notes" items={recommendation.curatedNotes} />
-              </>
-            ) : null}
-          </article>
-        ))}
+                <span title="How well this pick addresses the strategy, opponent composition, roles, and table demands.">
+                  Strategy/Matchup Fit {recommendation.scoreBreakdown.compositionMatchup}
+                </span>
+              </div>
+              <button
+                className="detailsButton"
+                type="button"
+                aria-expanded={expandedModelId === recommendation.model.id}
+                onClick={() => setExpandedModelId((current) => (current === recommendation.model.id ? null : recommendation.model.id))}
+              >
+                {expandedModelId === recommendation.model.id ? "Hide details" : "Details"}
+              </button>
+              {expandedModelId === recommendation.model.id ? (
+                <>
+                  <RecSection title="How to Use" items={modelUseNotes(recommendation, strategyName)} />
+                  <RecSection title="Key Tech" items={recommendation.relevantTech} />
+                  <RecSection title="Targets" items={recommendation.priorityTargets} />
+                  <RecSection title="Synergy" items={recommendation.alliedSynergies} />
+                  <RecSection title="Score Trace" items={recommendation.trace} />
+                  <RecSection title="Notes" items={recommendation.curatedNotes} />
+                </>
+              ) : null}
+            </article>
+          );
+        })}
       </div>
     </section>
   );
@@ -932,11 +1101,13 @@ function DraftCrewPanel({
   requiredModels,
   path,
   pointLimit,
+  summaryContext,
   onOpenModel
 }: {
   requiredModels: Array<{ model: ModelCard; quantity: number }>;
   path: RecommendationPath;
   pointLimit: number;
+  summaryContext: DraftSummaryContext;
   onOpenModel: (model: ModelCard) => void;
 }) {
   const [copied, setCopied] = useState(false);
@@ -946,16 +1117,7 @@ function DraftCrewPanel({
   const remaining = pointLimit - totalCost;
 
   async function copyDraft() {
-    const lines = [
-      `Draft crew - ${totalCost}/${pointLimit}ss`,
-      "",
-      "Required:",
-      ...requiredModels.map((entry) => `${entry.quantity}x ${entry.model.name} (${entry.model.cost}ss)`),
-      "",
-      "Draft hires:",
-      ...path.models.map(formatExportHireLine)
-    ];
-    await navigator.clipboard.writeText(lines.join("\n"));
+    await navigator.clipboard.writeText(buildDraftSummary(requiredModels, path, pointLimit, summaryContext));
     setCopied(true);
   }
 
@@ -988,14 +1150,30 @@ function DraftCrewPanel({
         <h3>Draft Hires</h3>
         {path.models.map((recommendation) => (
           <div className="draftRow" key={recommendation.model.id}>
-            <button className="draftModelButton" type="button" onClick={() => onOpenModel(recommendation.model)}>
-              {recommendation.model.name}
-            </button>
-            <strong title={recommendation.hireReason}><RulesIcon iconKey="soulstone" /> {formatRecommendationCost(recommendation)}</strong>
+            <span>
+              <button className="draftModelButton" type="button" onClick={() => onOpenModel(recommendation.model)}>
+                {recommendation.model.name}
+              </button>
+              <InlineIssues issues={path.validation.modelIssues[recommendation.model.id] ?? []} />
+            </span>
+            <strong title={recommendation.hireReason}>
+              <RulesIcon iconKey="soulstone" /> {formatRecommendationCost(recommendation)}
+            </strong>
           </div>
         ))}
       </div>
     </section>
+  );
+}
+
+function InlineIssues({ issues }: { issues: string[] }) {
+  if (issues.length === 0) return null;
+  return (
+    <ul className="inlineIssues">
+      {issues.map((issue, index) => (
+        <li key={`${issue}-${index}`}>{issue}</li>
+      ))}
+    </ul>
   );
 }
 
@@ -1015,12 +1193,20 @@ function DraftEmptyState() {
 
 function SavedDraftsPanel({
   drafts,
-  setDrafts
+  onLoad,
+  onDuplicate,
+  onRename,
+  onDelete
 }: {
   drafts: SavedDraft[];
-  setDrafts: (drafts: SavedDraft[] | ((drafts: SavedDraft[]) => SavedDraft[])) => void;
+  onLoad: (draft: SavedDraft) => void;
+  onDuplicate: (draft: SavedDraft) => void;
+  onRename: (draftId: string, name: string) => void;
+  onDelete: (draftId: string) => void;
 }) {
   const [expanded, setExpanded] = useState(false);
+  const [renamingId, setRenamingId] = useState<string | null>(null);
+  const [draftName, setDraftName] = useState("");
 
   if (drafts.length === 0) return null;
 
@@ -1043,11 +1229,54 @@ function SavedDraftsPanel({
           {drafts.map((draft) => (
             <div className="draftRow" key={draft.id}>
               <span>
-                <strong>{draft.name}</strong>
+                {renamingId === draft.id ? (
+                  <input
+                    aria-label={`Rename ${draft.name}`}
+                    value={draftName}
+                    onChange={(event) => setDraftName(event.target.value)}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter") {
+                        onRename(draft.id, draftName);
+                        setRenamingId(null);
+                      }
+                      if (event.key === "Escape") setRenamingId(null);
+                    }}
+                  />
+                ) : (
+                  <strong>{draft.name}</strong>
+                )}
                 <small>{draft.totalCost}ss - {new Date(draft.createdAt).toLocaleDateString()}</small>
               </span>
+              <button className="subtleButton" type="button" onClick={() => onLoad(draft)}>Load</button>
+              <button className="subtleButton" type="button" onClick={() => onDuplicate(draft)}>Duplicate</button>
+              {renamingId === draft.id ? (
+                <>
+                  <button
+                    className="subtleButton"
+                    type="button"
+                    onClick={() => {
+                      onRename(draft.id, draftName);
+                      setRenamingId(null);
+                    }}
+                  >
+                    Save
+                  </button>
+                  <button className="subtleButton" type="button" onClick={() => setRenamingId(null)}>Cancel</button>
+                </>
+              ) : (
+                <button
+                  className="subtleButton"
+                  type="button"
+                  onClick={() => {
+                    setDraftName(draft.name);
+                    setRenamingId(draft.id);
+                  }}
+                >
+                  Rename
+                </button>
+              )}
               <button className="subtleButton" type="button" onClick={() => copyDraft(draft)}>Copy</button>
-              <button className="subtleButton" type="button" onClick={() => setDrafts(drafts.filter((item) => item.id !== draft.id))}>Delete</button>
+              <button className="subtleButton" type="button" onClick={() => onDelete(draft.id)}>Delete</button>
             </div>
           ))}
         </div>
@@ -1225,13 +1454,56 @@ function articleFor(value: string): "a" | "an" {
 }
 
 function StatCardModal({ model, onClose }: { model: ModelCard; onClose: () => void }) {
+  const dialogRef = useRef<HTMLElement | null>(null);
+  const closeButtonRef = useRef<HTMLButtonElement | null>(null);
+
+  useEffect(() => {
+    closeButtonRef.current?.focus();
+  }, []);
+
+  function trapFocus(event: ReactKeyboardEvent<HTMLElement>) {
+    if (event.key !== "Tab") return;
+    const focusable = dialogRef.current
+      ? Array.from(
+          dialogRef.current.querySelectorAll<HTMLElement>(
+            'a[href], button:not([disabled]), textarea:not([disabled]), input:not([disabled]), select:not([disabled]), details summary, [tabindex]:not([tabindex="-1"])'
+          )
+        ).filter((element) => !element.hasAttribute("disabled") && element.tabIndex !== -1)
+      : [];
+
+    if (focusable.length === 0) {
+      event.preventDefault();
+      return;
+    }
+
+    const first = focusable[0];
+    const last = focusable[focusable.length - 1];
+    const active = document.activeElement;
+
+    if (event.shiftKey && active === first) {
+      event.preventDefault();
+      last.focus();
+    } else if (!event.shiftKey && active === last) {
+      event.preventDefault();
+      first.focus();
+    }
+  }
+
   return (
     <div className="modalBackdrop" role="presentation" onMouseDown={onClose}>
-      <section className="statCardModal" role="dialog" aria-modal="true" aria-labelledby="stat-card-title" onMouseDown={(event) => event.stopPropagation()}>
+      <section
+        ref={dialogRef}
+        className="statCardModal"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="stat-card-title"
+        onKeyDown={trapFocus}
+        onMouseDown={(event) => event.stopPropagation()}
+      >
         <div className="statCardTopline">
           <span>{model.faction}</span>
           <span className="modalHint">Esc closes</span>
-          <button className="iconButton" type="button" onClick={onClose} aria-label="Close stat card" autoFocus>
+          <button ref={closeButtonRef} className="iconButton" type="button" onClick={onClose} aria-label="Close stat card">
             <X aria-hidden="true" />
           </button>
         </div>
@@ -1617,12 +1889,16 @@ function encodeSharePayload(value: unknown): string {
 function buildDraftSummary(
   requiredModels: Array<{ model: ModelCard; quantity: number }>,
   path: RecommendationPath,
-  pointLimit: number
+  pointLimit: number,
+  context: DraftSummaryContext
 ): string {
   const requiredCost = requiredModels.reduce((sum, entry) => sum + entry.model.cost * entry.quantity, 0);
   const totalCost = requiredCost + path.totalCost;
   return [
     `Draft crew - ${totalCost}/${pointLimit}ss`,
+    `Strategy: ${context.strategyName} (${context.strategyPoolName})`,
+    context.playerMasterName ? `Player: ${context.playerMasterName}` : undefined,
+    context.opponentMasterName ? `Opponent: ${context.opponentMasterName}` : undefined,
     "",
     "Required:",
     ...requiredModels.map((entry) => `${entry.quantity}x ${entry.model.name} (${entry.model.cost}ss)`),

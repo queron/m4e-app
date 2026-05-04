@@ -33,7 +33,8 @@ import type { CardCatalog, CrewCard, MatchupAnalysis, ModelCard, ModelMatchupEva
 import masterPlaystyleNotes from "@/data/master_playstyle_notes.json";
 import { SCHEME_POOLS } from "@/lib/scheme-pools";
 import { STRATEGY_POOLS } from "@/lib/strategy-pools";
-import { getMandatoryCrewEntries } from "@/lib/mandatory-crew";
+import { findSyntheticRuleForMaster, getMandatoryCrewEntries, getTitleTotemRules } from "@/lib/mandatory-crew";
+import type { Strategy } from "@/lib/strategy-pools";
 import {
   actionPrefixIcon,
   cleanActionName,
@@ -773,6 +774,7 @@ export default function Home() {
           masters={opponentMasters}
           master={opponentMaster}
           allModels={catalog.models}
+          matchupMaster={playerMaster}
           profile={opponentMasterProfile}
           masterId={opponentMasterId}
           setMasterId={setOpponentMasterId}
@@ -784,6 +786,7 @@ export default function Home() {
           selectionLabel="Expected"
           modeLabel="What I know they may take"
           helperText="Start here for counter-planning: choose the opposing master, then mark enemy models you know or expect. Leave empty to predict from their legal pool."
+          strategy={strategy}
           selectedCountLabel="known"
           collapsed={setupCollapsed}
           setCollapsed={setSetupCollapsed}
@@ -798,6 +801,7 @@ export default function Home() {
           masters={playerMasters}
           master={playerMaster}
           allModels={catalog.models}
+          matchupMaster={opponentMaster}
           profile={playerMasterProfile}
           masterId={playerMasterId}
           setMasterId={setPlayerMasterId}
@@ -811,6 +815,7 @@ export default function Home() {
           totalSummaryLabel="Displayed total"
           modeLabel="What I own"
           helperText="Then mark models in your collection. This builds the Available recommendation pool, not your hired crew."
+          strategy={strategy}
           selectedCountLabel="in collection"
           collapsed={setupCollapsed}
           setCollapsed={setSetupCollapsed}
@@ -1062,6 +1067,7 @@ function CrewPanel(props: {
   master?: ModelCard;
   allModels: ModelCard[];
   profile: MasterProfile;
+  matchupMaster?: ModelCard;
   masterId: string;
   setMasterId: (value: string) => void;
   pool: ModelCard[];
@@ -1074,6 +1080,7 @@ function CrewPanel(props: {
   totalSummaryLabel?: string;
   modeLabel: string;
   helperText: string;
+  strategy?: Strategy;
   selectedCountLabel: string;
   collapsed: boolean;
   setCollapsed: (value: boolean) => void;
@@ -1083,6 +1090,7 @@ function CrewPanel(props: {
   const [roleFilter, setRoleFilter] = useState<RoleFilter>("all");
   const [modelDensity, setModelDensity] = useState<ModelDensity>("compact");
   const [collapsedSections, setCollapsedSections] = useState<Record<string, boolean>>({});
+  const [showTitleComparison, setShowTitleComparison] = useState(false);
   const selected = new Set(props.selectedIds);
   const selectedCounts = countSelectedIds(props.selectedIds);
   const mandatoryModels = getMandatoryModelsForMaster(props.master, props.allModels);
@@ -1095,6 +1103,7 @@ function CrewPanel(props: {
   const totalSoulstones = requiredSoulstones + selectedSoulstones;
   const isPlayerPanel = props.title === "Player";
   const suggestedExpectedModels = isPlayerPanel ? [] : suggestedThreatModels(props.allModels, props.faction, props.master);
+  const titleVariants = titleVariantsForMaster(props.master, props.masters);
   const filteredPool = props.pool
     .filter((model) => !mandatoryIds.has(model.id))
     .filter((model) => modelMatchesRoleFilter(model, roleFilter));
@@ -1135,6 +1144,12 @@ function CrewPanel(props: {
     const clampedQuantity = Math.max(1, Math.min(model.maxCopies, quantity));
     const withoutModel = props.selectedIds.filter((id) => id !== model.id);
     props.setSelectedIds([...withoutModel, ...Array.from({ length: clampedQuantity }, () => model.id)]);
+  }
+
+  function chooseMaster(masterId: string) {
+    props.setMasterId(masterId);
+    props.setSelectedIds([]);
+    setShowTitleComparison(false);
   }
 
   return (
@@ -1203,12 +1218,31 @@ function CrewPanel(props: {
         <MasterCombobox
           masters={props.masters}
           value={props.masterId}
-          onChange={(masterId) => {
-            props.setMasterId(masterId);
-            props.setSelectedIds([]);
-          }}
+          onChange={chooseMaster}
         />
       </div>
+      {titleVariants.length > 1 ? (
+        <div className="titleCompareCallout">
+          <div>
+            <strong>{titleVariants.length} title variants available</strong>
+            <p>Compare title plans before committing to this leader package.</p>
+          </div>
+          <button className="subtleButton" type="button" onClick={() => setShowTitleComparison((current) => !current)}>
+            {showTitleComparison ? "Hide comparison" : "Compare titles"}
+          </button>
+        </div>
+      ) : null}
+      {showTitleComparison && props.master ? (
+        <MasterTitleComparison
+          allModels={props.allModels}
+          matchupMaster={props.matchupMaster}
+          onChoose={chooseMaster}
+          onOpenModel={props.onOpenModel}
+          selectedMasterId={props.masterId}
+          strategy={props.strategy}
+          variants={titleVariants}
+        />
+      ) : null}
       <MasterProfileDisclosure profile={props.profile} />
       <input
         className="search"
@@ -1408,6 +1442,85 @@ function MasterCombobox({ masters, value, onChange }: { masters: ModelCard[]; va
           </div>
         </div>
       ) : null}
+    </div>
+  );
+}
+
+function MasterTitleComparison({
+  allModels,
+  matchupMaster,
+  onChoose,
+  onOpenModel,
+  selectedMasterId,
+  strategy,
+  variants
+}: {
+  allModels: ModelCard[];
+  matchupMaster?: ModelCard;
+  onChoose: (masterId: string) => void;
+  onOpenModel: (model: ModelCard) => void;
+  selectedMasterId: string;
+  strategy?: Strategy;
+  variants: ModelCard[];
+}) {
+  return (
+    <section className="titleComparison" aria-label="Master title comparison">
+      <div className="titleComparisonHeader">
+        <div>
+          <h3>Title comparison</h3>
+          <p>Compare leader packages, core tags, and matchup fit before choosing a title.</p>
+        </div>
+      </div>
+      <div className="titleComparisonGrid">
+        {variants.map((variant) => {
+          const mandatory = getMandatoryModelsForMaster(variant, allModels);
+          const requiredNames = mandatory.map((entry) => `${entry.quantity > 1 ? `${entry.quantity}x ` : ""}${entry.model.name}`);
+          const crewNotes = titleCrewRuleNotes(variant);
+          const fit = titleFitSummary(variant, matchupMaster, strategy);
+          const selected = variant.id === selectedMasterId;
+
+          return (
+            <article className={`titleComparisonCard ${selected ? "selectedTitleCard" : ""}`} key={variant.id}>
+              <div className="titleCardTopline">
+                <span className="expectedBadge">{fit.badge}</span>
+                {selected ? <span className="ownedBadge">Selected</span> : null}
+              </div>
+              <button className="modelNameButton" type="button" onClick={() => onOpenModel(variant)}>
+                {variant.name}
+              </button>
+              <span className="titleNamePart">{titleNamePart(variant)}</span>
+              <div className="titleStats">
+                <StatChip iconKey="defense" value={variant.statBlock.defense} />
+                <StatChip iconKey="willpower" value={variant.statBlock.willpower} />
+                <StatChip iconKey="speed" value={variant.statBlock.speed} />
+              </div>
+              <div className="chipWrap">
+                {variant.strategicKeywords.slice(0, 4).map((keyword) => (
+                  <RulesChip iconKey="keyword" key={keyword} label={keyword} />
+                ))}
+              </div>
+              <TitleComparisonBlock title="Core tags" items={[formatVisibleTags(topTacticalTags(variant.tacticalTags))]} />
+              <TitleComparisonBlock title="Crew construction" items={[requiredNames.join(", "), ...crewNotes]} />
+              <TitleComparisonBlock title="Strategy and matchup fit" items={fit.notes} />
+              <button className="subtleButton" type="button" onClick={() => onChoose(variant.id)} disabled={selected}>
+                {selected ? "Current title" : "Choose title"}
+              </button>
+            </article>
+          );
+        })}
+      </div>
+    </section>
+  );
+}
+
+function TitleComparisonBlock({ title, items }: { title: string; items: string[] }) {
+  const cleanItems = items.filter(Boolean);
+  if (cleanItems.length === 0) return null;
+
+  return (
+    <div className="titleComparisonBlock">
+      <strong>{title}</strong>
+      <ul>{cleanItems.map((item, index) => <li key={`${title}-${index}-${item}`}>{item}</li>)}</ul>
     </div>
   );
 }
@@ -3024,6 +3137,114 @@ function modelMatchesRoleFilter(model: ModelCard, roleFilter: RoleFilter): boole
   if (roleFilter === "anchor") return tags.has("armor") || tags.has("incorporeal") || tags.has("demise");
   if (roleFilter === "control") return tags.has("control") || tags.has("stunned") || tags.has("slow") || tags.has("staggered") || tags.has("injured");
   return true;
+}
+
+function titleVariantsForMaster(master: ModelCard | undefined, masters: ModelCard[]): ModelCard[] {
+  if (!master) return [];
+  const groupKey = titleGroupKey(master);
+  return masters
+    .filter((candidate) => titleGroupKey(candidate) === groupKey)
+    .sort((left, right) => titleSortName(left).localeCompare(titleSortName(right)) || left.name.localeCompare(right.name));
+}
+
+function titleGroupKey(master: ModelCard): string {
+  const primaryKeyword = master.strategicKeywords[0] ?? master.keywords.find((keyword) => keyword.toLowerCase() !== "master");
+  if (primaryKeyword) return `${master.faction}:${slugifyForMatch(primaryKeyword)}`;
+  return `${master.faction}:${slugifyForMatch(master.name)}`;
+}
+
+function titleSortName(master: ModelCard): string {
+  return titleNamePart(master) === "Original" ? "" : titleNamePart(master);
+}
+
+function titleNamePart(master: ModelCard): string {
+  const [base, ...titleParts] = master.name.split(",");
+  const title = titleParts.join(",").trim();
+  return title || base?.trim() || "Original";
+}
+
+function titleCrewRuleNotes(master: ModelCard): string[] {
+  const notes: string[] = [];
+  const syntheticRule = findSyntheticRuleForMaster(master);
+  if (syntheticRule?.note) notes.push(syntheticRule.note);
+
+  const titleTotemRule = getTitleTotemRules().find(
+    (rule) => slugifyForMatch(rule.faction) === slugifyForMatch(master.faction) && slugifyForMatch(rule.masterName) === slugifyForMatch(master.name)
+  );
+  if (titleTotemRule) {
+    notes.push(`Title-specific totem: ${titleTotemRule.totemNames.join(", ")}.`);
+  }
+
+  return notes;
+}
+
+function titleFitSummary(master: ModelCard, matchupMaster: ModelCard | undefined, strategy: Strategy | undefined): { badge: string; notes: string[] } {
+  const tags = new Set(master.tacticalTags);
+  const strategyTags = new Set<string>(strategy?.tags ?? []);
+  const badge = titleRecommendationBadge(tags, strategyTags);
+  const tagOverlap = strategy ? master.tacticalTags.filter((tag) => strategyTags.has(tag)) : [];
+  const matchupTags = matchupMaster ? matchupMaster.tacticalTags.slice(0, 4) : [];
+  const counterOverlap = matchupMaster ? matchupMaster.tacticalTags.flatMap((tag) => titleCounterTags(tag)).filter((tag) => tags.has(tag)) : [];
+
+  return {
+    badge,
+    notes: uniqueItems([
+      strategy
+        ? tagOverlap.length > 0
+          ? `${strategy.name}: directly supports ${formatVisibleTags(tagOverlap.slice(0, 3))}.`
+          : `${strategy.name}: no direct tag overlap detected, so confirm scenario work before choosing this title.`
+        : "Choose a strategy to sharpen title fit notes.",
+      matchupMaster
+        ? counterOverlap.length > 0
+          ? `Into ${matchupMaster.name}, this title answers ${formatVisibleTags(counterOverlap.slice(0, 3))} pressure.`
+          : `Into ${matchupMaster.name}, watch opposing ${formatVisibleTags(matchupTags as TacticalTag[])} pressure and hire support accordingly.`
+        : "Choose the opposing master to add matchup notes.",
+      `Core plan: ${formatVisibleTags(topTacticalTags(master.tacticalTags))}.`
+    ])
+  };
+}
+
+function titleRecommendationBadge(tags: Set<TacticalTag>, strategyTags: Set<string>): string {
+  const schemeScore = Number(tags.has("scheme")) + Number(tags.has("mobility")) + Number(tags.has("placement")) + Number(tags.has("marker"));
+  const aggressionScore = Number(tags.has("damage")) + Number(tags.has("burst")) + Number(tags.has("melee")) + Number(tags.has("ranged"));
+  const controlScore = Number(tags.has("control")) + Number(tags.has("stunned")) + Number(tags.has("slow")) + Number(tags.has("armor")) + Number(tags.has("healing"));
+
+  if (strategyTags.has("scheme") || strategyTags.has("mobility") || strategyTags.has("interact") || strategyTags.has("markers")) {
+    if (schemeScore > 0) return "Scheme-friendly title";
+  }
+  if (strategyTags.has("killing") && aggressionScore > 0) return "Best aggression plan";
+  if ((strategyTags.has("center") || strategyTags.has("control") || strategyTags.has("durability")) && controlScore > 0) return "Safer control plan";
+  if (aggressionScore >= schemeScore && aggressionScore >= controlScore && aggressionScore > 0) return "Best aggression plan";
+  if (schemeScore >= controlScore && schemeScore > 0) return "Scheme-friendly title";
+  if (controlScore > 0) return "Safer control plan";
+  return "Flexible title";
+}
+
+function titleCounterTags(tag: TacticalTag): TacticalTag[] {
+  const counters: Partial<Record<TacticalTag, TacticalTag[]>> = {
+    armor: ["antiArmor", "injured", "poison", "burning", "control"],
+    incorporeal: ["damage", "antiArmor", "cardPressure"],
+    healing: ["damage", "stunned", "cardPressure"],
+    mobility: ["staggered", "slow", "placement", "control"],
+    placement: ["staggered", "slow", "control"],
+    scheme: ["mobility", "scheme", "marker", "placement"],
+    marker: ["mobility", "marker", "scheme", "placement"],
+    cardPressure: ["cardPressure", "summon", "damage"],
+    stunned: ["antiTrigger", "cardPressure", "damage"],
+    slow: ["mobility", "cardPressure"],
+    staggered: ["ranged", "placement", "mobility"],
+    burning: ["damage", "healing", "control"],
+    poison: ["damage", "healing", "control"],
+    summon: ["burst", "damage", "scheme", "cardPressure"],
+    ranged: ["mobility", "placement", "melee"],
+    melee: ["ranged", "mobility", "control"],
+    willpowerAttack: ["willpowerAttack", "cardPressure", "stunned"],
+    defenseAttack: ["injured", "control", "damage"],
+    speedAttack: ["staggered", "slow", "mobility"],
+    sizeAttack: ["placement", "damage"],
+    soulstone: ["cardPressure", "damage", "control"]
+  };
+  return counters[tag] ?? [];
 }
 
 function suggestedThreatModels(pool: ModelCard[], faction: string, master: ModelCard | undefined): SuggestedThreatModel[] {

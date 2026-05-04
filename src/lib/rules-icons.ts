@@ -31,7 +31,6 @@ export type RulesIconKey =
 export type RulesIcon = {
   key: RulesIconKey;
   label: string;
-  glyph: string;
   meaning: string;
 };
 
@@ -39,169 +38,141 @@ export const RULES_ICONS: Record<RulesIconKey, RulesIcon> = {
   soulstone: {
     key: "soulstone",
     label: "Soulstone",
-    glyph: "SS",
     meaning: "Soulstone cost, pool, drain, or infusion."
   },
   ram: {
     key: "ram",
     label: "Ram",
-    glyph: "R",
     meaning: "Rams suit, equivalent to hearts in the Fate Deck."
   },
   mask: {
     key: "mask",
     label: "Mask",
-    glyph: "M",
     meaning: "Masks suit, equivalent to diamonds in the Fate Deck."
   },
   tome: {
     key: "tome",
     label: "Tome",
-    glyph: "T",
     meaning: "Tomes suit, equivalent to clubs in the Fate Deck."
   },
   crow: {
     key: "crow",
     label: "Crow",
-    glyph: "C",
     meaning: "Crows suit, equivalent to spades in the Fate Deck."
   },
   positive: {
     key: "positive",
     label: "Positive flip",
-    glyph: "+",
     meaning: "Positive fate modifier."
   },
   negative: {
     key: "negative",
     label: "Negative flip",
-    glyph: "-",
     meaning: "Negative fate modifier."
   },
   melee: {
     key: "melee",
     label: "Melee",
-    glyph: "M",
     meaning: "Melee attack action type."
   },
   missile: {
     key: "missile",
     label: "Missile",
-    glyph: "R",
     meaning: "Missile attack action type."
   },
   magic: {
     key: "magic",
     label: "Magic",
-    glyph: "A",
     meaning: "Magic attack action type."
   },
   pulse: {
     key: "pulse",
     label: "Pulse",
-    glyph: "P",
     meaning: "Pulse range or area effect."
   },
   aura: {
     key: "aura",
     label: "Aura",
-    glyph: "A",
     meaning: "Aura range or area effect."
   },
   signature: {
     key: "signature",
     label: "Signature action",
-    glyph: "Sig",
     meaning: "Signature action marker."
   },
   fortitude: {
     key: "fortitude",
     label: "Fortitude",
-    glyph: "Ft",
     meaning: "Defensive ability category marker."
   },
   defense: {
     key: "defense",
     label: "Defense",
-    glyph: "Df",
     meaning: "Defense stat."
   },
   willpower: {
     key: "willpower",
     label: "Willpower",
-    glyph: "Wp",
     meaning: "Willpower stat."
   },
   speed: {
     key: "speed",
     label: "Speed",
-    glyph: "Sp",
     meaning: "Speed stat."
   },
   size: {
     key: "size",
     label: "Size",
-    glyph: "Sz",
     meaning: "Size stat."
   },
   keyword: {
     key: "keyword",
     label: "Keyword",
-    glyph: "Kw",
     meaning: "Crew keyword or hiring keyword."
   },
   versatile: {
     key: "versatile",
     label: "Versatile",
-    glyph: "V",
     meaning: "Versatile model."
   },
   unique: {
     key: "unique",
     label: "Unique",
-    glyph: "1",
     meaning: "Unique model."
   },
   master: {
     key: "master",
     label: "Master",
-    glyph: "Ms",
     meaning: "Master station."
   },
   totem: {
     key: "totem",
     label: "Totem",
-    glyph: "To",
     meaning: "Totem station."
   },
   strategy: {
     key: "strategy",
     label: "Strategy",
-    glyph: "St",
     meaning: "Selected strategy or strategy fit."
   },
   collection: {
     key: "collection",
     label: "Collection",
-    glyph: "Co",
     meaning: "Models available in the player's collection."
   },
   prediction: {
     key: "prediction",
     label: "Prediction",
-    glyph: "?",
     meaning: "Predicted opponent pick."
   },
   draft: {
     key: "draft",
     label: "Draft",
-    glyph: "Dr",
     meaning: "Draft crew planning output."
   },
   score: {
     key: "score",
     label: "Score",
-    glyph: "#",
     meaning: "Recommendation score dimension."
   }
 };

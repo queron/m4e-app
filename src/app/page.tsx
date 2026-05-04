@@ -1,6 +1,30 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import {
+  BadgeQuestionMark,
+  BookOpen,
+  Brain,
+  CircleDot,
+  CirclePlus,
+  CircleMinus,
+  Crosshair,
+  Crown,
+  Dumbbell,
+  Feather,
+  FileText,
+  Footprints,
+  Gem,
+  Hexagon,
+  KeyRound,
+  Library,
+  ScrollText,
+  Shield,
+  Sparkles,
+  Swords,
+  Target,
+  Waves
+} from "lucide-react";
 import type { CardCatalog, MatchupAnalysis, ModelCard, RecommendationPath } from "@/lib/types";
 import { STRATEGY_POOLS } from "@/lib/strategy-pools";
 import {
@@ -772,11 +796,48 @@ function RecSection({ title, items }: { title: string; items: string[] }) {
   );
 }
 
+const SUIT_GLYPHS: Partial<Record<RulesIconKey, string>> = {
+  ram: "♥",
+  mask: "♦",
+  tome: "♣",
+  crow: "♠"
+};
+
+const LUCIDE_ICONS: Partial<Record<RulesIconKey, typeof Shield>> = {
+  soulstone: Gem,
+  positive: CirclePlus,
+  negative: CircleMinus,
+  melee: Swords,
+  missile: Crosshair,
+  magic: Sparkles,
+  pulse: Waves,
+  aura: CircleDot,
+  signature: Feather,
+  fortitude: Dumbbell,
+  defense: Shield,
+  willpower: Brain,
+  speed: Footprints,
+  size: Hexagon,
+  keyword: KeyRound,
+  versatile: ScrollText,
+  unique: BadgeQuestionMark,
+  master: Crown,
+  totem: Sparkles,
+  strategy: Target,
+  collection: Library,
+  prediction: BadgeQuestionMark,
+  draft: FileText,
+  score: BookOpen
+};
+
 function RulesIcon({ iconKey }: { iconKey: RulesIconKey }) {
   const icon = RULES_ICONS[iconKey];
+  const Icon = LUCIDE_ICONS[iconKey];
+  const suitGlyph = SUIT_GLYPHS[iconKey];
+
   return (
     <span className={`rulesIcon rulesIcon-${icon.key}`} title={`${icon.label}: ${icon.meaning}`} aria-label={icon.label}>
-      {icon.glyph}
+      {suitGlyph ? <span className="suitGlyph">{suitGlyph}</span> : Icon ? <Icon aria-hidden="true" strokeWidth={2.25} /> : null}
     </span>
   );
 }

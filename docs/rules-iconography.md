@@ -7,26 +7,26 @@ Source reviewed: official Malifaux rules site pages:
 - `https://malifauxrules.com/rules/2-stat-card`
 - `https://malifauxrules.com/rules/21-soulstones`
 
-The rules site serializes inline rules icons as structured objects, for example `{ "soulstone": { "inline": true } }`. The app uses compact text-mark badges instead of copying official art assets, so the UI can reference the same concepts clearly without depending on proprietary image files or icon fonts.
+The rules site serializes inline rules icons as structured objects, for example `{ "soulstone": { "inline": true } }`. The app uses custom SVG-style icons and standard card-suit glyphs instead of copying official art assets, so the UI can reference the same concepts clearly without depending on proprietary image files or icon fonts.
 
 ## Core Rules Icons
 
-| Icon key | Meaning | App mark | Where used |
+| Icon key | Meaning | App treatment | Where used |
 | --- | --- | --- | --- |
-| `soulstone` | Soulstone cost, pool, drain, or infusion | `SS` | Soulstone totals, costs, soulstone actions, trigger costs |
-| `ram` | Rams suit, equivalent to hearts | `R` | Trigger suit badges |
-| `mask` | Masks suit, equivalent to diamonds | `M` | Trigger suit badges |
-| `tome` | Tomes suit, equivalent to clubs | `T` | Trigger suit badges |
-| `crow` | Crows suit, equivalent to spades | `C` | Trigger suit badges |
-| `positive` | Positive fate modifier | `+` | Future flip display |
-| `negative` | Negative fate modifier | `-` | Future flip display |
-| `melee` | Melee attack action type | `M` | Action/range chips |
-| `missile` | Missile attack action type | `R` | Action/range chips |
-| `magic` | Magic attack action type | `A` | Action/range chips |
-| `pulse` | Pulse range or area effect | `P` | Action/range chips |
-| `aura` | Aura range or area effect | `A` | Reserved for aura effects |
-| `signature` | Signature action marker | `Sig` | Action chips |
-| `fortitude` | Defensive ability category marker | `Ft` | Reserved for defensive ability display |
+| `soulstone` | Soulstone cost, pool, drain, or infusion | Gem icon | Soulstone totals, costs, soulstone actions, trigger costs |
+| `ram` | Rams suit, equivalent to hearts | Heart suit glyph | Trigger suit badges |
+| `mask` | Masks suit, equivalent to diamonds | Diamond suit glyph | Trigger suit badges |
+| `tome` | Tomes suit, equivalent to clubs | Club suit glyph | Trigger suit badges |
+| `crow` | Crows suit, equivalent to spades | Spade suit glyph | Trigger suit badges |
+| `positive` | Positive fate modifier | Plus-in-circle icon | Future flip display |
+| `negative` | Negative fate modifier | Minus-in-circle icon | Future flip display |
+| `melee` | Melee attack action type | Crossed-swords icon | Action/range chips |
+| `missile` | Missile attack action type | Crosshair icon | Action/range chips |
+| `magic` | Magic attack action type | Sparkles icon | Action/range chips |
+| `pulse` | Pulse range or area effect | Wave icon | Action/range chips |
+| `aura` | Aura range or area effect | Circle-dot icon | Reserved for aura effects |
+| `signature` | Signature action marker | Feather icon | Action chips |
+| `fortitude` | Defensive ability category marker | Strength icon | Reserved for defensive ability display |
 
 ## Extracted Card Data Encoding
 
@@ -59,4 +59,3 @@ The app also adds matching utility icons for planning concepts that are not rule
 | `prediction` | Predicted opponent picks |
 | `draft` | Draft crew output |
 | `score` | Recommendation score dimensions |
-

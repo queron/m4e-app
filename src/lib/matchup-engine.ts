@@ -55,6 +55,7 @@ const ROLE_RULES: Array<[string, TacticalTag[]]> = [
 type StrategyNotes = {
   keywords: Record<string, string[]>;
   masters: Record<string, string[]>;
+  strategyTags?: Record<string, string[]>;
 };
 
 const NOTES = strategyNotes as StrategyNotes;
@@ -370,6 +371,7 @@ function scoreStrategyFit(model: ModelCard, strategy?: Strategy) {
   if (score > 0) {
     reasons.push(`${model.name} fits ${strategy.name} because it supports ${strategy.tags.join(", ")} scoring pressure.`);
   }
+  reasons.push(...strategyNotesFor(strategy).slice(0, 1));
 
   return { score: clamp(score, 0, 18), reasons };
 }
@@ -461,7 +463,8 @@ function describeStrengths(master?: ModelCard, crewCard?: CrewCard, strategy?: S
     `${master.name} naturally plays toward ${formatTags(tags.slice(0, 5))}.`,
     crewCard ? `${crewCard.name} extends that plan through crew-wide ${formatTags(crewCard.tacticalTags.slice(0, 4))} tools.` : "No matching crew card was found in the data, so recommendations lean harder on stat cards.",
     strategy ? `${strategy.name}: ${strategy.summary}` : "",
-    ...curatedNotesFor(master).slice(0, 2)
+    ...curatedNotesFor(master).slice(0, 2),
+    ...strategyNotesFor(strategy).slice(0, 2)
   ].filter(Boolean);
 }
 
@@ -615,6 +618,11 @@ function curatedNotesFor(model?: ModelCard, master?: ModelCard): string[] {
     }
   }
   return uniqueSentences(notes);
+}
+
+function strategyNotesFor(strategy?: Strategy): string[] {
+  if (!strategy) return [];
+  return uniqueSentences(strategy.tags.flatMap((tag) => NOTES.strategyTags?.[tag] ?? []));
 }
 
 function formatTags(tags: TacticalTag[]): string {

@@ -10,6 +10,15 @@ const masterCrewRules = JSON.parse(fs.readFileSync(rulesPath, "utf8"));
 const issues = [];
 const warnings = [];
 
+const warningAllowlist = [
+  // Source filename typo is Drunstick; printed model name is Drumstick.
+  /Drumstick .* source filename hint hat, drunstick/,
+  // Source filename typo is Bookeeper; printed model name is Bookkeeper.
+  /Bookkeeper .* source filename hint library, bookeeper/,
+  // M&SU is normalized from filename token MSU, which is not directly present in the compact printed name.
+  /M&Su, Fitzsimmons .* source filename hint msu, fizsimmons/
+];
+
 const traitKeywords = new Set([
   "master",
   "totem",
@@ -226,6 +235,12 @@ if (!Array.isArray(cards)) {
       issues.push(`${master.faction} - ${master.name} has ambiguous totems: ${candidates.map((totem) => totem.name).join(", ")}.`);
     }
   }
+}
+
+if (warnings.length > 0) {
+  const unreviewedWarnings = warnings.filter((warning) => !warningAllowlist.some((allowed) => allowed.test(warning)));
+  warnings.length = 0;
+  warnings.push(...unreviewedWarnings);
 }
 
 if (warnings.length > 0) {

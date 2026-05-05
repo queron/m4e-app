@@ -595,6 +595,10 @@ select option {
   grid-column: 1 / -1;
 }
 
+.matchupDrivers {
+  grid-column: 1 / -1;
+}
+
 .strategyImpact {
   grid-column: 1 / -1;
 }
@@ -2072,6 +2076,78 @@ li + li {
   color: var(--parchment);
 }
 
+.driverDisclosure {
+  margin: 0 0 12px;
+  border: 1px solid rgba(196, 154, 70, 0.24);
+  border-radius: var(--radius-sm);
+  background: rgba(15, 12, 10, 0.36);
+}
+
+.driverDisclosure summary {
+  min-height: 40px;
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  color: var(--accent);
+  padding: 0 12px;
+  font-family: Inter, Arial, sans-serif;
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.driverRows {
+  display: grid;
+  gap: 10px;
+  padding: 0 12px 12px;
+}
+
+.driverRow {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  border-top: 1px solid var(--line-2);
+  padding-top: 10px;
+}
+
+.driverRow strong {
+  color: var(--parchment);
+  font-family: Inter, Arial, sans-serif;
+  font-size: 0.82rem;
+}
+
+.driverRow p,
+.limitedEvidence {
+  margin: 4px 0 0;
+  color: var(--parchment-2);
+  line-height: 1.45;
+}
+
+.driverEvidence {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 6px;
+  align-content: start;
+}
+
+.driverEvidence span {
+  border: 1px solid rgba(196, 154, 70, 0.3);
+  border-radius: 999px;
+  background: rgba(196, 154, 70, 0.09);
+  color: var(--parchment-2);
+  padding: 4px 7px;
+  font-family: Inter, Arial, sans-serif;
+  font-size: 0.68rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.limitedEvidence {
+  padding: 0 12px 12px;
+}
+
 .recChipRow {
   display: flex;
   flex-wrap: wrap;
@@ -2837,6 +2913,14 @@ li + li {
 
   .scoreGrid.twoScores {
     grid-template-columns: 1fr;
+  }
+
+  .driverRow {
+    grid-template-columns: 1fr;
+  }
+
+  .driverEvidence {
+    justify-content: flex-start;
   }
 
   .stickyAnalyzeBar {

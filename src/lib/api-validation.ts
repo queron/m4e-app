@@ -4,11 +4,13 @@ import type { ModelEvaluationInput, PlannerInput } from "./types";
 export const MAX_POINT_LIMIT = 150;
 export const MIN_POINT_LIMIT = 1;
 export const MAX_MODEL_LIMIT = 99;
+export const MAX_REQUEST_BODY_BYTES = 64 * 1024;
+export const MAX_MODEL_ID_ARRAY_LENGTH = 500;
 
 type ApiValidationError = {
   error: string;
   details?: string[];
-  status: 400 | 422;
+  status: 400 | 413 | 422;
 };
 
 type ValidationResult<T> =
@@ -74,6 +76,29 @@ export function validatePlannerInput(payload: unknown): ValidationResult<Planner
       schemePoolId: readOptionalString(payload.schemePoolId)
     }
   };
+}
+
+export async function parseJsonRequest(request: Request): Promise<ValidationResult<unknown>> {
+  const contentLength = Number(request.headers.get("content-length") ?? 0);
+
+  if (Number.isFinite(contentLength) && contentLength > MAX_REQUEST_BODY_BYTES) {
+    return payloadTooLarge();
+  }
+
+  const text = await request.text();
+
+  if (new TextEncoder().encode(text).length > MAX_REQUEST_BODY_BYTES) {
+    return payloadTooLarge();
+  }
+
+  try {
+    return {
+      ok: true,
+      value: JSON.parse(text)
+    };
+  } catch {
+    return invalidShape("Request body must be valid JSON.");
+  }
 }
 
 export function validateModelEvaluationInput(payload: unknown): ValidationResult<ModelEvaluationInput> {
@@ -184,6 +209,11 @@ function readModelIdArray(
     return [];
   }
 
+  if (value.length > MAX_MODEL_ID_ARRAY_LENGTH) {
+    details.push(`${field} cannot contain more than ${MAX_MODEL_ID_ARRAY_LENGTH} IDs.`);
+    return [];
+  }
+
   const ids: string[] = [];
   const seen = new Set<string>();
 
@@ -215,6 +245,16 @@ function invalidShape(error: string): ValidationResult<never> {
     error: {
       error,
       status: 400
+    }
+  };
+}
+
+function payloadTooLarge(): ValidationResult<never> {
+  return {
+    ok: false,
+    error: {
+      error: `Request body cannot exceed ${MAX_REQUEST_BODY_BYTES} bytes.`,
+      status: 413
     }
   };
 }

@@ -39,6 +39,10 @@ npm run dev
 
 Open `http://localhost:3000`.
 
+## Service Worker Cache Version
+
+`npm run dev` and `npm run build` generate `public/sw-version.js` from the app version and a hash of `src/data/m4e_cards.json`. When card data changes, the service worker gets a new `m4e-crew-optimizer-<version>` cache name and old `/api/cards` entries are removed during activation.
+
 ## Notes
 
 The delivered scope recommends model selections only. Upgrade cards are normalized and available in the data model for future expansion, but the analysis engine intentionally excludes upgrade recommendations.

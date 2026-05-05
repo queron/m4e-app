@@ -1225,7 +1225,7 @@ export default function MalifauxWorkbench() {
           <strong><span className="stepBadge">4</span>{analyzeReadiness.status}</strong>
           <span>
             {canAnalyze
-              ? analyzeReadiness.detail
+              ? `${playerMaster?.name ?? "Player master"} vs ${opponentMaster?.name ?? "opponent master"} | ${strategy?.name ?? "No strategy selected"} | ${pointLimit}ss`
               : `${playerMaster?.name ?? "No player master"} vs ${opponentMaster?.name ?? "no opponent master"} - ${strategy.name}`}
           </span>
         </div>

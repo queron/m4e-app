@@ -1128,10 +1128,10 @@ export function CrewPanel(props: {
       }
     : !props.masterId
       ? {
-          title: "Choose a master to view crew options.",
+          title: "Choose a master to view crew options",
           text: isPlayerPanel
-            ? "Required models, title tools, collection marking, and model lists appear after you pick a master."
-            : "Expected model marking and likely threat suggestions appear after you pick the opponent master."
+            ? "Your master determines keyword, required models, and legal hiring options."
+            : "The opposing master determines likely crew options and prediction context."
         }
       : null;
   const suggestedExpectedModels = isPlayerPanel ? [] : suggestedThreatModels(props.allModels, props.faction, props.master);
@@ -1268,7 +1268,7 @@ export function CrewPanel(props: {
         />
       </div>
       {setupBlankState ? (
-        <CrewPanelBlankState title={setupBlankState.title} text={setupBlankState.text} />
+        <CrewPanelBlankState iconKey={isPlayerPanel ? "collection" : "prediction"} title={setupBlankState.title} text={setupBlankState.text} />
       ) : (
         <>
       {titleVariants.length > 1 ? (
@@ -1591,9 +1591,10 @@ function TitleComparisonBlock({ title, items }: { title: string; items: string[]
   );
 }
 
-function CrewPanelBlankState({ title, text }: { title: string; text: string }) {
+function CrewPanelBlankState({ iconKey, title, text }: { iconKey: RulesIconKey; title: string; text: string }) {
   return (
     <div className="crewPanelBlankState">
+      <RulesIcon iconKey={iconKey} />
       <strong>{title}</strong>
       <p>{text}</p>
     </div>

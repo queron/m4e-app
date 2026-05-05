@@ -4,7 +4,11 @@ import "./globals.css";
 export const metadata: Metadata = {
   title: "M4E Crew Optimizer",
   description: "Malifaux Fourth Edition matchup-aware crew planning tool",
-  manifest: "/manifest.webmanifest"
+  manifest: "/manifest.webmanifest",
+  icons: {
+    icon: "/icon.png",
+    apple: "/apple-icon.png"
+  }
 };
 
 export const viewport = {

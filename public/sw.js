@@ -1,4 +1,7 @@
-const CACHE_NAME = "m4e-crew-optimizer-v1";
+importScripts("/sw-version.js");
+
+const CACHE_VERSION = self.M4E_CACHE_VERSION || "dev";
+const CACHE_NAME = `m4e-crew-optimizer-${CACHE_VERSION}`;
 const APP_SHELL = ["/", "/manifest.webmanifest", "/icon.svg"];
 
 self.addEventListener("install", (event) => {

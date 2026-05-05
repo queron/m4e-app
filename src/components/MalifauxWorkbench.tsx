@@ -363,7 +363,7 @@ export default function MalifauxWorkbench() {
       })
       .catch((currentError) => {
         console.error("Card data load failed.", { currentError });
-        setError("Card data could not be loaded. Refresh the app or check your connection.");
+        setError("Card data did not load. Retry or refresh; your local selections are preserved where possible.");
       });
   }, []);
 
@@ -828,7 +828,20 @@ export default function MalifauxWorkbench() {
   if (!catalog) {
     return (
       <main className="shell">
-        <section className="loading">Loading Malifaux card pool...</section>
+        {error ? (
+          <section className="error recoveryState" role="alert">
+            <h2>Card Data Did Not Load</h2>
+            <p>{error}</p>
+            <button className="subtleButton" type="button" onClick={() => window.location.reload()}>
+              Retry loading cards
+            </button>
+          </section>
+        ) : (
+          <section className="loading">
+            <h2>Loading Malifaux card pool...</h2>
+            <p>This usually takes a few seconds. Card data, factions, masters, and crew options will appear here shortly.</p>
+          </section>
+        )}
       </main>
     );
   }

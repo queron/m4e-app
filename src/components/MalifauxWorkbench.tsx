@@ -762,9 +762,6 @@ export default function MalifauxWorkbench() {
             Soulstones
             <input value={pointLimit} min={1} max={150} type="number" onChange={(event) => setPointLimit(Number(event.target.value))} />
           </label>
-          <button className="primary" onClick={analyze} disabled={isAnalyzing || !playerMasterId || !opponentMasterId}>
-            {analyzeButtonLabel}
-          </button>
         </div>
         <div className="actionBar">
           <button className="subtleButton" type="button" onClick={shareSetup}>Copy share link</button>

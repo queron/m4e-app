@@ -776,39 +776,12 @@ export default function MalifauxWorkbench() {
 
       <nav className="setupStepper" aria-label="Counter-pick setup sequence">
         <span>1. Match</span>
-        <span>2. Opponent Intel</span>
-        <span>3. Player Collection</span>
+        <span>2. Player Collection</span>
+        <span>3. Opponent Intel</span>
         <span>4. Analyze</span>
       </nav>
 
       <section className="plannerGrid">
-        <CrewPanel
-          title="Opponent"
-          displayTitle="Opponent Intel"
-          factions={catalog.factions}
-          faction={opponentFaction}
-          setFaction={setOpponentFaction}
-          masters={opponentMasters}
-          master={opponentMaster}
-          allModels={catalog.models}
-          matchupMaster={playerMaster}
-          profile={opponentMasterProfile}
-          masterId={opponentMasterId}
-          setMasterId={setOpponentMasterId}
-          pool={opponentPool}
-          selectedIds={opponentModelIds}
-          setSelectedIds={setOpponentModelIds}
-          search={opponentSearch}
-          setSearch={setOpponentSearch}
-          selectionLabel="Expected"
-          modeLabel="What I know they may take"
-          helperText="Start here for counter-planning: choose the opposing master, then mark enemy models you know or expect. Leave empty to predict from their legal pool."
-          strategy={strategy}
-          selectedCountLabel="known"
-          collapsed={setupCollapsed}
-          setCollapsed={setSetupCollapsed}
-          onOpenModel={openModel}
-        />
         <CrewPanel
           title="Player"
           displayTitle="Player Collection"
@@ -834,6 +807,33 @@ export default function MalifauxWorkbench() {
           helperText="Then mark models in your collection. This builds the Available recommendation pool, not your hired crew."
           strategy={strategy}
           selectedCountLabel="in collection"
+          collapsed={setupCollapsed}
+          setCollapsed={setSetupCollapsed}
+          onOpenModel={openModel}
+        />
+        <CrewPanel
+          title="Opponent"
+          displayTitle="Opponent Intel"
+          factions={catalog.factions}
+          faction={opponentFaction}
+          setFaction={setOpponentFaction}
+          masters={opponentMasters}
+          master={opponentMaster}
+          allModels={catalog.models}
+          matchupMaster={playerMaster}
+          profile={opponentMasterProfile}
+          masterId={opponentMasterId}
+          setMasterId={setOpponentMasterId}
+          pool={opponentPool}
+          selectedIds={opponentModelIds}
+          setSelectedIds={setOpponentModelIds}
+          search={opponentSearch}
+          setSearch={setOpponentSearch}
+          selectionLabel="Expected"
+          modeLabel="What I know they may take"
+          helperText="Choose the opposing master, then mark enemy models you know or expect. Leave empty to predict from their legal pool."
+          strategy={strategy}
+          selectedCountLabel="known"
           collapsed={setupCollapsed}
           setCollapsed={setSetupCollapsed}
           onOpenModel={openModel}

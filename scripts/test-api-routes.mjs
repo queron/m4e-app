@@ -21,6 +21,20 @@ try {
   assert.ok(playerMaster, "test catalog has player master");
   assert.ok(opponentMaster, "test catalog has opponent master");
   assert.ok(model, "test catalog has hireable model");
+  assert.equal(model.rulesText, "", "/api/cards default response omits full rules text");
+  assert.ok(model.abilities.every((ability) => !ability.text), "/api/cards default response omits ability text");
+  assert.ok(model.actions.every((action) => !action.effect && !action.triggers), "/api/cards default response omits action effects and triggers");
+
+  const modelDetail = await getJson(`/api/cards/${encodeURIComponent(model.id)}`);
+  assert.equal(modelDetail.id, model.id, "/api/cards/[id] returns requested model");
+  assert.ok(
+    modelDetail.rulesText || modelDetail.abilities.some((ability) => ability.text) || modelDetail.actions.some((action) => action.effect),
+    "/api/cards/[id] returns full model detail"
+  );
+
+  await expectGetStatus(`/api/cards/${encodeURIComponent("unknown-model")}`, 404, (body) => {
+    assert.equal(body.error, "Model was not found in the card catalog.");
+  });
 
   await expectStatus("/api/analyze", "{", 400, (body) => {
     assert.equal(body.error, "Request body must be valid JSON.");
@@ -133,6 +147,15 @@ async function expectStatus(path, body, expectedStatus, assertBody) {
     },
     body: typeof body === "string" ? body : JSON.stringify(body)
   });
+  const text = await response.text();
+  const parsed = text ? JSON.parse(text) : {};
+
+  assert.equal(response.status, expectedStatus, `${path} expected ${expectedStatus}, got ${response.status}: ${text}`);
+  assertBody(parsed);
+}
+
+async function expectGetStatus(path, expectedStatus, assertBody) {
+  const response = await fetch(`${BASE_URL}${path}`);
   const text = await response.text();
   const parsed = text ? JSON.parse(text) : {};
 

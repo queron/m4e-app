@@ -108,6 +108,32 @@ export type CardCatalog = {
   upgrades: UpgradeCard[];
 };
 
+export type CatalogSummaryModel = Omit<ModelCard, "abilities" | "actions" | "rulesText" | "textIndex"> & {
+  abilities: Array<Pick<RawAbility, "name">>;
+  actions: Array<Pick<RawAction, "name" | "type" | "range" | "stat" | "resist" | "targetNumber" | "damage">>;
+  rulesText: "";
+  textIndex: string;
+  detailLoaded: false;
+};
+
+export type CatalogSummaryCrewCard = Omit<CrewCard, "abilities" | "actions" | "rulesText"> & {
+  abilities: Array<Pick<RawAbility, "name">>;
+  actions: Array<Pick<RawAction, "name" | "type" | "range" | "stat" | "resist" | "targetNumber" | "damage">>;
+  rulesText: "";
+};
+
+export type CatalogSummaryUpgradeCard = Omit<UpgradeCard, "abilitiesGranted" | "rulesText"> & {
+  abilitiesGranted: Array<Pick<RawAbility, "name">>;
+  rulesText: "";
+};
+
+export type CatalogSummary = Omit<CardCatalog, "models" | "masters" | "crewCards" | "upgrades"> & {
+  models: CatalogSummaryModel[];
+  masters: CatalogSummaryModel[];
+  crewCards: CatalogSummaryCrewCard[];
+  upgrades: CatalogSummaryUpgradeCard[];
+};
+
 export type TacticalTag =
   | "damage"
   | "burst"

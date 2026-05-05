@@ -29,7 +29,7 @@ import {
   Waves,
   X
 } from "lucide-react";
-import type { CardCatalog, CrewCard, MatchupAnalysis, ModelCard, ModelMatchupEvaluation, ModelRecommendation, RecommendationPath, SynergyGroup, TacticalTag, VulnerabilityFlag } from "@/lib/types";
+import type { CardCatalog, CatalogSummary, CrewCard, MatchupAnalysis, ModelCard, ModelMatchupEvaluation, ModelRecommendation, RecommendationPath, SynergyGroup, TacticalTag, VulnerabilityFlag } from "@/lib/types";
 import masterPlaystyleNotes from "@/data/master_playstyle_notes.json";
 import { SCHEME_POOLS } from "@/lib/scheme-pools";
 import { STRATEGY_POOLS } from "@/lib/strategy-pools";
@@ -211,10 +211,13 @@ export default function MalifauxWorkbench() {
   const [savedDrafts, setSavedDrafts] = useState<SavedDraft[]>([]);
   const [statusMessage, setStatusMessage] = useState("");
   const [selectedModel, setSelectedModel] = useState<ModelCard | null>(null);
+  const [selectedModelDetailLoading, setSelectedModelDetailLoading] = useState(false);
+  const [selectedModelDetailError, setSelectedModelDetailError] = useState("");
   const [selectedModelEvaluation, setSelectedModelEvaluation] = useState<ModelMatchupEvaluation | null>(null);
   const [selectedModelEvaluationLoading, setSelectedModelEvaluationLoading] = useState(false);
   const [selectedModelEvaluationError, setSelectedModelEvaluationError] = useState("");
   const modelOpenerRef = useRef<HTMLElement | null>(null);
+  const selectedModelRequestRef = useRef(0);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [setupCollapsed, setSetupCollapsed] = useState(false);
   const [activeResultTab, setActiveResultTab] = useState<ActiveResultTab>("picks");
@@ -227,7 +230,7 @@ export default function MalifauxWorkbench() {
   useEffect(() => {
     fetch("/api/cards")
       .then((response) => response.json())
-      .then((data: CardCatalog) => {
+      .then((data: CatalogSummary) => {
         setCatalog(data);
         const restored = readSharedSetup(data);
         if (restored.warnings.length > 0) {
@@ -363,11 +366,37 @@ export default function MalifauxWorkbench() {
 
   function openModel(model: ModelCard) {
     modelOpenerRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    const requestId = selectedModelRequestRef.current + 1;
+    selectedModelRequestRef.current = requestId;
     setSelectedModel(model);
+    setSelectedModelDetailError("");
+
+    if (hasFullModelDetails(model)) {
+      setSelectedModelDetailLoading(false);
+      return;
+    }
+
+    setSelectedModelDetailLoading(true);
+    fetch(`/api/cards/${encodeURIComponent(model.id)}`)
+      .then(async (response) => {
+        const payload = await response.json();
+        if (!response.ok) throw new Error(payload.error ?? "Stat card detail could not be loaded.");
+        if (selectedModelRequestRef.current === requestId) setSelectedModel(payload);
+      })
+      .catch((currentError) => {
+        if (selectedModelRequestRef.current !== requestId) return;
+        setSelectedModelDetailError(currentError instanceof Error ? currentError.message : "Stat card detail could not be loaded.");
+      })
+      .finally(() => {
+        if (selectedModelRequestRef.current === requestId) setSelectedModelDetailLoading(false);
+      });
   }
 
   function closeSelectedModel() {
+    selectedModelRequestRef.current += 1;
     setSelectedModel(null);
+    setSelectedModelDetailLoading(false);
+    setSelectedModelDetailError("");
     requestAnimationFrame(() => modelOpenerRef.current?.focus());
   }
 
@@ -981,6 +1010,8 @@ export default function MalifauxWorkbench() {
 
       {selectedModel ? (
         <StatCardModal
+          detailError={selectedModelDetailError}
+          detailLoading={selectedModelDetailLoading}
           evaluation={selectedModelEvaluation}
           evaluationError={selectedModelEvaluationError}
           evaluationLoading={selectedModelEvaluationLoading}
@@ -2607,6 +2638,8 @@ function articleFor(value: string): "a" | "an" {
 }
 
 export function StatCardModal({
+  detailError,
+  detailLoading,
   evaluation,
   evaluationError,
   evaluationLoading,
@@ -2614,6 +2647,8 @@ export function StatCardModal({
   vulnerabilityFlags,
   onClose
 }: {
+  detailError: string;
+  detailLoading: boolean;
   evaluation: ModelMatchupEvaluation | null;
   evaluationError: string;
   evaluationLoading: boolean;
@@ -2705,6 +2740,13 @@ export function StatCardModal({
           </div>
 
           <MatchupFitSection evaluation={evaluation} error={evaluationError} loading={evaluationLoading} model={model} />
+
+          {detailLoading || detailError ? (
+            <section className="statCardSection">
+              <h3>Stat Card Detail</h3>
+              <p className="emptyRulesText">{detailLoading ? `Loading full stat card for ${model.name}...` : detailError}</p>
+            </section>
+          ) : null}
 
           {!evaluation && vulnerabilityFlags.length > 0 ? (
             <section className="statCardSection riskSection">
@@ -3033,6 +3075,14 @@ function matchesSearch(model: ModelCard, search: string): boolean {
   const query = search.trim().toLowerCase();
   if (!query) return true;
   return [model.name, model.faction, model.keywords.join(" "), model.textIndex].join(" ").toLowerCase().includes(query);
+}
+
+function hasFullModelDetails(model: ModelCard): boolean {
+  return Boolean(
+    model.rulesText ||
+    model.abilities.some((ability) => ability.text) ||
+    model.actions.some((action) => action.effect || (action.triggers?.length ?? 0) > 0)
+  );
 }
 
 type ModelSectionEntry = {

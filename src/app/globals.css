@@ -82,6 +82,21 @@ button {
   margin-bottom: 28px;
 }
 
+.brandLockup {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  min-width: 0;
+}
+
+.appLogo {
+  width: clamp(40px, 5vw, 56px);
+  height: clamp(40px, 5vw, 56px);
+  flex: 0 0 auto;
+  object-fit: contain;
+  filter: drop-shadow(0 10px 18px rgba(0, 0, 0, 0.36));
+}
+
 .eyebrow {
   margin: 0 0 4px;
   color: var(--accent);

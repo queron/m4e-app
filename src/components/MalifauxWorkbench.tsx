@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { Component, useEffect, useId, useMemo, useRef, useState } from "react";
 import type { ErrorInfo, ReactNode } from "react";
 import type { KeyboardEvent as ReactKeyboardEvent } from "react";
@@ -684,11 +685,12 @@ export default function MalifauxWorkbench() {
   return (
     <main className="shell">
       <header className="topbar">
-        <div>
+        <div className="brandLockup">
+          <Image className="appLogo" src="/brand/m4e-logo-192.png" alt="" aria-hidden="true" width={56} height={56} priority />
+          <div>
           <p className="eyebrow">Malifaux 4E</p>
-          <h1>
-            <RulesIcon iconKey="soulstone" /> Crew Optimizer
-          </h1>
+            <h1>Crew Optimizer</h1>
+          </div>
         </div>
       </header>
 

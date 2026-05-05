@@ -1,17 +1,16 @@
-import { validateModelEvaluationInput } from "@/lib/api-validation";
+import { parseJsonRequest, validateModelEvaluationInput } from "@/lib/api-validation";
 import { evaluateModelMatchup } from "@/lib/matchup-engine";
 import { NextResponse } from "next/server";
 
 export async function POST(request: Request) {
-  let payload: unknown;
+  const parsed = await parseJsonRequest(request);
 
-  try {
-    payload = await request.json();
-  } catch {
-    return NextResponse.json({ error: "Request body must be valid JSON." }, { status: 400 });
+  if (!parsed.ok) {
+    const { status, ...body } = parsed.error;
+    return NextResponse.json(body, { status });
   }
 
-  const result = validateModelEvaluationInput(payload);
+  const result = validateModelEvaluationInput(parsed.value);
 
   if (!result.ok) {
     const { status, ...body } = result.error;

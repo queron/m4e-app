@@ -209,7 +209,7 @@ select option {
 
 .matchGrid {
   display: grid;
-  grid-template-columns: minmax(180px, 1fr) minmax(220px, 1fr) minmax(180px, 0.8fr) 120px auto;
+  grid-template-columns: minmax(180px, 1fr) minmax(220px, 1fr) minmax(180px, 0.8fr) 120px;
   gap: 14px;
   align-items: end;
 }

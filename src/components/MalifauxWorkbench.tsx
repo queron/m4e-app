@@ -1274,12 +1274,12 @@ export function CrewPanel(props: {
       {titleVariants.length > 1 ? (
         <div className="titleCompareCallout">
           <div>
-            <strong>{titleVariants.length} title variants available</strong>
-            <p>Compare title plans before committing to this leader package.</p>
+            <strong>Master Plan</strong>
+            <p>{titleVariants.length} title variants available. Compare game plan, crew construction, and matchup fit in one place.</p>
           </div>
-          <button className="subtleButton" type="button" onClick={() => setShowTitleComparison((current) => !current)}>
-            {showTitleComparison ? "Hide comparison" : "Compare titles"}
-          </button>
+            <button className="subtleButton" type="button" onClick={() => setShowTitleComparison((current) => !current)}>
+              {showTitleComparison ? "Hide comparison" : "Compare titles"}
+            </button>
         </div>
       ) : null}
       {showTitleComparison && props.master ? (
@@ -1293,7 +1293,7 @@ export function CrewPanel(props: {
           variants={titleVariants}
         />
       ) : null}
-      <MasterProfileDisclosure profile={props.profile} />
+      {titleVariants.length <= 1 ? <MasterProfileDisclosure profile={props.profile} /> : null}
       <input
         className="search"
         value={props.search}
@@ -1543,6 +1543,7 @@ export function MasterTitleComparison({
           const requiredNames = mandatory.map((entry) => `${entry.quantity > 1 ? `${entry.quantity}x ` : ""}${entry.model.name}`);
           const crewNotes = titleCrewRuleNotes(variant);
           const fit = titleFitSummary(variant, matchupMaster, strategy);
+          const profile = buildMasterProfile(variant);
           const selected = variant.id === selectedMasterId;
 
           return (
@@ -1565,7 +1566,10 @@ export function MasterTitleComparison({
                   <RulesChip iconKey="keyword" key={keyword} label={keyword} />
                 ))}
               </div>
-              <TitleComparisonBlock title="Core tags" items={[formatVisibleTags(topTacticalTags(variant.tacticalTags))]} />
+              <TitleComparisonBlock title="Game plan" items={[profile.gamePlan]} />
+              <TitleComparisonBlock title="Table jobs" items={profile.tableJobs} />
+              <TitleComparisonBlock title="Pressure vectors" items={profile.pressureVectors.map(tacticalTagLabel)} />
+              <TitleComparisonBlock title="Common risks" items={profile.commonRisks} />
               <TitleComparisonBlock title="Crew construction" items={[requiredNames.join(", "), ...crewNotes]} />
               <TitleComparisonBlock title="Strategy and matchup fit" items={fit.notes} />
               <button className="subtleButton" type="button" onClick={() => onChoose(variant.id)} disabled={selected}>
@@ -1904,7 +1908,7 @@ function MasterProfilePair({ playerProfile, opponentProfile }: { playerProfile: 
 function MasterProfileDisclosure({ profile }: { profile: MasterProfile }) {
   return (
     <details className="masterProfileDisclosure">
-      <summary>Master profile</summary>
+      <summary>Master Plan</summary>
       <MasterProfileBody profile={profile} />
     </details>
   );

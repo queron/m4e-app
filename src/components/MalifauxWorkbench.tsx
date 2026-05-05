@@ -1033,6 +1033,12 @@ export default function MalifauxWorkbench() {
             />
           ) : null}
           <MatchupBriefPanel brief={analysis.matchupBrief} />
+          <NextStepsPanel
+            brief={analysis.matchupBrief}
+            opponentPressure={analysis.opponentCrew.pressurePoints}
+            path={selectedPath}
+            strategy={analysis.match.strategy}
+          />
           <MatchupDriversPanel brief={analysis.matchupBrief} path={selectedPath} strategy={analysis.match.strategy} />
           <StrategyImpactPanel
             opponentCrew={analysis.opponentCrew.expectedModels.length > 0 ? analysis.opponentCrew.expectedModels : analysis.opponentCrew.likelyModels.map((recommendation) => recommendation.model)}
@@ -2047,6 +2053,37 @@ function MatchupBriefPanel({ brief }: { brief: MatchupAnalysis["matchupBrief"] }
         <BriefColumn title="Answer with" items={brief.answerWith} />
         <BriefColumn title="Priority hires" items={brief.priorityHires} />
         {brief.matchupRisks.length > 0 ? <BriefColumn title="Matchup risks" items={brief.matchupRisks} /> : null}
+      </div>
+    </section>
+  );
+}
+
+function NextStepsPanel({
+  brief,
+  opponentPressure,
+  path,
+  strategy
+}: {
+  brief: MatchupAnalysis["matchupBrief"];
+  opponentPressure: string[];
+  path?: RecommendationPath;
+  strategy?: Strategy;
+}) {
+  const steps = buildNextSteps({ brief, opponentPressure, path, strategy });
+
+  return (
+    <section className="panel nextStepsPanel">
+      <div className="panelHeader">
+        <h2>What to Do Next</h2>
+        <span>Prep checklist</span>
+      </div>
+      <div className="nextStepList">
+        {steps.map((step) => (
+          <article key={step.label}>
+            <strong>{step.label}</strong>
+            <p>{step.text}</p>
+          </article>
+        ))}
       </div>
     </section>
   );
@@ -3100,6 +3137,64 @@ function summarizePathRisks(path: RecommendationPath, brief: MatchupAnalysis["ma
   if (riskItems.length > 0) return riskItems;
   if (brief.matchupRisks.length > 0) return brief.matchupRisks.slice(0, 4);
   return ["No high-confidence risk driver surfaced from the current recommendation set."];
+}
+
+function buildNextSteps({
+  brief,
+  opponentPressure,
+  path,
+  strategy
+}: {
+  brief: MatchupAnalysis["matchupBrief"];
+  opponentPressure: string[];
+  path?: RecommendationPath;
+  strategy?: Strategy;
+}): Array<{ label: string; text: string }> {
+  const tags = new Set(strategy?.tags ?? []);
+  const roleCounts = new Map<string, number>();
+  for (const recommendation of path?.models ?? []) {
+    roleCounts.set(recommendation.role, (roleCounts.get(recommendation.role) ?? 0) + 1);
+  }
+  const topRole = [...roleCounts.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ?? "flexible tech piece";
+  const pressureText = [...opponentPressure, ...brief.watchFor].join(" ").toLowerCase();
+  const answer = brief.answerWith[0] ?? "models that directly cover the matchup gap";
+  const priorityHire = brief.priorityHires[0] ?? `a ${topRole}`;
+  const scoringStrategy = tags.has("spread") || tags.has("markers") || tags.has("scheme") || tags.has("interact") || tags.has("enemyHalf");
+  const pressureWarning = /summon|activation|extra/.test(pressureText)
+    ? "Watch for summon or activation pressure; favour picks that can remove extra bodies or keep scoring pace."
+    : /control|slow|stagger|stunned|denial/.test(pressureText)
+      ? "Watch for control pressure; favour models that still score while disrupted or that bring denial answers."
+      : "Watch the first two turns for the opponent's main pressure lane before committing fragile pieces.";
+
+  const steps = [
+    {
+      label: "Prioritise",
+      text: scoringStrategy
+        ? `Start by covering ${strategy?.name ?? "the strategy"} scoring: mobility, marker interaction, and models that can work in the right table zones.`
+        : `Start by adding ${priorityHire} before doubling down on redundant damage.`
+    },
+    {
+      label: "Avoid",
+      text: `Avoid taking extra copies of tools your crew already covers until you have checked whether ${answer.toLowerCase()} is handled.`
+    },
+    {
+      label: "Watch",
+      text: pressureWarning
+    },
+    {
+      label: "If unsure",
+      text: `Choose the highest-fit ${topRole} recommendation, then inspect its stat card to confirm its table job fits your plan.`
+    }
+  ];
+
+  if (!path || path.models.length === 0) {
+    steps[0] = {
+      label: "Prioritise",
+      text: "Start by selecting one or two candidate models, then rerun analysis to replace legal-pool assumptions with stronger evidence."
+    };
+  }
+
+  return steps;
 }
 
 function recommendationPlan(recommendation: ModelRecommendation, strategyName?: string) {

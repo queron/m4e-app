@@ -91,6 +91,7 @@ type ModelSortMode = "name" | "costAsc" | "costDesc" | "role";
 type RoleFilter = "all" | "beater" | "scheme" | "support" | "anchor" | "control";
 type RecommendationSortMode = "fit" | "cost" | "role" | "name" | "owned";
 type ModelDensity = "compact" | "detailed";
+type ExploreMode = "search" | "browse";
 type SuggestedThreatModel = {
   model: ModelCard;
   role: string;
@@ -1539,6 +1540,9 @@ export function CrewPanel(props: {
 }) {
   const [modelSort, setModelSort] = useState<ModelSortMode>("name");
   const [roleFilter, setRoleFilter] = useState<RoleFilter>("all");
+  const [exploreMode, setExploreMode] = useState<ExploreMode>("search");
+  const [browseKeyword, setBrowseKeyword] = useState("all");
+  const [browseRole, setBrowseRole] = useState<RoleFilter>("all");
   const [modelDensity, setModelDensity] = useState<ModelDensity>("compact");
   const [collapsedSections, setCollapsedSections] = useState<Record<string, boolean>>({});
   const [showTitleComparison, setShowTitleComparison] = useState(false);
@@ -1575,17 +1579,29 @@ export function CrewPanel(props: {
       : null;
   const suggestedExpectedModels = isPlayerPanel ? [] : suggestedThreatModels(props.allModels, props.faction, props.master);
   const titleVariants = titleVariantsForMaster(props.master, props.masters);
+  const effectiveRoleFilter = exploreMode === "browse" ? browseRole : roleFilter;
+  const effectiveSearch = exploreMode === "browse" ? "" : props.search;
   const filteredPool = props.pool
     .filter((model) => !mandatoryIds.has(model.id))
-    .filter((model) => modelMatchesRoleFilter(model, roleFilter));
+    .filter((model) => modelMatchesRoleFilter(model, effectiveRoleFilter))
+    .filter((model) => exploreMode !== "browse" || browseKeyword === "all" || model.strategicKeywords.includes(browseKeyword));
   const baseSections = groupModelsForMaster(
     filteredPool,
     props.master,
     props.faction,
     mandatoryModels,
     modelSort,
-    props.search
+    effectiveSearch
   );
+  const browseKeywordSource = props.masterId
+    ? props.pool
+    : props.masters.filter((master) => !props.faction || master.faction === props.faction);
+  const browseKeywords = browseOptionsFromModels(browseKeywordSource);
+  const browseMasters = props.masters
+    .filter((master) => !props.faction || master.faction === props.faction)
+    .filter((master) => browseKeyword === "all" || master.strategicKeywords.includes(browseKeyword))
+    .filter((master) => modelMatchesRoleFilter(master, browseRole))
+    .sort((left, right) => titleGroupKey(left).localeCompare(titleGroupKey(right)) || left.name.localeCompare(right.name));
   const suggestedModelIds = new Set(suggestedExpectedModels.map((suggestion) => suggestion.model.id));
   const suggestedSection: ModelSection[] = suggestedExpectedModels.length > 0
     ? [
@@ -1642,7 +1658,7 @@ export function CrewPanel(props: {
   }, [props.faction, props.masterId]);
 
   function isSectionCollapsed(title: string) {
-    if (props.search.trim()) return false;
+    if (effectiveSearch.trim()) return false;
     return Boolean(collapsedSections[title]);
   }
 
@@ -1663,7 +1679,17 @@ export function CrewPanel(props: {
   function chooseMaster(masterId: string) {
     props.setMasterId(masterId);
     props.setSelectedIds([]);
+    setBrowseKeyword("all");
+    setBrowseRole("all");
     setShowTitleComparison(false);
+  }
+
+  function chooseFaction(faction: string) {
+    props.setFaction(faction);
+    props.setMasterId("");
+    props.setSelectedIds([]);
+    setBrowseKeyword("all");
+    setBrowseRole("all");
   }
 
   return (
@@ -1711,11 +1737,7 @@ export function CrewPanel(props: {
           Faction
           <select
             value={props.faction}
-            onChange={(event) => {
-              props.setFaction(event.target.value);
-              props.setMasterId("");
-              props.setSelectedIds([]);
-            }}
+            onChange={(event) => chooseFaction(event.target.value)}
           >
             <option value="">Pick a faction</option>
             {props.factions.map((faction) => (
@@ -1732,7 +1754,40 @@ export function CrewPanel(props: {
           onChange={chooseMaster}
         />
       </div>
-      {setupBlankState ? (
+      <div className="exploreModeTabs" role="tablist" aria-label={`${props.displayTitle} exploration mode`}>
+        <button
+          aria-selected={exploreMode === "search"}
+          className={exploreMode === "search" ? "active" : ""}
+          role="tab"
+          type="button"
+          onClick={() => setExploreMode("search")}
+        >
+          Search
+        </button>
+        <button
+          aria-selected={exploreMode === "browse"}
+          className={exploreMode === "browse" ? "active" : ""}
+          role="tab"
+          type="button"
+          onClick={() => setExploreMode("browse")}
+        >
+          Browse
+        </button>
+      </div>
+      {exploreMode === "browse" && !props.masterId ? (
+        <BrowseMasterPanel
+          browseKeywords={browseKeywords}
+          browseKeyword={browseKeyword}
+          browseRole={browseRole}
+          factions={props.factions}
+          faction={props.faction}
+          masters={browseMasters}
+          onChooseFaction={chooseFaction}
+          onChooseMaster={chooseMaster}
+          onKeywordChange={setBrowseKeyword}
+          onRoleChange={setBrowseRole}
+        />
+      ) : setupBlankState ? (
         <CrewPanelBlankState iconKey={isPlayerPanel ? "collection" : "prediction"} title={setupBlankState.title} text={setupBlankState.text} />
       ) : (
         <>
@@ -1759,13 +1814,23 @@ export function CrewPanel(props: {
         />
       ) : null}
       {titleVariants.length <= 1 ? <MasterProfileDisclosure profile={props.profile} /> : null}
-      <input
-        className="search"
-        value={props.search}
-        placeholder="Search name, title, faction, keyword, role, or ability"
-        onChange={(event) => props.setSearch(event.target.value)}
-      />
-      <div className="listControls">
+      {exploreMode === "search" ? (
+        <input
+          className="search"
+          value={props.search}
+          placeholder="Search name, title, faction, keyword, role, or ability"
+          onChange={(event) => props.setSearch(event.target.value)}
+        />
+      ) : (
+        <BrowseModelFilters
+          browseKeywords={browseKeywords}
+          browseKeyword={browseKeyword}
+          browseRole={browseRole}
+          onKeywordChange={setBrowseKeyword}
+          onRoleChange={setBrowseRole}
+        />
+      )}
+      <div className={`listControls ${exploreMode === "browse" ? "browseListControls" : ""}`}>
         <label>
           Sort
           <select value={modelSort} onChange={(event) => setModelSort(event.target.value as ModelSortMode)}>
@@ -1775,16 +1840,18 @@ export function CrewPanel(props: {
             <option value="role">Role</option>
           </select>
         </label>
-        <label>
-          Role
-          <select value={roleFilter} onChange={(event) => setRoleFilter(event.target.value as RoleFilter)}>
-            {ROLE_FILTERS.map((filter) => (
-              <option key={filter.value} value={filter.value}>
-                {filter.label}
-              </option>
-            ))}
-          </select>
-        </label>
+        {exploreMode === "search" ? (
+          <label>
+            Role
+            <select value={roleFilter} onChange={(event) => setRoleFilter(event.target.value as RoleFilter)}>
+              {ROLE_FILTERS.map((filter) => (
+                <option key={filter.value} value={filter.value}>
+                  {filter.label}
+                </option>
+              ))}
+            </select>
+          </label>
+        ) : null}
         <label>
           Density
           <select value={modelDensity} onChange={(event) => setModelDensity(event.target.value as ModelDensity)}>
@@ -1828,7 +1895,7 @@ export function CrewPanel(props: {
                   onToggle={entry.forced ? undefined : () => toggle(entry.model.id)}
                   onQuantityChange={entry.forced ? undefined : (quantity) => setModelQuantity(entry.model, quantity)}
                   onOpenModel={() => props.onOpenModel(entry.model)}
-                  searchSnippet={searchMatchSnippet(entry.model, props.search)}
+                  searchSnippet={searchMatchSnippet(entry.model, effectiveSearch)}
                   note={entry.note}
                   badges={entry.badges}
                   density={modelDensity}
@@ -1846,6 +1913,146 @@ export function CrewPanel(props: {
         </>
       )}
     </section>
+  );
+}
+
+type BrowseKeywordOption = {
+  keyword: string;
+  count: number;
+};
+
+function BrowseMasterPanel({
+  browseKeywords,
+  browseKeyword,
+  browseRole,
+  factions,
+  faction,
+  masters,
+  onChooseFaction,
+  onChooseMaster,
+  onKeywordChange,
+  onRoleChange
+}: {
+  browseKeywords: BrowseKeywordOption[];
+  browseKeyword: string;
+  browseRole: RoleFilter;
+  factions: string[];
+  faction: string;
+  masters: ModelCard[];
+  onChooseFaction: (faction: string) => void;
+  onChooseMaster: (masterId: string) => void;
+  onKeywordChange: (keyword: string) => void;
+  onRoleChange: (role: RoleFilter) => void;
+}) {
+  return (
+    <section className="browsePanel" aria-label="Browse crew options">
+      <div className="browsePanelHeader">
+        <div>
+          <strong>Browse by faction, keyword, or role</strong>
+          <p>{faction ? "Choose a master from the grouped results below." : "Choose a faction to browse masters and keywords."}</p>
+        </div>
+      </div>
+      <BrowseChipGroup
+        label="Faction"
+        options={factions.map((name) => ({ value: name, label: name }))}
+        value={faction}
+        onChange={onChooseFaction}
+      />
+      {faction ? (
+        <>
+          <BrowseModelFilters
+            browseKeywords={browseKeywords}
+            browseKeyword={browseKeyword}
+            browseRole={browseRole}
+            onKeywordChange={onKeywordChange}
+            onRoleChange={onRoleChange}
+          />
+          {masters.length > 0 ? (
+            <div className="browseMasterGrid">
+              {masters.map((master) => (
+                <button className="browseMasterCard" key={master.id} type="button" onClick={() => onChooseMaster(master.id)}>
+                  <strong>{master.name}</strong>
+                  <span>{master.faction}</span>
+                  <small>{master.strategicKeywords.slice(0, 4).join(", ") || master.keywords.slice(0, 4).join(", ") || "Master"}</small>
+                </button>
+              ))}
+            </div>
+          ) : (
+            <div className="modelSectionEmpty">No masters found for those browse filters.</div>
+          )}
+        </>
+      ) : (
+        <div className="modelSectionEmpty">Choose a faction to browse masters and keywords.</div>
+      )}
+    </section>
+  );
+}
+
+function BrowseModelFilters({
+  browseKeywords,
+  browseKeyword,
+  browseRole,
+  onKeywordChange,
+  onRoleChange
+}: {
+  browseKeywords: BrowseKeywordOption[];
+  browseKeyword: string;
+  browseRole: RoleFilter;
+  onKeywordChange: (keyword: string) => void;
+  onRoleChange: (role: RoleFilter) => void;
+}) {
+  return (
+    <div className="browseFilters">
+      <BrowseChipGroup
+        label="Keyword / theme"
+        options={[
+          { value: "all", label: "All keywords" },
+          ...browseKeywords.map((option) => ({
+            value: option.keyword,
+            label: `${option.keyword} (${option.count})`
+          }))
+        ]}
+        value={browseKeyword}
+        onChange={onKeywordChange}
+      />
+      <BrowseChipGroup
+        label="Role"
+        options={ROLE_FILTERS.map((filter) => ({ value: filter.value, label: filter.label }))}
+        value={browseRole}
+        onChange={(value) => onRoleChange(value as RoleFilter)}
+      />
+    </div>
+  );
+}
+
+function BrowseChipGroup({
+  label,
+  options,
+  value,
+  onChange
+}: {
+  label: string;
+  options: Array<{ value: string; label: string }>;
+  value: string;
+  onChange: (value: string) => void;
+}) {
+  return (
+    <div className="browseChipGroup">
+      <span>{label}</span>
+      <div>
+        {options.map((option) => (
+          <button
+            aria-pressed={value === option.value}
+            className={value === option.value ? "active" : ""}
+            key={option.value}
+            type="button"
+            onClick={() => onChange(option.value)}
+          >
+            {option.label}
+          </button>
+        ))}
+      </div>
+    </div>
   );
 }
 
@@ -4322,6 +4529,19 @@ function groupModelsForMaster(
     { title: "Versatile Models", models: versatileModels.map(toSectionEntry) },
     { title: "Faction Models", models: factionModels.map(toSectionEntry) }
   ];
+}
+
+function browseOptionsFromModels(models: ModelCard[]): BrowseKeywordOption[] {
+  const counts = new Map<string, number>();
+  for (const model of models) {
+    for (const keyword of model.strategicKeywords) {
+      counts.set(keyword, (counts.get(keyword) ?? 0) + 1);
+    }
+  }
+
+  return [...counts.entries()]
+    .map(([keyword, count]) => ({ keyword, count }))
+    .sort((left, right) => right.count - left.count || left.keyword.localeCompare(right.keyword));
 }
 
 function getMandatoryModelsForMaster(master: ModelCard | undefined, pool: ModelCard[]) {

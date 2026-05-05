@@ -1636,6 +1636,128 @@ select option {
   color: var(--accent);
 }
 
+.exploreModeTabs {
+  display: inline-grid;
+  grid-template-columns: repeat(2, minmax(120px, 1fr));
+  gap: 4px;
+  width: min(100%, 320px);
+  margin: 14px 0 12px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: rgba(15, 12, 10, 0.52);
+  padding: 4px;
+}
+
+.exploreModeTabs button,
+.browseChipGroup button {
+  border: 1px solid transparent;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--muted);
+  font-family: Inter, Arial, sans-serif;
+  font-size: 0.76rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.exploreModeTabs button {
+  padding: 8px 12px;
+}
+
+.exploreModeTabs button.active,
+.exploreModeTabs button[aria-selected="true"],
+.browseChipGroup button.active,
+.browseChipGroup button[aria-pressed="true"] {
+  border-color: rgba(196, 154, 70, 0.54);
+  background: rgba(196, 154, 70, 0.14);
+  color: var(--parchment);
+}
+
+.browsePanel {
+  display: grid;
+  gap: 14px;
+  margin-top: 4px;
+  border: 1px solid var(--line-2);
+  border-radius: var(--radius-md);
+  background: rgba(15, 12, 10, 0.32);
+  padding: 14px;
+}
+
+.browsePanelHeader strong,
+.browseChipGroup > span {
+  color: var(--parchment);
+  font-family: Inter, Arial, sans-serif;
+  font-size: 0.82rem;
+  font-weight: 800;
+}
+
+.browsePanelHeader p {
+  margin: 4px 0 0;
+  color: var(--muted);
+  line-height: 1.4;
+}
+
+.browseFilters {
+  display: grid;
+  gap: 12px;
+  margin: 0 0 12px;
+}
+
+.browseChipGroup {
+  display: grid;
+  gap: 8px;
+}
+
+.browseChipGroup > div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+  max-height: 132px;
+  overflow: auto;
+  padding-right: 3px;
+}
+
+.browseChipGroup button {
+  padding: 7px 10px;
+}
+
+.browseMasterGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 10px;
+}
+
+.browseMasterCard {
+  display: grid;
+  gap: 4px;
+  border: 1px solid var(--line-2);
+  border-left: 3px solid var(--faction-accent);
+  border-radius: var(--radius-sm);
+  background: rgba(20, 16, 12, 0.72);
+  color: var(--ink);
+  padding: 12px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.browseMasterCard:hover,
+.browseMasterCard:focus-visible {
+  border-color: rgba(196, 154, 70, 0.58);
+  background: rgba(196, 154, 70, 0.1);
+  outline: none;
+}
+
+.browseMasterCard strong {
+  color: var(--parchment);
+}
+
+.browseMasterCard span,
+.browseMasterCard small {
+  color: var(--muted);
+  font-family: Inter, Arial, sans-serif;
+  font-size: 0.76rem;
+}
+
 .search {
   position: relative;
   margin: 16px 0 10px;
@@ -1652,6 +1774,10 @@ select option {
 .compactListControls {
   grid-template-columns: minmax(180px, 260px);
   margin-top: 0;
+}
+
+.browseListControls {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
 .helperText,

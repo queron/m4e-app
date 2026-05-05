@@ -1281,11 +1281,18 @@ select option {
 .crewPanelBlankState {
   display: grid;
   gap: 6px;
+  justify-items: start;
   margin: 14px 0 0;
   border: 1px dashed var(--line);
   border-radius: var(--radius-md);
   background: rgba(15, 12, 10, 0.28);
   padding: 16px;
+}
+
+.crewPanelBlankState > .rulesIcon {
+  border-color: rgba(196, 154, 70, 0.46);
+  color: var(--accent);
+  font-size: 1.1rem;
 }
 
 .crewPanelBlankState strong {

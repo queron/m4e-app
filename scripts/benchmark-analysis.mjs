@@ -21,6 +21,7 @@ const server = spawn(
       ...process.env,
       PORT: String(PORT)
     },
+    detached: true,
     stdio: ["ignore", "pipe", "pipe"]
   }
 );
@@ -127,5 +128,5 @@ function stopServer() {
     return;
   }
 
-  server.kill();
+  process.kill(-server.pid);
 }

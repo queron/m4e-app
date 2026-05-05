@@ -63,6 +63,13 @@ type PathKind = "available" | "optimal";
 type ActiveResultTab = "picks" | "matchup" | "schemes" | "draft";
 type MatchIntent = "core" | "tournament" | "casual" | "learning" | "narrative";
 type CrewModifierId = "needMobility" | "needConditionRemoval" | "expectSummons" | "needMarkerPlan";
+type MatchupDriver = {
+  id: string;
+  label: string;
+  evidence: string[];
+  sentence: string;
+  strength: number;
+};
 
 const DEFAULT_POINT_LIMIT = 50;
 const DEFAULT_MATCH_INTENT: MatchIntent = "core";
@@ -971,6 +978,7 @@ export default function MalifauxWorkbench() {
             </button>
           </div>
           <MatchupBriefPanel brief={analysis.matchupBrief} />
+          <MatchupDriversPanel brief={analysis.matchupBrief} path={selectedPath} strategy={analysis.match.strategy} />
           <StrategyImpactPanel
             opponentCrew={analysis.opponentCrew.expectedModels.length > 0 ? analysis.opponentCrew.expectedModels : analysis.opponentCrew.likelyModels.map((recommendation) => recommendation.model)}
             path={selectedPath}
@@ -1980,6 +1988,37 @@ function MatchupBriefPanel({ brief }: { brief: MatchupAnalysis["matchupBrief"] }
   );
 }
 
+function MatchupDriversPanel({
+  brief,
+  path,
+  strategy
+}: {
+  brief: MatchupAnalysis["matchupBrief"];
+  path?: RecommendationPath;
+  strategy?: Strategy;
+}) {
+  if (!path) return null;
+  const topDrivers = summarizePathDrivers(path, strategy);
+  const risks = summarizePathRisks(path, brief);
+  const evidenceNote = path.models.length > 0
+    ? "Built from recommendation reasons, tactical tags, score breakdowns, and current strategy tags."
+    : "Limited evidence: no recommended models are available for this path.";
+
+  return (
+    <section className="panel matchupDrivers">
+      <div className="panelHeader">
+        <h2>Matchup Drivers</h2>
+        <span>Why these picks trend up</span>
+      </div>
+      <p className="panelHint">{evidenceNote}</p>
+      <div className="briefGrid">
+        <BriefColumn title="Positive Drivers" items={topDrivers} />
+        <BriefColumn title="Top Risks" items={risks} />
+      </div>
+    </section>
+  );
+}
+
 function StrategyImpactPanel({
   opponentCrew,
   path,
@@ -2235,6 +2274,7 @@ export function RecommendationPanel({
           const fitTags = strategyFitTags(recommendation.model, strategy);
           const fitPercent = normalizedScorePercent(recommendation.score, maxRecommendationScore);
           const plan = recommendationPlan(recommendation, strategy?.name);
+          const driverRows = recommendationDrivers(recommendation, strategy);
 
           return (
             <article className="recommendation" key={recommendation.model.id}>
@@ -2290,6 +2330,7 @@ export function RecommendationPanel({
                 <p><strong>Table job:</strong> {plan.tableJob}</p>
                 {plan.tradeoff ? <p><strong>Risk/tradeoff:</strong> {plan.tradeoff}</p> : null}
               </div>
+              <RecommendationDriverDisclosure modelName={recommendation.model.name} rows={driverRows} />
               <div className="scoreGrid">
                 <ScoreContribution
                   label="Master Counter"
@@ -2370,6 +2411,36 @@ function SynergyGroupsPanel({ groups, onOpenModel }: { groups: SynergyGroup[]; o
         ))}
       </div>
     </section>
+  );
+}
+
+function RecommendationDriverDisclosure({ modelName, rows }: { modelName: string; rows: MatchupDriver[] }) {
+  return (
+    <details className="driverDisclosure">
+      <summary>Why this pick?</summary>
+      {rows.length > 0 ? (
+        <div className="driverRows" aria-label={`${modelName} matchup drivers`}>
+          {rows.map((row) => (
+            <article className="driverRow" key={row.id}>
+              <div>
+                <strong>{row.label}</strong>
+                <p>{row.sentence}</p>
+              </div>
+              <div className="driverEvidence">
+                {row.evidence.slice(0, 3).map((item, index) => (
+                  <span key={`${row.id}-${index}-${item}`}>{item}</span>
+                ))}
+              </div>
+            </article>
+          ))}
+        </div>
+      ) : (
+        <p className="limitedEvidence">Limited evidence: this recommendation is mostly based on broad legal-pool and matchup fit.</p>
+      )}
+      {rows.length > 0 && rows.length < 3 ? (
+        <p className="limitedEvidence">Limited evidence: only the strongest visible drivers are shown.</p>
+      ) : null}
+    </details>
   );
 }
 
@@ -2798,6 +2869,130 @@ function recommendationChips(recommendation: ModelRecommendation): Array<{ label
       title: `Detected tactical tag: ${tacticalTagLabel(tag)}.`
     }))
   ];
+}
+
+function recommendationDrivers(recommendation: ModelRecommendation, strategy?: Strategy): MatchupDriver[] {
+  const modelTags = new Set(recommendation.model.tacticalTags);
+  const strategyTags = strategyFitTags(recommendation.model, strategy);
+  const evidenceText = [
+    ...recommendation.why,
+    ...recommendation.relevantTech,
+    ...recommendation.trace,
+    ...recommendation.curatedNotes,
+    recommendation.hireReason,
+    recommendation.role
+  ].join(" ").toLowerCase();
+  const rows: MatchupDriver[] = [];
+
+  if (strategy && strategyTags.length > 0) {
+    rows.push({
+      id: "strategyFit",
+      label: "Strategy fit",
+      evidence: ["Strategy fit", `Tags: ${formatVisibleTags(strategyTags.slice(0, 2))}`],
+      sentence: `${recommendation.model.name} supports ${strategy.name} through ${formatVisibleTags(strategyTags.slice(0, 3))}.`,
+      strength: 100 + recommendation.scoreBreakdown.compositionMatchup
+    });
+  }
+
+  const driverDefinitions: Array<{
+    id: string;
+    label: string;
+    tags: TacticalTag[];
+    pattern: RegExp;
+    score?: number;
+  }> = [
+    { id: "mobility", label: "Mobility / placement", tags: ["mobility", "placement", "speedAttack"], pattern: /mobility|placement|place|push|move|reposition|speed/ },
+    { id: "scheme", label: "Scheme / marker play", tags: ["scheme", "marker"], pattern: /scheme|marker|interact|scoring lane/ },
+    { id: "damage", label: "Damage / burst", tags: ["damage", "burst", "melee", "ranged", "antiArmor"], pattern: /damage|burst|beater|armor|kill|remove/ },
+    { id: "durability", label: "Durability", tags: ["armor", "incorporeal", "demise", "healing", "soulstone"], pattern: /durable|surviv|armor|healing|demise|stone/ },
+    { id: "control", label: "Control / denial", tags: ["control", "stunned", "slow", "staggered", "antiTrigger"], pattern: /control|denial|deny|slow|stagger|stunned|trigger/ },
+    { id: "summon", label: "Summon / activation pressure", tags: ["summon"], pattern: /summon|activation|extra enemy bodies|wide opposing boards/ },
+    { id: "resources", label: "Card / resource pressure", tags: ["cardPressure", "soulstone"], pattern: /card|resource|soulstone|hand pressure/ }
+  ];
+
+  for (const definition of driverDefinitions) {
+    const tagHits = definition.tags.filter((tag) => modelTags.has(tag));
+    const reasonHit = definition.pattern.test(evidenceText);
+    const strategyOverlap = strategyTags.some((tag) => definition.tags.includes(tag));
+    const scoreEvidence = definition.id === "control"
+      ? recommendation.scoreBreakdown.masterAbilities
+      : definition.id === "scheme" || definition.id === "mobility"
+        ? recommendation.scoreBreakdown.compositionMatchup
+        : recommendation.scoreBreakdown.crewSynergy;
+
+    if (tagHits.length === 0 && !reasonHit && !strategyOverlap && scoreEvidence < 24) continue;
+
+    const evidence = [
+      strategyOverlap ? "Strategy fit" : "",
+      tagHits.length > 0 ? `Tags: ${formatVisibleTags(topTacticalTags(tagHits).slice(0, 2))}` : "",
+      reasonHit ? "Reason text" : "",
+      scoreEvidence >= 24 ? "Score trace" : ""
+    ].filter(Boolean);
+
+    rows.push({
+      id: definition.id,
+      label: definition.label,
+      evidence,
+      sentence: driverSentence(definition.id, recommendation.model.name, strategy),
+      strength: tagHits.length * 14 + (reasonHit ? 18 : 0) + (strategyOverlap ? 22 : 0) + scoreEvidence
+    });
+  }
+
+  return rows
+    .sort((a, b) => b.strength - a.strength)
+    .slice(0, 5);
+}
+
+function driverSentence(driverId: string, modelName: string, strategy?: Strategy): string {
+  if (driverId === "mobility") return `${modelName} helps reach, reposition, or contest spread-out scoring pieces.`;
+  if (driverId === "scheme") return `${modelName} adds marker, interact, or scheme-lane pressure${strategy ? ` for ${strategy.name}` : ""}.`;
+  if (driverId === "damage") return `${modelName} contributes killing pressure when the matchup asks you to remove or tax key models.`;
+  if (driverId === "durability") return `${modelName} helps keep important table jobs active through pressure.`;
+  if (driverId === "control") return `${modelName} can constrain enemy tempo through denial, debuffs, or trigger pressure.`;
+  if (driverId === "summon") return `${modelName} helps manage wider boards, summoned pieces, or activation pressure.`;
+  if (driverId === "resources") return `${modelName} pressures cards, soulstones, or other resources that shape key duels.`;
+  return `${modelName} has visible evidence supporting this recommendation.`;
+}
+
+function summarizePathDrivers(path: RecommendationPath, strategy?: Strategy): string[] {
+  const summary = new Map<string, { label: string; count: number; strength: number }>();
+  for (const recommendation of path.models) {
+    for (const driver of recommendationDrivers(recommendation, strategy)) {
+      const current = summary.get(driver.id) ?? { label: driver.label, count: 0, strength: 0 };
+      summary.set(driver.id, {
+        label: driver.label,
+        count: current.count + 1,
+        strength: current.strength + driver.strength
+      });
+    }
+  }
+
+  const items = [...summary.values()]
+    .sort((a, b) => b.count - a.count || b.strength - a.strength)
+    .slice(0, 4)
+    .map((item) => `${item.label}: ${item.count} recommended ${item.count === 1 ? "hire shows" : "hires show"} this driver.`);
+
+  return items.length > 0 ? items : ["Limited evidence: recommendations are based on broad legal-pool and matchup fit."];
+}
+
+function summarizePathRisks(path: RecommendationPath, brief: MatchupAnalysis["matchupBrief"]): string[] {
+  const severityRank: Record<VulnerabilityFlag["severity"], number> = { High: 3, Medium: 2, Low: 1 };
+  const flags = path.models
+    .flatMap((recommendation) => recommendation.vulnerabilityFlags)
+    .sort((a, b) => severityRank[b.severity] - severityRank[a.severity]);
+  const seen = new Set<string>();
+  const riskItems = flags
+    .filter((flag) => {
+      if (seen.has(flag.id)) return false;
+      seen.add(flag.id);
+      return true;
+    })
+    .slice(0, 4)
+    .map((flag) => `${flag.label} (${flag.severity}): ${flag.summary}`);
+
+  if (riskItems.length > 0) return riskItems;
+  if (brief.matchupRisks.length > 0) return brief.matchupRisks.slice(0, 4);
+  return ["No high-confidence risk driver surfaced from the current recommendation set."];
 }
 
 function recommendationPlan(recommendation: ModelRecommendation, strategyName?: string) {

@@ -1,13 +1,22 @@
+import { validateModelEvaluationInput } from "@/lib/api-validation";
 import { evaluateModelMatchup } from "@/lib/matchup-engine";
-import type { ModelEvaluationInput } from "@/lib/types";
 import { NextResponse } from "next/server";
 
 export async function POST(request: Request) {
-  const input = (await request.json()) as ModelEvaluationInput;
+  let payload: unknown;
 
-  if (!input.playerMasterId || !input.opponentMasterId || !input.modelId) {
-    return NextResponse.json({ error: "Select both masters and a model before evaluating matchup fit." }, { status: 400 });
+  try {
+    payload = await request.json();
+  } catch {
+    return NextResponse.json({ error: "Request body must be valid JSON." }, { status: 400 });
   }
 
-  return NextResponse.json(evaluateModelMatchup(input));
+  const result = validateModelEvaluationInput(payload);
+
+  if (!result.ok) {
+    const { status, ...body } = result.error;
+    return NextResponse.json(body, { status });
+  }
+
+  return NextResponse.json(evaluateModelMatchup(result.value));
 }

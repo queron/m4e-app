@@ -229,19 +229,23 @@ export default function MalifauxWorkbench() {
       .then((response) => response.json())
       .then((data: CardCatalog) => {
         setCatalog(data);
-        const restored = readSharedSetup();
-        setPlayerFaction(restored?.playerFaction ?? data.factions[0] ?? "");
-        setOpponentFaction(restored?.opponentFaction ?? data.factions[1] ?? data.factions[0] ?? "");
-        if (restored?.playerMasterId) setPlayerMasterId(restored.playerMasterId);
-        if (restored?.opponentMasterId) setOpponentMasterId(restored.opponentMasterId);
-        if (restored?.ownedModelIds) setOwnedModelIds(restored.ownedModelIds);
-        if (restored?.opponentModelIds) setOpponentModelIds(restored.opponentModelIds);
-        if (restored?.pointLimit) setPointLimit(restored.pointLimit);
-        if (restored?.strategyPoolId) setStrategyPoolId(restored.strategyPoolId);
-        if (restored?.strategyId) setStrategyId(restored.strategyId);
-        if (restored?.schemePoolId) setSchemePoolId(restored.schemePoolId);
-        if (!restored?.ownedModelIds) setOwnedModelIds(readStoredIds(COLLECTION_STORAGE_KEY));
-        setSavedDrafts(readStoredDrafts());
+        const restored = readSharedSetup(data);
+        if (restored.warnings.length > 0) {
+          setStatusMessage(restored.warnings.slice(0, 3).join(" "));
+        }
+        const restoredSetup = restored.setup;
+        setPlayerFaction(restoredSetup?.playerFaction ?? data.factions[0] ?? "");
+        setOpponentFaction(restoredSetup?.opponentFaction ?? data.factions[1] ?? data.factions[0] ?? "");
+        if (restoredSetup?.playerMasterId) setPlayerMasterId(restoredSetup.playerMasterId);
+        if (restoredSetup?.opponentMasterId) setOpponentMasterId(restoredSetup.opponentMasterId);
+        if (restoredSetup?.ownedModelIds) setOwnedModelIds(restoredSetup.ownedModelIds);
+        if (restoredSetup?.opponentModelIds) setOpponentModelIds(restoredSetup.opponentModelIds);
+        if (restoredSetup?.pointLimit) setPointLimit(restoredSetup.pointLimit);
+        if (restoredSetup?.strategyPoolId) setStrategyPoolId(restoredSetup.strategyPoolId);
+        if (restoredSetup?.strategyId) setStrategyId(restoredSetup.strategyId);
+        if (restoredSetup?.schemePoolId) setSchemePoolId(restoredSetup.schemePoolId);
+        if (!restoredSetup?.ownedModelIds) setOwnedModelIds(readStoredIds(COLLECTION_STORAGE_KEY, data));
+        setSavedDrafts(readStoredDrafts(data));
       })
       .catch((currentError) => {
         console.error("Card data load failed.", { currentError });

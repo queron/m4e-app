@@ -76,6 +76,13 @@ type ResultsConfidence = {
   evidence: string;
   explanation: string;
 };
+type MatrixCell = {
+  playerMaster: ModelCard;
+  opponentMaster: ModelCard;
+  read: "Favourable" | "Balanced" | "Risky" | "Unknown";
+  confidence: ResultsConfidence["label"];
+  reason: string;
+};
 
 const DEFAULT_POINT_LIMIT = 50;
 const DEFAULT_MATCH_INTENT: MatchIntent = "core";
@@ -312,6 +319,10 @@ export default function MalifauxWorkbench() {
   const [schemePoolId, setSchemePoolId] = useState(SCHEME_POOLS[0].id);
   const [matchIntent, setMatchIntent] = useState<MatchIntent>(DEFAULT_MATCH_INTENT);
   const [crewModifierIds, setCrewModifierIds] = useState<CrewModifierId[]>([]);
+  const [matrixOpen, setMatrixOpen] = useState(false);
+  const [matrixPlayerMasterIds, setMatrixPlayerMasterIds] = useState<string[]>([]);
+  const [matrixOpponentMasterIds, setMatrixOpponentMasterIds] = useState<string[]>([]);
+  const [matrixCells, setMatrixCells] = useState<MatrixCell[]>([]);
   const [pathKind, setPathKind] = useState<PathKind>("available");
   const [collectionSearch, setCollectionSearch] = useState("");
   const [opponentSearch, setOpponentSearch] = useState("");
@@ -690,6 +701,47 @@ export default function MalifauxWorkbench() {
     setCrewModifierIds((current) => (current.includes(id) ? current.filter((item) => item !== id) : [...current, id]));
   }
 
+  function toggleMatrixMaster(kind: "player" | "opponent", id: string) {
+    const setter = kind === "player" ? setMatrixPlayerMasterIds : setMatrixOpponentMasterIds;
+    setter((current) => (current.includes(id) ? current.filter((item) => item !== id) : [...current, id]));
+    setMatrixCells([]);
+  }
+
+  function runMatrix() {
+    if (!catalog) return;
+    const playerPool = matrixPlayerMasterIds
+      .map((id) => catalog.models.find((model) => model.id === id))
+      .filter(Boolean) as ModelCard[];
+    const opponentPool = matrixOpponentMasterIds
+      .map((id) => catalog.models.find((model) => model.id === id))
+      .filter(Boolean) as ModelCard[];
+    const cellCount = playerPool.length * opponentPool.length;
+    if (cellCount === 0) {
+      setStatusMessage("Choose at least one player master and one opponent master for Matrix Mode.");
+      return;
+    }
+    if (cellCount > 25) {
+      setStatusMessage("Matrix Mode is limited to 25 pairings for readability. Reduce one master pool and run again.");
+      return;
+    }
+    setMatrixCells(playerPool.flatMap((player) => opponentPool.map((opponent) => buildMatrixCell(player, opponent, strategy, catalog))));
+    setStatusMessage(`Matrix generated for ${cellCount} pairings using ${strategy.name}.`);
+  }
+
+  function openMatrixCell(cell: MatrixCell) {
+    setPlayerFaction(cell.playerMaster.faction);
+    setOpponentFaction(cell.opponentMaster.faction);
+    setPlayerMasterId(cell.playerMaster.id);
+    setOpponentMasterId(cell.opponentMaster.id);
+    setOwnedModelIds([]);
+    setOpponentModelIds([]);
+    setAnalysis(null);
+    setDraftPath(null);
+    setSetupCollapsed(false);
+    setStatusMessage(`Loaded ${cell.playerMaster.name} into ${cell.opponentMaster.name}. Click Analyze for detailed recommendations.`);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
   async function copyText(text: string, successMessage: string) {
     try {
       await navigator.clipboard.writeText(text);
@@ -985,6 +1037,20 @@ export default function MalifauxWorkbench() {
           <div className="warning">Scheme data for {schemePool.name} is incomplete, so scheme pairings are intentionally limited.</div>
         ) : null}
       </section>
+
+      <MatrixModePanel
+        cells={matrixCells}
+        onOpenCell={openMatrixCell}
+        onRun={runMatrix}
+        onToggle={toggleMatrixMaster}
+        open={matrixOpen}
+        opponentMasters={opponentMasters}
+        playerMasters={playerMasters}
+        selectedOpponentIds={matrixOpponentMasterIds}
+        selectedPlayerIds={matrixPlayerMasterIds}
+        setOpen={setMatrixOpen}
+        strategy={strategy}
+      />
 
       <section className="plannerGrid">
         <CrewPanel
@@ -1320,6 +1386,126 @@ class ResultsErrorBoundary extends Component<ResultsErrorBoundaryProps, ResultsE
       </section>
     );
   }
+}
+
+function MatrixModePanel({
+  cells,
+  onOpenCell,
+  onRun,
+  onToggle,
+  open,
+  opponentMasters,
+  playerMasters,
+  selectedOpponentIds,
+  selectedPlayerIds,
+  setOpen,
+  strategy
+}: {
+  cells: MatrixCell[];
+  onOpenCell: (cell: MatrixCell) => void;
+  onRun: () => void;
+  onToggle: (kind: "player" | "opponent", id: string) => void;
+  open: boolean;
+  opponentMasters: ModelCard[];
+  playerMasters: ModelCard[];
+  selectedOpponentIds: string[];
+  selectedPlayerIds: string[];
+  setOpen: (value: boolean) => void;
+  strategy: Strategy;
+}) {
+  const cellCount = selectedPlayerIds.length * selectedOpponentIds.length;
+  const columns = opponentMasters.filter((master) => selectedOpponentIds.includes(master.id));
+  const rows = playerMasters.filter((master) => selectedPlayerIds.includes(master.id));
+  const cellByPair = new Map(cells.map((cell) => [`${cell.playerMaster.id}:${cell.opponentMaster.id}`, cell]));
+
+  return (
+    <section className="panel matrixPanel">
+      <div className="panelHeader">
+        <h2>Advanced: Matrix Mode</h2>
+        <button className="subtleButton" type="button" onClick={() => setOpen(!open)}>
+          {open ? "Hide matrix" : "Show matrix"}
+        </button>
+      </div>
+      <p className="panelHint">Compare selected player masters into selected opponent masters for {strategy.name}. Matrix Mode uses high-level signals and opens single-matchup setup for detail.</p>
+      {open ? (
+        <>
+          <div className="matrixSetup">
+            <MatrixMasterPicker title="Player masters" kind="player" masters={playerMasters} selectedIds={selectedPlayerIds} onToggle={onToggle} />
+            <MatrixMasterPicker title="Opponent masters" kind="opponent" masters={opponentMasters} selectedIds={selectedOpponentIds} onToggle={onToggle} />
+          </div>
+          {cellCount > 25 ? (
+            <div className="warning">Matrix Mode is limited to 25 pairings for readability. Select fewer masters before running.</div>
+          ) : null}
+          <button className="planButton" type="button" onClick={onRun} disabled={cellCount === 0 || cellCount > 25}>
+            Run matrix for {cellCount} {cellCount === 1 ? "pairing" : "pairings"}
+          </button>
+          {rows.length > 0 && columns.length > 0 && cells.length > 0 ? (
+            <div className="matrixScroll" role="region" aria-label="Matchup matrix results">
+              <table className="matrixTable">
+                <thead>
+                  <tr>
+                    <th scope="col">Player</th>
+                    {columns.map((master) => <th key={master.id} scope="col">{master.name}</th>)}
+                  </tr>
+                </thead>
+                <tbody>
+                  {rows.map((player) => (
+                    <tr key={player.id}>
+                      <th scope="row">{player.name}</th>
+                      {columns.map((opponent) => {
+                        const cell = cellByPair.get(`${player.id}:${opponent.id}`);
+                        return (
+                          <td key={opponent.id}>
+                            {cell ? (
+                              <button className={`matrixCell matrix-${cell.read.toLowerCase()}`} type="button" onClick={() => onOpenCell(cell)}>
+                                <strong>{cell.read}</strong>
+                                <span>{cell.confidence} confidence</span>
+                                <small>{cell.reason}</small>
+                              </button>
+                            ) : (
+                              <span className="matrixUnknown">Unknown</span>
+                            )}
+                          </td>
+                        );
+                      })}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : null}
+        </>
+      ) : null}
+    </section>
+  );
+}
+
+function MatrixMasterPicker({
+  kind,
+  masters,
+  onToggle,
+  selectedIds,
+  title
+}: {
+  kind: "player" | "opponent";
+  masters: ModelCard[];
+  onToggle: (kind: "player" | "opponent", id: string) => void;
+  selectedIds: string[];
+  title: string;
+}) {
+  return (
+    <div className="matrixPicker">
+      <h3>{title}</h3>
+      <div>
+        {masters.map((master) => (
+          <label key={master.id}>
+            <input checked={selectedIds.includes(master.id)} type="checkbox" onChange={() => onToggle(kind, master.id)} />
+            <span>{master.name}</span>
+          </label>
+        ))}
+      </div>
+    </div>
+  );
 }
 
 export function CrewPanel(props: {
@@ -3283,6 +3469,59 @@ function buildAnalysisShareSummary({
     `Suggested focus: ${focus}`,
     `Confidence: ${confidence.label} - ${confidence.evidence}`
   ].join("\n");
+}
+
+function buildMatrixCell(playerMaster: ModelCard, opponentMaster: ModelCard, strategy: Strategy, catalog: CardCatalog): MatrixCell {
+  const playerCrewCard = findCrewCardForSelectedMaster(playerMaster, catalog);
+  const opponentCrewCard = findCrewCardForSelectedMaster(opponentMaster, catalog);
+  const playerProfile = buildMasterProfile(playerMaster, playerCrewCard);
+  const opponentProfile = buildMasterProfile(opponentMaster, opponentCrewCard);
+  const playerStrategyFit = strategyFitTags(playerMaster, strategy).length + playerProfile.pressureVectors.filter((tag) => STRATEGY_TO_TACTICAL_TAGS[strategy.tags[0]]?.includes(tag)).length;
+  const opponentPressure = new Set([...opponentMaster.tacticalTags, ...opponentProfile.pressureVectors]);
+  const playerTools = new Set([...playerMaster.tacticalTags, ...playerProfile.pressureVectors]);
+  const riskyPressure = (opponentPressure.has("control") || opponentPressure.has("summon") || opponentPressure.has("cardPressure")) &&
+    !(playerTools.has("mobility") || playerTools.has("damage") || playerTools.has("control"));
+  const confidence: ResultsConfidence["label"] = playerProfile.pressureVectors.length > 0 && opponentProfile.pressureVectors.length > 0
+    ? "Medium"
+    : "Low";
+
+  if (confidence === "Low") {
+    return {
+      playerMaster,
+      opponentMaster,
+      read: "Unknown",
+      confidence,
+      reason: "Sparse master evidence."
+    };
+  }
+
+  if (riskyPressure) {
+    return {
+      playerMaster,
+      opponentMaster,
+      read: "Risky",
+      confidence,
+      reason: "Opponent pressure may outpace visible answers."
+    };
+  }
+
+  if (playerStrategyFit >= 2) {
+    return {
+      playerMaster,
+      opponentMaster,
+      read: "Favourable",
+      confidence,
+      reason: `Visible tools support ${strategy.name}.`
+    };
+  }
+
+  return {
+    playerMaster,
+    opponentMaster,
+    read: "Balanced",
+    confidence,
+    reason: "No decisive high-level edge detected."
+  };
 }
 
 function recommendationPlan(recommendation: ModelRecommendation, strategyName?: string) {

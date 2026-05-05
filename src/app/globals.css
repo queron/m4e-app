@@ -222,6 +222,110 @@ select option {
   margin-bottom: 22px;
 }
 
+.matrixPanel {
+  margin-bottom: 22px;
+}
+
+.matrixSetup {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+  margin: 14px 0;
+}
+
+.matrixPicker {
+  border: 1px solid var(--line-2);
+  border-radius: var(--radius-md);
+  background: rgba(15, 12, 10, 0.34);
+  padding: 12px;
+}
+
+.matrixPicker h3 {
+  margin: 0 0 10px;
+  color: var(--accent);
+  font-family: Inter, Arial, sans-serif;
+  font-size: 0.78rem;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+
+.matrixPicker > div {
+  display: grid;
+  gap: 8px;
+  max-height: 260px;
+  overflow: auto;
+}
+
+.matrixPicker label {
+  display: grid;
+  grid-template-columns: 24px minmax(0, 1fr);
+  gap: 8px;
+  align-items: center;
+  min-height: 34px;
+  color: var(--parchment-2);
+}
+
+.matrixScroll {
+  overflow-x: auto;
+}
+
+.matrixTable {
+  width: 100%;
+  min-width: 720px;
+  border-collapse: collapse;
+}
+
+.matrixTable th,
+.matrixTable td {
+  border: 1px solid var(--line-2);
+  padding: 8px;
+  text-align: left;
+  vertical-align: top;
+}
+
+.matrixTable th {
+  color: var(--accent);
+  font-family: Inter, Arial, sans-serif;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+}
+
+.matrixCell {
+  display: grid;
+  gap: 4px;
+  width: 100%;
+  min-height: 86px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: rgba(15, 12, 10, 0.5);
+  color: var(--parchment-2);
+  padding: 9px;
+  text-align: left;
+}
+
+.matrixCell strong {
+  color: var(--parchment);
+}
+
+.matrixCell span,
+.matrixCell small {
+  color: var(--muted);
+}
+
+.matrix-favourable {
+  border-color: rgba(142, 154, 114, 0.62);
+  background: rgba(47, 90, 69, 0.24);
+}
+
+.matrix-risky {
+  border-color: rgba(201, 106, 58, 0.62);
+  background: rgba(110, 31, 42, 0.24);
+}
+
+.matrix-unknown {
+  opacity: 0.74;
+}
+
 .matchContextLead {
   margin: -2px 0 12px;
   color: var(--parchment-2);
@@ -2968,6 +3072,7 @@ li + li {
 
   .topbar,
   .matchGrid,
+  .matrixSetup,
   .formGrid,
   .listControls,
   .briefGrid,

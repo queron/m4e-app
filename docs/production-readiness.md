@@ -18,9 +18,19 @@ Pull requests and pushes to `main` run:
 - `npm run validate:data`
 - `npm run lint`
 - `npm run build`
+- `npm run check:size-budgets`
 - `npm run benchmark:analysis`
 
 Treat CI failures as release blockers. Data validation warnings may be tracked separately when they do not fail the validation scripts.
+
+## Size Budgets
+
+`npm run check:size-budgets` enforces:
+
+- Client route bundle for `/`: 800 KiB raw JavaScript/CSS from the built route manifest.
+- Serialized `/api/cards` response: 7 MiB raw JSON from a production Next server.
+
+If either budget fails, reduce shipped client code or the card payload before raising the threshold.
 
 ## Deployment Assumptions
 

@@ -229,6 +229,22 @@ export type ModelRecommendation = {
   vulnerabilityFlags: VulnerabilityFlag[];
 };
 
+export type ScoredModel = {
+  model: ModelCard;
+  score: number;
+  role: string;
+  scoreBreakdown: {
+    masterAbilities: number;
+    crewSynergy: number;
+    compositionMatchup: number;
+  };
+  why: string[];
+  relevantTech: string[];
+  priorityTargets: string[];
+  alliedSynergies: string[];
+  vulnerabilityFlags: VulnerabilityFlag[];
+};
+
 export type VulnerabilityFlag = {
   id: "lowWp" | "conditionExposure" | "markerDenial" | "lowMobility";
   label: string;

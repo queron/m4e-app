@@ -709,7 +709,6 @@ export default function MalifauxWorkbench() {
           <h2>
             <RulesIcon iconKey="strategy" /> Match
           </h2>
-          <span>{strategy.name}</span>
         </div>
         <div className="matchGrid">
           <label>

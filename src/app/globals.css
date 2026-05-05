@@ -809,6 +809,58 @@ select option {
   line-height: 1.4;
 }
 
+.inlineHelp {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  margin-left: 8px;
+  vertical-align: middle;
+}
+
+.inlineHelpButton {
+  display: inline-grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border: 1px solid rgba(176, 138, 60, 0.42);
+  border-radius: 50%;
+  background: rgba(15, 12, 10, 0.62);
+  color: var(--parchment-2);
+  cursor: pointer;
+}
+
+.inlineHelpButton:hover,
+.inlineHelpButton[aria-expanded="true"] {
+  border-color: rgba(196, 154, 70, 0.78);
+  color: var(--parchment);
+  background: rgba(196, 154, 70, 0.14);
+}
+
+.inlineHelpButton svg {
+  width: 16px;
+  height: 16px;
+}
+
+.inlineHelpPopover {
+  position: absolute;
+  z-index: 20;
+  top: calc(100% + 8px);
+  left: 50%;
+  width: min(320px, calc(100vw - 48px));
+  transform: translateX(-50%);
+  border: 1px solid rgba(176, 138, 60, 0.42);
+  border-radius: var(--radius-sm);
+  background: rgba(17, 14, 11, 0.98);
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.36);
+  color: var(--parchment-2);
+  padding: 10px 12px;
+  font-family: Inter, Arial, sans-serif;
+  font-size: 0.82rem;
+  font-weight: 500;
+  line-height: 1.45;
+  text-transform: none;
+}
+
 .spendSummary {
   position: relative;
   display: flex;

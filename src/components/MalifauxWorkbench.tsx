@@ -708,6 +708,7 @@ export default function MalifauxWorkbench() {
         <div className="panelHeader">
           <h2>
             <RulesIcon iconKey="strategy" /> Match
+            <InlineHelp label="Match setup help" text={analyzeReadiness.detail} />
           </h2>
         </div>
         <div className="matchGrid">
@@ -766,11 +767,6 @@ export default function MalifauxWorkbench() {
         {schemePool.incomplete ? (
           <div className="warning">Scheme data for {schemePool.name} is incomplete, so scheme pairings are intentionally limited.</div>
         ) : null}
-        <HelpDisclosure
-          className="matchHint"
-          label={analyzeReadiness.status}
-          text={analyzeReadiness.detail}
-        />
       </section>
 
       <nav className="setupStepper" aria-label="Counter-pick setup sequence">
@@ -2452,6 +2448,57 @@ function HelpDisclosure({ label, text, className }: { label: string; text: strin
       <summary>{label}</summary>
       <p>{text}</p>
     </details>
+  );
+}
+
+function InlineHelp({ label, text }: { label: string; text: string }) {
+  const [open, setOpen] = useState(false);
+  const wrapperRef = useRef<HTMLSpanElement | null>(null);
+  const popoverId = useId();
+
+  useEffect(() => {
+    if (!open) return;
+
+    function closeOnOutsideClick(event: MouseEvent) {
+      if (wrapperRef.current?.contains(event.target as Node)) return;
+      setOpen(false);
+    }
+
+    function closeOnEscape(event: KeyboardEvent) {
+      if (event.key === "Escape") setOpen(false);
+    }
+
+    document.addEventListener("mousedown", closeOnOutsideClick);
+    document.addEventListener("keydown", closeOnEscape);
+    return () => {
+      document.removeEventListener("mousedown", closeOnOutsideClick);
+      document.removeEventListener("keydown", closeOnEscape);
+    };
+  }, [open]);
+
+  return (
+    <span className="inlineHelp" ref={wrapperRef}>
+      <button
+        aria-controls={popoverId}
+        aria-expanded={open}
+        aria-label={label}
+        className="inlineHelpButton"
+        type="button"
+        onBlur={(event) => {
+          const nextFocus = event.relatedTarget;
+          if (nextFocus instanceof Node && event.currentTarget.parentElement?.contains(nextFocus)) return;
+          setOpen(false);
+        }}
+        onClick={() => setOpen((current) => !current)}
+      >
+        <BadgeQuestionMark aria-hidden="true" />
+      </button>
+      {open ? (
+        <span className="inlineHelpPopover" id={popoverId} role="tooltip">
+          {text}
+        </span>
+      ) : null}
+    </span>
   );
 }
 

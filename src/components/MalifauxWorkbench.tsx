@@ -61,8 +61,10 @@ import {
 
 type PathKind = "available" | "optimal";
 type ActiveResultTab = "picks" | "matchup" | "schemes" | "draft";
+type MatchIntent = "core" | "tournament" | "casual" | "learning" | "narrative";
 
 const DEFAULT_POINT_LIMIT = 50;
+const DEFAULT_MATCH_INTENT: MatchIntent = "core";
 const INTERNAL_MODEL_LIMIT = 99;
 type ModelSortMode = "name" | "costAsc" | "costDesc" | "role";
 type RoleFilter = "all" | "beater" | "scheme" | "support" | "anchor" | "control";
@@ -80,6 +82,43 @@ type AnalyzeReadiness = {
   emptyState: string;
   disabledButtonLabel: string;
 };
+
+const MATCH_INTENTS: Array<{ value: MatchIntent; label: string; summary: string; recommendationLead: string }> = [
+  {
+    value: "core",
+    label: "Balanced prep",
+    summary: "Use the standard crew-planning view with neutral matchup advice.",
+    recommendationLead: "Optimise the list while keeping the matchup plan readable."
+  },
+  {
+    value: "tournament",
+    label: "Tournament prep",
+    summary: "Emphasise efficient counters, risk, and confidence for competitive preparation.",
+    recommendationLead: "Prioritise the highest-impact hires and verify the evidence behind each risk."
+  },
+  {
+    value: "casual",
+    label: "Casual balance",
+    summary: "Frame the matchup around fair, playable games and avoid harsh win/loss language.",
+    recommendationLead: "Look for a balanced plan that avoids creating a frustrating table experience."
+  },
+  {
+    value: "learning",
+    label: "Learning mode",
+    summary: "Surface plain-language guidance and next steps for newer or returning players.",
+    recommendationLead: "Start with clear table jobs and use details to learn why each pick matters."
+  },
+  {
+    value: "narrative",
+    label: "Narrative/fun",
+    summary: "Respect theme and model preference while keeping the list playable.",
+    recommendationLead: "Keep the crew's theme intact, then patch the most important matchup gap."
+  }
+];
+
+function intentProfile(intent: MatchIntent) {
+  return MATCH_INTENTS.find((candidate) => candidate.value === intent) ?? MATCH_INTENTS[0];
+}
 type MasterProfile = {
   gamePlan: string;
   tableJobs: string[];
@@ -203,6 +242,7 @@ export default function MalifauxWorkbench() {
   const [strategyPoolId, setStrategyPoolId] = useState(STRATEGY_POOLS[0].id);
   const [strategyId, setStrategyId] = useState(STRATEGY_POOLS[0].strategies[0].id);
   const [schemePoolId, setSchemePoolId] = useState(SCHEME_POOLS[0].id);
+  const [matchIntent, setMatchIntent] = useState<MatchIntent>(DEFAULT_MATCH_INTENT);
   const [pathKind, setPathKind] = useState<PathKind>("available");
   const [collectionSearch, setCollectionSearch] = useState("");
   const [opponentSearch, setOpponentSearch] = useState("");
@@ -493,6 +533,7 @@ export default function MalifauxWorkbench() {
   const strategyPool = STRATEGY_POOLS.find((pool) => pool.id === strategyPoolId) ?? STRATEGY_POOLS[0];
   const strategy = strategyPool.strategies.find((candidate) => candidate.id === strategyId) ?? strategyPool.strategies[0];
   const schemePool = SCHEME_POOLS.find((pool) => pool.id === schemePoolId) ?? SCHEME_POOLS[0];
+  const selectedIntent = intentProfile(matchIntent);
   const canAnalyze = Boolean(playerMasterId && opponentMasterId);
   const analyzeButtonLabel = isAnalyzing ? "Analyzing..." : analysis ? "Analyze again" : "Analyze";
   const analyzeReadiness = buildAnalyzeReadiness({
@@ -761,6 +802,16 @@ export default function MalifauxWorkbench() {
             </select>
           </label>
           <label>
+            Intent
+            <select value={matchIntent} onChange={(event) => setMatchIntent(event.target.value as MatchIntent)}>
+              {MATCH_INTENTS.map((intent) => (
+                <option key={intent.value} value={intent.value}>
+                  {intent.label}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label>
             Soulstones
             <input value={pointLimit} min={1} max={150} type="number" onChange={(event) => setPointLimit(Number(event.target.value))} />
           </label>
@@ -771,6 +822,9 @@ export default function MalifauxWorkbench() {
           <button className="subtleButton" type="button" onClick={clearCollection}>Clear collection</button>
         </div>
         <p className="matchSummary">{strategy.summary}</p>
+        <p className="intentSummary">
+          <strong>{selectedIntent.label}:</strong> {selectedIntent.summary}
+        </p>
         {schemePool.incomplete ? (
           <div className="warning">Scheme data for {schemePool.name} is incomplete, so scheme pairings are intentionally limited.</div>
         ) : null}
@@ -856,6 +910,7 @@ export default function MalifauxWorkbench() {
                 {analysis.playerCrew.master?.name ?? "Player"} vs {analysis.opponentCrew.master?.name ?? "Opponent"}
               </h2>
               <p>{analysis.match.strategy?.name ?? strategy.name} - {strategyPool.name} - {analysis.match.pointLimit}ss</p>
+              <p className="intentResultSummary">{selectedIntent.label}: {selectedIntent.summary}</p>
             </div>
             <button className="subtleButton" type="button" onClick={() => setSetupCollapsed(false)}>
               Edit setup
@@ -913,6 +968,7 @@ export default function MalifauxWorkbench() {
                   setPathKind={setPathKind}
                   selectedPath={selectedPath}
                   usedFullPool={pathKind === "available" && analyzedCollectionCount === 0}
+                  intent={matchIntent}
                   strategy={analysis.match.strategy}
                   onUsePlan={(path) => {
                     setDraftPath(path);
@@ -1981,6 +2037,7 @@ function ProfileList({ title, items }: { title: string; items: string[] }) {
 }
 
 export function RecommendationPanel({
+  intent,
   pathKind,
   setPathKind,
   selectedPath,
@@ -1991,6 +2048,7 @@ export function RecommendationPanel({
   onExportPlan,
   onOpenModel
 }: {
+  intent: MatchIntent;
   pathKind: PathKind;
   setPathKind: (value: PathKind) => void;
   selectedPath?: RecommendationPath;
@@ -2004,6 +2062,7 @@ export function RecommendationPanel({
   const [expandedModelId, setExpandedModelId] = useState<string | null>(null);
   const [recommendationSort, setRecommendationSort] = useState<RecommendationSortMode>("fit");
   if (!selectedPath) return null;
+  const intentCopy = intentProfile(intent);
   const sortedRecommendations = sortRecommendations(selectedPath.models, recommendationSort);
   const maxRecommendationScore = Math.max(0, ...selectedPath.models.map((recommendation) => recommendation.score));
   const maxBreakdownScore = Math.max(
@@ -2021,6 +2080,7 @@ export function RecommendationPanel({
         <div>
           <h2>Recommendations</h2>
           <small>What the app suggests</small>
+          <p className="panelHint">{intentCopy.recommendationLead}</p>
           <span>
             <RulesIcon iconKey="soulstone" /> {selectedPath.totalCost} hired / {selectedPath.remainingPoints}ss open
           </span>

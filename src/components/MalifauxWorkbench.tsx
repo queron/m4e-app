@@ -320,6 +320,7 @@ export default function MalifauxWorkbench() {
   const [draftPath, setDraftPath] = useState<RecommendationPath | null>(null);
   const [savedDrafts, setSavedDrafts] = useState<SavedDraft[]>([]);
   const [statusMessage, setStatusMessage] = useState("");
+  const [copyFallbackText, setCopyFallbackText] = useState("");
   const [selectedModel, setSelectedModel] = useState<ModelCard | null>(null);
   const [selectedModelDetailLoading, setSelectedModelDetailLoading] = useState(false);
   const [selectedModelDetailError, setSelectedModelDetailError] = useState("");
@@ -689,6 +690,17 @@ export default function MalifauxWorkbench() {
     setCrewModifierIds((current) => (current.includes(id) ? current.filter((item) => item !== id) : [...current, id]));
   }
 
+  async function copyText(text: string, successMessage: string) {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopyFallbackText("");
+      setStatusMessage(successMessage);
+    } catch {
+      setCopyFallbackText(text);
+      setStatusMessage("Clipboard copy failed. Use the manual copy fallback.");
+    }
+  }
+
   async function shareSetup() {
     const payload = {
       playerFaction,
@@ -704,8 +716,7 @@ export default function MalifauxWorkbench() {
     };
     const url = new URL(window.location.href);
     url.searchParams.set(SHARE_PARAM, encodeSharePayload(payload));
-    await navigator.clipboard.writeText(url.toString());
-    setStatusMessage("Share link copied.");
+    await copyText(url.toString(), "Share link copied.");
   }
 
   function printPlan() {
@@ -786,8 +797,22 @@ export default function MalifauxWorkbench() {
   }
 
   async function exportDraft(path: RecommendationPath) {
-    await navigator.clipboard.writeText(buildDraftSummary(playerRequiredModels, path, pointLimit, draftSummaryContext()));
-    setStatusMessage("Draft export copied.");
+    await copyText(buildDraftSummary(playerRequiredModels, path, pointLimit, draftSummaryContext()), "Draft export copied.");
+  }
+
+  async function copyAnalysisSummary() {
+    if (!analysis || !selectedPath || !resultsConfidence) return;
+    await copyText(buildAnalysisShareSummary({
+      analysis,
+      confidence: resultsConfidence,
+      path: selectedPath,
+      pathKind,
+      strategyPoolName: strategyPool.name
+    }), "Analysis summary copied.");
+  }
+
+  async function copyAnalysisLink() {
+    await shareSetup();
   }
 
   function draftSummaryContext(): DraftSummaryContext {
@@ -822,6 +847,15 @@ export default function MalifauxWorkbench() {
 
       {error ? <div className="error">{error}</div> : null}
       {statusMessage ? <div className="infoCallout globalStatus">{statusMessage}</div> : null}
+      {copyFallbackText ? (
+        <section className="panel copyFallback" aria-label="Manual copy fallback">
+          <div className="panelHeader">
+            <h2>Manual Copy</h2>
+            <button className="subtleButton" type="button" onClick={() => setCopyFallbackText("")}>Close</button>
+          </div>
+          <textarea readOnly value={copyFallbackText} onFocus={(event) => event.currentTarget.select()} />
+        </section>
+      ) : null}
       {isOffline ? <div className="infoCallout globalStatus">Offline mode: using cached app shell and card data when available.</div> : null}
       {updateAvailable ? (
         <div className="infoCallout globalStatus updateStatus">
@@ -1024,6 +1058,11 @@ export default function MalifauxWorkbench() {
             <button className="subtleButton" type="button" onClick={() => setSetupCollapsed(false)}>
               Edit setup
             </button>
+            <div className="resultActions" aria-label="Analysis actions">
+              <button className="subtleButton" type="button" onClick={copyAnalysisSummary}>Copy summary</button>
+              <button className="subtleButton" type="button" onClick={copyAnalysisLink}>Copy link</button>
+              <button className="subtleButton" type="button" onClick={printPlan}>Print / Export</button>
+            </div>
           </div>
           {resultsConfidence ? (
             <ResultsContextBar
@@ -3195,6 +3234,42 @@ function buildNextSteps({
   }
 
   return steps;
+}
+
+function buildAnalysisShareSummary({
+  analysis,
+  confidence,
+  path,
+  pathKind,
+  strategyPoolName
+}: {
+  analysis: MatchupAnalysis;
+  confidence: ResultsConfidence;
+  path: RecommendationPath;
+  pathKind: PathKind;
+  strategyPoolName: string;
+}): string {
+  const playerMasterName = analysis.playerCrew.master?.name ?? "Player master";
+  const opponentMasterName = analysis.opponentCrew.master?.name ?? "Opponent master";
+  const strategyName = analysis.match.strategy?.name ?? "No strategy selected";
+  const riskCount = path.models.reduce((sum, recommendation) => sum + recommendation.vulnerabilityFlags.filter((flag) => flag.severity === "High").length, 0);
+  const read = riskCount > 0 ? "risky" : confidence.label === "High" ? "favourable" : "balanced";
+  const reasons = [
+    ...analysis.matchupBrief.priorityHires,
+    ...analysis.matchupBrief.answerWith,
+    ...path.models.slice(0, 3).map((recommendation) => recommendation.why[0] ?? recommendation.hireReason)
+  ].filter(Boolean).slice(0, 3);
+  const focus = analysis.matchupBrief.answerWith[0] ?? path.models[0]?.role ?? "confirm model roles against the table plan";
+
+  return [
+    `${playerMasterName} into ${opponentMasterName} on ${strategyName} (${strategyPoolName}, ${analysis.match.pointLimit}ss)`,
+    `Path: ${pathKind === "available" ? "Available" : "Optimal"}`,
+    `Read: ${read}`,
+    "Top reasons:",
+    ...reasons.map((reason, index) => `${index + 1}. ${reason}`),
+    `Suggested focus: ${focus}`,
+    `Confidence: ${confidence.label} - ${confidence.evidence}`
+  ].join("\n");
 }
 
 function recommendationPlan(recommendation: ModelRecommendation, strategyName?: string) {

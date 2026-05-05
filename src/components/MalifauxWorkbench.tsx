@@ -237,8 +237,8 @@ export default function MalifauxWorkbench() {
           setStatusMessage(restored.warnings.slice(0, 3).join(" "));
         }
         const restoredSetup = restored.setup;
-        setPlayerFaction(restoredSetup?.playerFaction ?? data.factions[0] ?? "");
-        setOpponentFaction(restoredSetup?.opponentFaction ?? data.factions[1] ?? data.factions[0] ?? "");
+        setPlayerFaction(restoredSetup?.playerFaction ?? "");
+        setOpponentFaction(restoredSetup?.opponentFaction ?? "");
         if (restoredSetup?.playerMasterId) setPlayerMasterId(restoredSetup.playerMasterId);
         if (restoredSetup?.opponentMasterId) setOpponentMasterId(restoredSetup.opponentMasterId);
         if (restoredSetup?.ownedModelIds) setOwnedModelIds(restoredSetup.ownedModelIds);
@@ -439,15 +439,15 @@ export default function MalifauxWorkbench() {
   );
 
   useEffect(() => {
-    if (playerMasters.length > 0 && !playerMasters.some((master) => master.id === playerMasterId)) {
-      setPlayerMasterId(playerMasters[0]?.id ?? "");
+    if (playerMasterId && !playerMasters.some((master) => master.id === playerMasterId)) {
+      setPlayerMasterId("");
     }
     setAnalysis(null);
   }, [playerMasters, playerMasterId]);
 
   useEffect(() => {
-    if (opponentMasters.length > 0 && !opponentMasters.some((master) => master.id === opponentMasterId)) {
-      setOpponentMasterId(opponentMasters[0]?.id ?? "");
+    if (opponentMasterId && !opponentMasters.some((master) => master.id === opponentMasterId)) {
+      setOpponentMasterId("");
     }
     setAnalysis(null);
   }, [opponentMasters, opponentMasterId]);
@@ -1119,6 +1119,21 @@ export function CrewPanel(props: {
   const selectedMetricHelp = isPlayerPanel
     ? "Limits Available recommendations; this does not mean the model is hired."
     : "Marks likely or known opposing models; this does not confirm the opponent's final crew.";
+  const setupBlankState = !props.faction
+    ? {
+        title: "Pick a faction to begin.",
+        text: isPlayerPanel
+          ? "Choose your faction first, then pick a master to view collection and crew options."
+          : "Choose the opposing faction first, then pick their master to view likely crew options."
+      }
+    : !props.masterId
+      ? {
+          title: "Choose a master to view crew options.",
+          text: isPlayerPanel
+            ? "Required models, title tools, collection marking, and model lists appear after you pick a master."
+            : "Expected model marking and likely threat suggestions appear after you pick the opponent master."
+        }
+      : null;
   const suggestedExpectedModels = isPlayerPanel ? [] : suggestedThreatModels(props.allModels, props.faction, props.master);
   const titleVariants = titleVariantsForMaster(props.master, props.masters);
   const filteredPool = props.pool
@@ -1183,7 +1198,7 @@ export function CrewPanel(props: {
           ) : null}
         </h2>
       </div>
-      {!isPlayerPanel ? (
+      {!isPlayerPanel && props.master ? (
         <ExpectedModelGuide
           selectedCount={props.selectedIds.length}
           selectedIds={selected}
@@ -1229,7 +1244,15 @@ export function CrewPanel(props: {
       <div className="formGrid">
         <label>
           Faction
-          <select value={props.faction} onChange={(event) => props.setFaction(event.target.value)}>
+          <select
+            value={props.faction}
+            onChange={(event) => {
+              props.setFaction(event.target.value);
+              props.setMasterId("");
+              props.setSelectedIds([]);
+            }}
+          >
+            <option value="">Choose faction</option>
             {props.factions.map((faction) => (
               <option key={faction} value={faction}>
                 {faction}
@@ -1238,11 +1261,16 @@ export function CrewPanel(props: {
           </select>
         </label>
         <MasterCombobox
+          disabled={!props.faction}
           masters={props.masters}
           value={props.masterId}
           onChange={chooseMaster}
         />
       </div>
+      {setupBlankState ? (
+        <CrewPanelBlankState title={setupBlankState.title} text={setupBlankState.text} />
+      ) : (
+        <>
       {titleVariants.length > 1 ? (
         <div className="titleCompareCallout">
           <div>
@@ -1342,11 +1370,23 @@ export function CrewPanel(props: {
       </div>
         </>
       )}
+        </>
+      )}
     </section>
   );
 }
 
-function MasterCombobox({ masters, value, onChange }: { masters: ModelCard[]; value: string; onChange: (value: string) => void }) {
+function MasterCombobox({
+  disabled = false,
+  masters,
+  value,
+  onChange
+}: {
+  disabled?: boolean;
+  masters: ModelCard[];
+  value: string;
+  onChange: (value: string) => void;
+}) {
   const fieldId = useId();
   const listId = `${fieldId}-listbox`;
   const selectedMaster = masters.find((master) => master.id === value);
@@ -1420,10 +1460,14 @@ function MasterCombobox({ masters, value, onChange }: { masters: ModelCard[]; va
         aria-expanded={open}
         aria-haspopup="listbox"
         className="comboButton"
+        disabled={disabled}
         type="button"
-        onClick={() => setOpen((current) => !current)}
+        onClick={() => {
+          if (disabled) return;
+          setOpen((current) => !current);
+        }}
       >
-        {selectedMaster?.name ?? "Choose master"}
+        {disabled ? "Choose faction first" : selectedMaster?.name ?? "Choose master"}
       </button>
       {open ? (
         <div className="comboPopover">
@@ -1543,6 +1587,15 @@ function TitleComparisonBlock({ title, items }: { title: string; items: string[]
     <div className="titleComparisonBlock">
       <strong>{title}</strong>
       <ul>{cleanItems.map((item, index) => <li key={`${title}-${index}-${item}`}>{item}</li>)}</ul>
+    </div>
+  );
+}
+
+function CrewPanelBlankState({ title, text }: { title: string; text: string }) {
+  return (
+    <div className="crewPanelBlankState">
+      <strong>{title}</strong>
+      <p>{text}</p>
     </div>
   );
 }

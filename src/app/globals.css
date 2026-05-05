@@ -1212,6 +1212,11 @@ select option {
   outline-offset: 2px;
 }
 
+.comboButton:disabled {
+  cursor: not-allowed;
+  opacity: 0.72;
+}
+
 .comboPopover {
   position: absolute;
   z-index: 30;
@@ -1271,6 +1276,26 @@ select option {
 .comboEmpty {
   color: var(--muted);
   padding: 12px;
+}
+
+.crewPanelBlankState {
+  display: grid;
+  gap: 6px;
+  margin: 14px 0 0;
+  border: 1px dashed var(--line);
+  border-radius: var(--radius-md);
+  background: rgba(15, 12, 10, 0.28);
+  padding: 16px;
+}
+
+.crewPanelBlankState strong {
+  color: var(--parchment);
+}
+
+.crewPanelBlankState p {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.45;
 }
 
 .searchMatchSnippet {

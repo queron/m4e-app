@@ -224,7 +224,7 @@ select option {
 
 .matchGrid {
   display: grid;
-  grid-template-columns: minmax(180px, 1fr) minmax(220px, 1fr) minmax(180px, 0.8fr) 120px;
+  grid-template-columns: minmax(170px, 1fr) minmax(200px, 1fr) minmax(170px, 0.9fr) minmax(170px, 0.9fr) 120px;
   gap: 14px;
   align-items: end;
 }
@@ -234,6 +234,16 @@ select option {
   color: var(--muted);
   font-family: "Source Serif 4", Georgia, serif;
   line-height: 1.5;
+}
+
+.intentSummary {
+  margin: 8px 0 0;
+  color: var(--parchment-2);
+  line-height: 1.45;
+}
+
+.intentSummary strong {
+  color: var(--accent);
 }
 
 .actionBar {
@@ -519,6 +529,10 @@ select option {
   margin: 0;
   color: var(--muted);
   line-height: 1.45;
+}
+
+.postAnalyzeSummary .intentResultSummary {
+  color: var(--parchment-2);
 }
 
 .strategyContext span,

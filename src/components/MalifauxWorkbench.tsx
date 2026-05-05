@@ -1139,13 +1139,55 @@ export function CrewPanel(props: {
   const filteredPool = props.pool
     .filter((model) => !mandatoryIds.has(model.id))
     .filter((model) => modelMatchesRoleFilter(model, roleFilter));
-  const sections = groupModelsForMaster(
+  const baseSections = groupModelsForMaster(
     filteredPool,
     props.master,
     props.faction,
     mandatoryModels,
     modelSort
   );
+  const suggestedModelIds = new Set(suggestedExpectedModels.map((suggestion) => suggestion.model.id));
+  const suggestedSection: ModelSection[] = suggestedExpectedModels.length > 0
+    ? [
+        {
+          title: "Suggested Threats",
+          models: suggestedExpectedModels.map((suggestion) => ({
+            model: suggestion.model,
+            quantity: 1,
+            forced: false,
+            note: suggestion.why,
+            badges: [suggestion.role, ...suggestion.badges]
+          })),
+          action: (
+            <button
+              className="subtleButton"
+              type="button"
+              onClick={() => {
+                const nextIds = Array.from(new Set([
+                  ...props.selectedIds,
+                  ...suggestedExpectedModels
+                    .filter((suggestion) => !selected.has(suggestion.model.id))
+                    .slice(0, 3)
+                    .map((suggestion) => suggestion.model.id)
+                ]));
+                props.setSelectedIds(nextIds);
+              }}
+              disabled={suggestedExpectedModels.every((suggestion) => selected.has(suggestion.model.id))}
+            >
+              Mark top 3 suggestions
+            </button>
+          )
+        }
+      ]
+    : [];
+  const sections: ModelSection[] = [
+    baseSections[0],
+    ...suggestedSection,
+    ...baseSections.slice(1).map((section) => ({
+      ...section,
+      models: section.models.filter((entry) => !suggestedModelIds.has(entry.model.id))
+    }))
+  ];
 
   useEffect(() => {
     const compactViewport = window.matchMedia("(max-width: 720px)").matches;
@@ -1198,26 +1240,6 @@ export function CrewPanel(props: {
           ) : null}
         </h2>
       </div>
-      {!isPlayerPanel && props.master ? (
-        <ExpectedModelGuide
-          selectedCount={props.selectedIds.length}
-          selectedIds={selected}
-          suggestions={suggestedExpectedModels}
-          onAddTopSuggestions={() => {
-            const nextIds = Array.from(new Set([
-              ...props.selectedIds,
-              ...suggestedExpectedModels
-                .filter((suggestion) => !selected.has(suggestion.model.id))
-                .slice(0, 3)
-                .map((suggestion) => suggestion.model.id)
-            ]));
-            props.setSelectedIds(nextIds);
-          }}
-          onClear={() => props.setSelectedIds([])}
-          onAddModel={(model) => props.setSelectedIds(Array.from(new Set([...props.selectedIds, model.id])))}
-          onOpenModel={props.onOpenModel}
-        />
-      ) : null}
       <div className="spendSummary">
         <span>
           Required models: {requiredCount}
@@ -1341,7 +1363,10 @@ export function CrewPanel(props: {
               >
                 <RulesIcon iconKey={sectionIcon(section.title)} /> {section.title}
               </button>
-              <span>{section.models.length}</span>
+              <span className="modelSectionMeta">
+                <span>{section.models.length}</span>
+                {section.action}
+              </span>
             </div>
             {isSectionCollapsed(section.title) ? (
               <div className="modelSectionCollapsed">{section.models.length} models hidden</div>
@@ -1358,6 +1383,8 @@ export function CrewPanel(props: {
                   onQuantityChange={entry.forced ? undefined : (quantity) => setModelQuantity(entry.model, quantity)}
                   onOpenModel={() => props.onOpenModel(entry.model)}
                   searchSnippet={searchMatchSnippet(entry.model, props.search)}
+                  note={entry.note}
+                  badges={entry.badges}
                   density={modelDensity}
                   forced={entry.forced}
                 />
@@ -1605,81 +1632,6 @@ function CrewPanelBlankState({ iconKey, title, text }: { iconKey: RulesIconKey; 
   );
 }
 
-function ExpectedModelGuide({
-  selectedCount,
-  selectedIds,
-  suggestions,
-  onAddTopSuggestions,
-  onClear,
-  onAddModel,
-  onOpenModel
-}: {
-  selectedCount: number;
-  selectedIds: Set<string>;
-  suggestions: SuggestedThreatModel[];
-  onAddTopSuggestions: () => void;
-  onClear: () => void;
-  onAddModel: (model: ModelCard) => void;
-  onOpenModel: (model: ModelCard) => void;
-}) {
-  const unmarkedSuggestions = suggestions.filter((suggestion) => !selectedIds.has(suggestion.model.id));
-
-  return (
-    <div className="expectedGuide">
-      <div className="expectedGuideHeader">
-        <div>
-          <strong>Suggested opponent threats</strong>
-          <p>Suggested from legal pool and role fit; not confirmed meta frequency.</p>
-        </div>
-        <span>{selectedCount === 0 ? "No expected models marked" : `${selectedCount} expected model${selectedCount === 1 ? "" : "s"} marked`}</span>
-      </div>
-      <div className="expectedGuideIntro">
-        <strong>{selectedCount === 0 ? "Not sure what they bring?" : "Refine expected models"}</strong>
-        <p>Expected models are likely or known enemy picks. They sharpen opponent analysis without claiming the list is confirmed.</p>
-      </div>
-      <div className="expectedGuideActions">
-        <button className="subtleButton" type="button" onClick={onAddTopSuggestions} disabled={unmarkedSuggestions.length === 0}>
-          Mark top 3 suggestions
-        </button>
-        {selectedCount > 0 ? (
-          <button className="subtleButton" type="button" onClick={onClear}>
-            Clear expected
-          </button>
-        ) : null}
-      </div>
-      <div className="expectedSuggestions">
-        {suggestions.length > 0 ? (
-          suggestions.slice(0, 5).map((suggestion) => {
-            const marked = selectedIds.has(suggestion.model.id);
-
-            return (
-              <article key={suggestion.model.id} className={marked ? "markedSuggestion" : ""}>
-                <div className="suggestionMain">
-                  <button className="modelNameButton" type="button" onClick={() => onOpenModel(suggestion.model)}>
-                    {suggestion.model.name}
-                  </button>
-                  <span><RulesIcon iconKey="soulstone" /> {suggestion.model.cost}ss - {suggestion.role}</span>
-                  <p>{suggestion.why}</p>
-                </div>
-                <div className="suggestionBadges">
-                  {suggestion.badges.map((badge) => (
-                    <span className="expectedBadge" key={badge}>{badge}</span>
-                  ))}
-                </div>
-                <button className="subtleButton" type="button" onClick={() => onAddModel(suggestion.model)} disabled={marked}>
-                  {marked ? "Marked" : "Mark Expected"}
-                </button>
-              </article>
-            );
-          })
-        ) : (
-          <p>No suggested opponent threats can be generated for this master yet.</p>
-        )}
-      </div>
-    </div>
-  );
-}
-
 function ModelRow({
   model,
   selected,
@@ -1690,6 +1642,8 @@ function ModelRow({
   onQuantityChange,
   onOpenModel,
   searchSnippet,
+  note,
+  badges,
   density,
   forced = false
 }: {
@@ -1702,6 +1656,8 @@ function ModelRow({
   onQuantityChange?: (quantity: number) => void;
   onOpenModel: () => void;
   searchSnippet?: string;
+  note?: string;
+  badges?: string[];
   density: ModelDensity;
   forced?: boolean;
 }) {
@@ -1732,6 +1688,14 @@ function ModelRow({
         </small>
         {showAbilityPreview ? <small>{model.abilities.slice(0, 2).map((ability) => ability.name).join("; ") || "No parsed abilities"}</small> : null}
         {searchSnippet ? <small className="searchMatchSnippet">{searchSnippet}</small> : null}
+        {note ? <small className="modelRowNote">{note}</small> : null}
+        {badges?.length ? (
+          <span className="modelRowBadges">
+            {badges.map((badge) => (
+              <span className="expectedBadge" key={badge}>{badge}</span>
+            ))}
+          </span>
+        ) : null}
       </span>
       <span className="stats statChips">
         <StatChip iconKey="defense" value={model.statBlock.defense} />
@@ -3128,6 +3092,7 @@ function renderKeywordSummary(model: ModelCard) {
 
 function sectionIcon(title: string): RulesIconKey {
   if (title.includes("Leader")) return "master";
+  if (title.includes("Suggested")) return "prediction";
   if (title.includes("Keyword")) return "keyword";
   if (title.includes("Versatile")) return "versatile";
   return "collection";
@@ -3201,6 +3166,14 @@ type ModelSectionEntry = {
   model: ModelCard;
   quantity: number;
   forced: boolean;
+  note?: string;
+  badges?: string[];
+};
+
+type ModelSection = {
+  title: string;
+  models: ModelSectionEntry[];
+  action?: ReactNode;
 };
 
 function groupModelsForMaster(
@@ -3209,7 +3182,7 @@ function groupModelsForMaster(
   faction: string,
   mandatoryModels: Array<{ model: ModelCard; quantity: number }>,
   sortMode: ModelSortMode = "name"
-) {
+): ModelSection[] {
   const masterKeywords = new Set(master?.strategicKeywords.map((keyword) => keyword.toLowerCase()) ?? []);
   const isKeywordModel = (model: ModelCard) =>
     model.strategicKeywords.some((keyword) => masterKeywords.has(keyword.toLowerCase()));

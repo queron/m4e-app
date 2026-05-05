@@ -1406,6 +1406,19 @@ select option {
   font-weight: 600;
 }
 
+.modelSectionMeta {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  min-width: 0;
+}
+
+.modelSectionMeta .subtleButton {
+  padding: 5px 10px;
+  font-size: 0.7rem;
+}
+
 .modelSectionEmpty,
 .modelSectionCollapsed {
   border: 1px dashed var(--line);
@@ -1536,6 +1549,22 @@ select option {
 .stats {
   color: var(--parchment-2);
   font-size: 0.78rem;
+}
+
+.modelMain .modelRowNote {
+  color: var(--muted);
+  white-space: normal;
+}
+
+.modelRowBadges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
+.modelRowBadges .expectedBadge {
+  padding: 4px 7px;
+  font-size: 0.68rem;
 }
 
 .modelMain small .rulesIcon {

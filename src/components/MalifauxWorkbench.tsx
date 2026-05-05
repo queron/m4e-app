@@ -1252,7 +1252,7 @@ export function CrewPanel(props: {
               props.setSelectedIds([]);
             }}
           >
-            <option value="">Choose faction</option>
+            <option value="">Pick a faction</option>
             {props.factions.map((faction) => (
               <option key={faction} value={faction}>
                 {faction}
@@ -1467,7 +1467,7 @@ function MasterCombobox({
           setOpen((current) => !current);
         }}
       >
-        {disabled ? "Choose faction first" : selectedMaster?.name ?? "Choose master"}
+        {disabled ? "Pick a faction first" : selectedMaster?.name ?? "Pick a master"}
       </button>
       {open ? (
         <div className="comboPopover">

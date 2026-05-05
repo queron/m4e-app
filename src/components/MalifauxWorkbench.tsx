@@ -704,6 +704,13 @@ export default function MalifauxWorkbench() {
         </div>
       ) : null}
 
+      <nav className="setupStepper" aria-label="Counter-pick setup sequence">
+        <span>1. Match</span>
+        <span>2. Player Collection</span>
+        <span>3. Opponent Intel</span>
+        <span>4. Analyze</span>
+      </nav>
+
       <section className="panel matchPanel">
         <div className="panelHeader">
           <h2>
@@ -768,13 +775,6 @@ export default function MalifauxWorkbench() {
           <div className="warning">Scheme data for {schemePool.name} is incomplete, so scheme pairings are intentionally limited.</div>
         ) : null}
       </section>
-
-      <nav className="setupStepper" aria-label="Counter-pick setup sequence">
-        <span>1. Match</span>
-        <span>2. Player Collection</span>
-        <span>3. Opponent Intel</span>
-        <span>4. Analyze</span>
-      </nav>
 
       <section className="plannerGrid">
         <CrewPanel

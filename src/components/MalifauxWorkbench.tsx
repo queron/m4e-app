@@ -714,6 +714,7 @@ export default function MalifauxWorkbench() {
       <section className="panel matchPanel">
         <div className="panelHeader">
           <h2>
+            <span className="stepBadge">1</span>
             <RulesIcon iconKey="strategy" /> Match
             <InlineHelp label="Match setup help" text={analyzeReadiness.detail} />
           </h2>
@@ -780,6 +781,7 @@ export default function MalifauxWorkbench() {
         <CrewPanel
           title="Player"
           displayTitle="Player Collection"
+          stepNumber={2}
           factions={catalog.factions}
           faction={playerFaction}
           setFaction={setPlayerFaction}
@@ -809,6 +811,7 @@ export default function MalifauxWorkbench() {
         <CrewPanel
           title="Opponent"
           displayTitle="Opponent Intel"
+          stepNumber={3}
           factions={catalog.factions}
           faction={opponentFaction}
           setFaction={setOpponentFaction}
@@ -984,7 +987,7 @@ export default function MalifauxWorkbench() {
 
       <aside className="stickyAnalyzeBar" aria-label="Analysis actions">
         <div>
-          <strong>{analyzeReadiness.status}</strong>
+          <strong><span className="stepBadge">4</span>{analyzeReadiness.status}</strong>
           <span>
             {canAnalyze
               ? analyzeReadiness.detail
@@ -1074,6 +1077,7 @@ class ResultsErrorBoundary extends Component<ResultsErrorBoundaryProps, ResultsE
 export function CrewPanel(props: {
   title: string;
   displayTitle: string;
+  stepNumber: number;
   factions: string[];
   faction: string;
   setFaction: (value: string) => void;
@@ -1170,6 +1174,7 @@ export function CrewPanel(props: {
     <section className={`panel faction-${slugifyForMatch(props.faction)} ${props.collapsed ? "collapsedPanel" : ""}`}>
       <div className="panelHeader">
         <h2>
+          <span className="stepBadge">{props.stepNumber}</span>
           <RulesIcon iconKey={isPlayerPanel ? "collection" : "prediction"} /> {props.displayTitle}
         </h2>
         <span>

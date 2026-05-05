@@ -222,6 +222,13 @@ select option {
   margin-bottom: 22px;
 }
 
+.matchContextLead {
+  margin: -2px 0 12px;
+  color: var(--parchment-2);
+  font-family: "Source Serif 4", Georgia, serif;
+  line-height: 1.45;
+}
+
 .matchGrid {
   display: grid;
   grid-template-columns: minmax(170px, 1fr) minmax(200px, 1fr) minmax(170px, 0.9fr) minmax(170px, 0.9fr) 120px;

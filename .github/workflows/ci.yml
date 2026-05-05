@@ -20,4 +20,5 @@ jobs:
       - run: npm run lint
       - run: npm run build
       - run: npm run check:size-budgets
+      - run: npm run test:api
       - run: npm run benchmark:analysis

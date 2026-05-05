@@ -797,7 +797,6 @@ export default function MalifauxWorkbench() {
           selectionLabel="In Collection"
           selectedSummaryLabel="Collection marked"
           totalSummaryLabel="Displayed total"
-          modeLabel="What I own"
           helperText="Then mark models in your collection. This builds the Available recommendation pool, not your hired crew."
           strategy={strategy}
           selectedCountLabel="in collection"
@@ -825,7 +824,6 @@ export default function MalifauxWorkbench() {
           search={opponentSearch}
           setSearch={setOpponentSearch}
           selectionLabel="Expected"
-          modeLabel="What I know they may take"
           helperText="Choose the opposing master, then mark enemy models you know or expect. Leave empty to predict from their legal pool."
           strategy={strategy}
           selectedCountLabel="known"
@@ -1093,7 +1091,6 @@ export function CrewPanel(props: {
   selectionLabel: string;
   selectedSummaryLabel?: string;
   totalSummaryLabel?: string;
-  modeLabel: string;
   helperText: string;
   strategy?: Strategy;
   selectedCountLabel: string;
@@ -1178,13 +1175,14 @@ export function CrewPanel(props: {
         <h2>
           <span className="stepBadge">{props.stepNumber}</span>
           <RulesIcon iconKey={isPlayerPanel ? "collection" : "prediction"} /> {props.displayTitle}
+          {!props.collapsed ? (
+            <InlineHelp
+              label={isPlayerPanel ? "Collection help" : "Opponent intel help"}
+              text={props.helperText}
+            />
+          ) : null}
         </h2>
       </div>
-      <HelpDisclosure
-        className="panelHelper"
-        label={props.modeLabel}
-        text={props.helperText}
-      />
       {!isPlayerPanel ? (
         <ExpectedModelGuide
           selectedCount={props.selectedIds.length}

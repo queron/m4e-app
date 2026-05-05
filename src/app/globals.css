@@ -911,6 +911,7 @@ select option {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  gap: 6px;
   min-height: 34px;
   border: 1px solid var(--line);
   border-radius: 999px;
@@ -921,6 +922,20 @@ select option {
   font-size: 0.78rem;
   font-weight: 500;
   line-height: 1.2;
+}
+
+.spendSummary .inlineHelp {
+  margin-left: 0;
+}
+
+.spendSummary .inlineHelpButton {
+  width: 22px;
+  height: 22px;
+}
+
+.spendSummary .inlineHelpButton svg {
+  width: 13px;
+  height: 13px;
 }
 
 .spendSummary strong {

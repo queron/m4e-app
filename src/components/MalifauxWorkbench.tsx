@@ -1119,7 +1119,12 @@ export function CrewPanel(props: {
   const requiredSoulstones = mandatoryModels.reduce((sum, entry) => sum + entry.model.cost * entry.quantity, 0);
   const selectedSoulstones = selectedModels.reduce((sum, model) => sum + model.cost, 0);
   const totalSoulstones = requiredSoulstones + selectedSoulstones;
+  const requiredCount = mandatoryModels.reduce((sum, entry) => sum + entry.quantity, 0);
   const isPlayerPanel = props.title === "Player";
+  const selectedMetricLabel = props.selectedSummaryLabel ?? props.selectionLabel;
+  const selectedMetricHelp = isPlayerPanel
+    ? "Limits Available recommendations; this does not mean the model is hired."
+    : "Marks likely or known opposing models; this does not confirm the opponent's final crew.";
   const suggestedExpectedModels = isPlayerPanel ? [] : suggestedThreatModels(props.allModels, props.faction, props.master);
   const titleVariants = titleVariantsForMaster(props.master, props.masters);
   const filteredPool = props.pool
@@ -1177,9 +1182,6 @@ export function CrewPanel(props: {
           <span className="stepBadge">{props.stepNumber}</span>
           <RulesIcon iconKey={isPlayerPanel ? "collection" : "prediction"} /> {props.displayTitle}
         </h2>
-        <span>
-          {mandatoryModels.reduce((sum, entry) => sum + entry.quantity, 0)} required / {props.selectedIds.length} {props.selectedCountLabel} / {totalSoulstones}ss
-        </span>
       </div>
       <HelpDisclosure
         className="panelHelper"
@@ -1207,9 +1209,15 @@ export function CrewPanel(props: {
         />
       ) : null}
       <div className="spendSummary">
-        <span>Required {requiredSoulstones}ss</span>
-        <span>{props.selectedSummaryLabel ?? props.selectionLabel} {selectedSoulstones}ss</span>
-        <strong>{props.totalSummaryLabel ?? "Total"} {totalSoulstones}ss</strong>
+        <span>
+          Required models: {requiredCount}
+          <InlineHelp label="Required model help" text="Leader and required totem models are included automatically." />
+        </span>
+        <span>
+          {selectedMetricLabel}: {props.selectedIds.length}
+          <InlineHelp label={`${selectedMetricLabel} help`} text={selectedMetricHelp} />
+        </span>
+        <strong>{props.totalSummaryLabel ?? "Displayed cost"}: {totalSoulstones}ss</strong>
         {props.collapsed ? (
           <button className="subtleButton" type="button" onClick={() => props.setCollapsed(false)}>
             Edit

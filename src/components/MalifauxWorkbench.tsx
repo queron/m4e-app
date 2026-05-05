@@ -70,6 +70,11 @@ type MatchupDriver = {
   sentence: string;
   strength: number;
 };
+type ResultsConfidence = {
+  label: "High" | "Medium" | "Low";
+  evidence: string;
+  explanation: string;
+};
 
 const DEFAULT_POINT_LIMIT = 50;
 const DEFAULT_MATCH_INTENT: MatchIntent = "core";
@@ -221,6 +226,33 @@ function buildAnalyzeReadiness({
     detail: "Ready: Available recommendations use your marked collection.",
     emptyState: "Ready to analyze. Available recommendations will use your marked collection.",
     disabledButtonLabel: "Analyze"
+  };
+}
+
+function buildResultsConfidence({
+  hasStrategy,
+  opponentModelCount,
+  playerModelCount,
+  recommendationCount
+}: {
+  hasStrategy: boolean;
+  opponentModelCount: number;
+  playerModelCount: number;
+  recommendationCount: number;
+}): ResultsConfidence {
+  const score = Number(hasStrategy) + Number(playerModelCount > 0) + Number(opponentModelCount > 0) + Number(recommendationCount > 0);
+  const label: ResultsConfidence["label"] = score >= 4 ? "High" : score >= 2 ? "Medium" : "Low";
+  const evidenceParts = [
+    "master profiles",
+    playerModelCount > 0 ? "selected player models" : "player legal pool inferred",
+    opponentModelCount > 0 ? "known opponent models" : "opponent legal pool inferred",
+    hasStrategy ? "selected strategy" : "no strategy"
+  ];
+
+  return {
+    label,
+    evidence: evidenceParts.join(" + "),
+    explanation: `${label} confidence reflects evidence completeness only. It is not a win-rate prediction.`
   };
 }
 
@@ -581,6 +613,14 @@ export default function MalifauxWorkbench() {
     hasOpponentMaster: Boolean(opponentMasterId),
     collectionCount: ownedModelIds.length
   });
+  const resultsConfidence = analysis
+    ? buildResultsConfidence({
+        hasStrategy: Boolean(analysis.match.strategy),
+        opponentModelCount: analysis.opponentCrew.expectedModels.length,
+        playerModelCount: analyzedCollectionCount,
+        recommendationCount: selectedPath?.models.length ?? 0
+      })
+    : null;
   const playerRequiredModels = useMemo(
     () => (catalog && playerMaster ? getMandatoryModelsForMaster(playerMaster, catalog.models) : []),
     [catalog, playerMaster]
@@ -977,6 +1017,15 @@ export default function MalifauxWorkbench() {
               Edit setup
             </button>
           </div>
+          {resultsConfidence ? (
+            <ResultsContextBar
+              cardCount={catalog?.models.length ?? 0}
+              confidence={resultsConfidence}
+              pointLimit={analysis.match.pointLimit}
+              strategy={analysis.match.strategy}
+              strategyPoolName={strategyPool.name}
+            />
+          ) : null}
           <MatchupBriefPanel brief={analysis.matchupBrief} />
           <MatchupDriversPanel brief={analysis.matchupBrief} path={selectedPath} strategy={analysis.match.strategy} />
           <StrategyImpactPanel
@@ -1988,6 +2037,39 @@ function MatchupBriefPanel({ brief }: { brief: MatchupAnalysis["matchupBrief"] }
   );
 }
 
+function ResultsContextBar({
+  cardCount,
+  confidence,
+  pointLimit,
+  strategy,
+  strategyPoolName
+}: {
+  cardCount: number;
+  confidence: ResultsConfidence;
+  pointLimit: number;
+  strategy?: Strategy;
+  strategyPoolName: string;
+}) {
+  const dataContext = `Local card data (${cardCount} models) | ${strategyPoolName} | ${strategy?.name ?? "No strategy selected"} | ${pointLimit}ss`;
+
+  return (
+    <section className="resultsContextBar" aria-label="Analysis confidence and data context">
+      <span
+        className={`confidenceContext confidence-${confidence.label.toLowerCase()}`}
+        tabIndex={0}
+        title={confidence.explanation}
+        aria-label={`Confidence ${confidence.label}. ${confidence.explanation}`}
+      >
+        Confidence: {confidence.label}
+      </span>
+      <span title="The app uses the local card data included with this build, not a live meta feed.">
+        Data: {dataContext}
+      </span>
+      <span title={confidence.explanation}>Evidence: {confidence.evidence}</span>
+    </section>
+  );
+}
+
 function MatchupDriversPanel({
   brief,
   path,
@@ -2298,7 +2380,12 @@ export function RecommendationPanel({
                   <span className={recommendation.owned ? "ownedBadge" : "missingBadge"}>
                     {recommendation.owned ? "Owned" : "Not owned"}
                   </span>
-                  <span className={`confidenceBadge confidence-${recommendation.confidence.toLowerCase()}`}>
+                  <span
+                    className={`confidenceBadge confidence-${recommendation.confidence.toLowerCase()}`}
+                    tabIndex={0}
+                    title={recommendationConfidenceExplanation(recommendation.confidence)}
+                    aria-label={`${recommendation.confidence} recommendation confidence. ${recommendationConfidenceExplanation(recommendation.confidence)}`}
+                  >
                     {recommendation.confidence}
                   </span>
                 </span>
@@ -2744,7 +2831,12 @@ function LikelyCrewPanel({
               </div>
               <span className="badgeGroup">
                 <span className="ownedBadge">Predicted</span>
-                <span className={`confidenceBadge confidence-${recommendation.confidence.toLowerCase()}`}>
+                <span
+                  className={`confidenceBadge confidence-${recommendation.confidence.toLowerCase()}`}
+                  tabIndex={0}
+                  title={recommendationConfidenceExplanation(recommendation.confidence)}
+                  aria-label={`${recommendation.confidence} prediction confidence. ${recommendationConfidenceExplanation(recommendation.confidence)}`}
+                >
                   {recommendation.confidence}
                 </span>
               </span>
@@ -3021,6 +3113,12 @@ function recommendationModifierCopy(modifierIds: CrewModifierId[]): string {
     .map((modifier) => modifier.label.toLowerCase());
 
   return `Crew adjustment focus: ${labels.join("; ")}. Use recommendation details to confirm which hires patch those priorities without duplicating tools you already marked.`;
+}
+
+function recommendationConfidenceExplanation(confidence: ModelRecommendation["confidence"]): string {
+  if (confidence === "High") return "High means this model has multiple visible evidence points in the current matchup data.";
+  if (confidence === "Medium") return "Medium means this model has useful evidence, but some matchup or collection inputs are inferred.";
+  return "Low means evidence is sparse or broad; verify the pick against your table plan before relying on it.";
 }
 
 function riskTitle(flags: VulnerabilityFlag[]): string {

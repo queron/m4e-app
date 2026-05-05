@@ -579,6 +579,40 @@ select option {
   color: var(--parchment-2);
 }
 
+.resultsContextBar {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  border: 1px solid rgba(196, 154, 70, 0.24);
+  border-radius: var(--radius-md);
+  background: rgba(15, 12, 10, 0.42);
+  padding: 10px;
+}
+
+.resultsContextBar span {
+  border: 1px solid var(--line-2);
+  border-radius: 999px;
+  background: rgba(17, 14, 11, 0.72);
+  color: var(--parchment-2);
+  padding: 6px 10px;
+  font-family: Inter, Arial, sans-serif;
+  font-size: 0.74rem;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.confidenceContext {
+  color: var(--parchment) !important;
+}
+
+.confidenceContext:focus-visible,
+.confidenceBadge:focus-visible {
+  outline: 2px solid #f0dfc0;
+  outline-offset: 2px;
+}
+
 .strategyContext span,
 .postAnalyzeSummary span {
   flex: 0 0 auto;

@@ -1345,7 +1345,8 @@ export function CrewPanel(props: {
     props.master,
     props.faction,
     mandatoryModels,
-    modelSort
+    modelSort,
+    props.search
   );
   const suggestedModelIds = new Set(suggestedExpectedModels.map((suggestion) => suggestion.model.id));
   const suggestedSection: ModelSection[] = suggestedExpectedModels.length > 0
@@ -1523,7 +1524,7 @@ export function CrewPanel(props: {
       <input
         className="search"
         value={props.search}
-        placeholder="Search models, abilities, actions, rules, keywords"
+        placeholder="Search name, title, faction, keyword, role, or ability"
         onChange={(event) => props.setSearch(event.target.value)}
       />
       <div className="listControls">
@@ -1597,7 +1598,7 @@ export function CrewPanel(props: {
                 />
               ))
             ) : (
-              <div className="modelSectionEmpty">No matching models, abilities, actions, rules, or keywords</div>
+              <div className="modelSectionEmpty">No model found. Try a faction, keyword, title, or partial name.</div>
             )}
           </div>
         ))}
@@ -1629,14 +1630,11 @@ function MasterCombobox({
   const [activeIndex, setActiveIndex] = useState(0);
   const wrapperRef = useRef<HTMLDivElement | null>(null);
   const filteredMasters = useMemo(() => {
-    const needle = query.trim().toLowerCase();
+    const needle = query.trim();
     if (!needle) return masters;
-    return masters.filter((master) =>
-      [master.name, master.faction, master.strategicKeywords.join(" "), master.keywords.join(" ")]
-        .join(" ")
-        .toLowerCase()
-        .includes(needle)
-    );
+    return masters
+      .filter((master) => matchesSearch(master, needle))
+      .sort((left, right) => searchMatchScore(right, needle) - searchMatchScore(left, needle) || left.name.localeCompare(right.name));
   }, [masters, query]);
 
   useEffect(() => {
@@ -1715,13 +1713,13 @@ function MasterCombobox({
             aria-expanded={open}
             autoFocus
             className="comboSearch"
-            placeholder="Search by master, title, or keyword"
+            placeholder="Search name, title, faction, keyword, role, or ability"
             role="combobox"
             value={query}
             onChange={(event) => setQuery(event.target.value)}
             onKeyDown={onSearchKeyDown}
           />
-          <span className="comboHint">Search by master, title, or keyword.</span>
+          <span className="comboHint">Search by master, title, faction, keyword, role, or ability.</span>
           <div className="comboList" id={listId} role="listbox" aria-label="Master options">
             {filteredMasters.length > 0 ? (
               filteredMasters.map((master, index) => (
@@ -1740,7 +1738,7 @@ function MasterCombobox({
                 </button>
               ))
             ) : (
-              <div className="comboEmpty">No masters match.</div>
+              <div className="comboEmpty">No master found. Try a faction, keyword, title, or partial name.</div>
             )}
           </div>
         </div>
@@ -3800,27 +3798,29 @@ function strategyReasons(items: string[], strategyName?: string): string[] {
 }
 
 function searchMatchSnippet(model: ModelCard, search: string): string | undefined {
-  const query = search.trim().toLowerCase();
+  const query = normalizeSearch(search);
   if (!query) return undefined;
 
-  const visibleIdentity = [model.name, model.faction, model.keywords.join(" ")].join(" ").toLowerCase();
+  const visibleIdentity = normalizeSearch([model.name, model.faction, model.keywords.join(" "), modelRole(model)].join(" "));
   if (visibleIdentity.includes(query)) return undefined;
 
-  const ability = model.abilities.find((candidate) => [candidate.name, candidate.text].join(" ").toLowerCase().includes(query));
+  const ability = model.abilities.find((candidate) => normalizeSearch([candidate.name, candidate.text].join(" ")).includes(query));
   if (ability) return `Matched ability: ${clipMatchText([ability.name, ability.text].join(" "), query)}`;
 
   const action = model.actions.find((candidate) =>
-    [
+    normalizeSearch([
       candidate.name,
       candidate.effect,
       ...(candidate.triggers ?? []).map((trigger) => `${trigger.name} ${trigger.effect ?? ""}`)
-    ].join(" ").toLowerCase().includes(query)
+    ].join(" ")).includes(query)
   );
   if (action) return `Matched action: ${clipMatchText([action.name, action.effect].join(" "), query)}`;
 
-  if (model.rulesText.toLowerCase().includes(query)) {
+  if (normalizeSearch(model.rulesText).includes(query)) {
     return `Matched rules: ${clipMatchText(model.rulesText, query)}`;
   }
+
+  if (matchesSearch(model, query)) return "Matched partial or fuzzy search.";
 
   return undefined;
 }
@@ -3837,9 +3837,113 @@ function clipMatchText(text: string, query: string): string {
 }
 
 function matchesSearch(model: ModelCard, search: string): boolean {
-  const query = search.trim().toLowerCase();
-  if (!query) return true;
-  return [model.name, model.faction, model.keywords.join(" "), model.textIndex].join(" ").toLowerCase().includes(query);
+  return searchMatchScore(model, search) > 0;
+}
+
+function searchMatchScore(model: ModelCard, search: string): number {
+  const query = normalizeSearch(search);
+  if (!query) return 1;
+  const queries = searchQueries(query);
+  const name = normalizeSearch(model.name);
+  const titleParts = model.name.split(",").slice(1).map(normalizeSearch).filter(Boolean);
+  const visibleFields = [
+    name,
+    ...titleParts,
+    normalizeSearch(model.faction),
+    normalizeSearch(model.keywords.join(" ")),
+    normalizeSearch(model.strategicKeywords.join(" ")),
+    normalizeSearch(modelRole(model))
+  ];
+  const fullText = searchableModelText(model);
+  let bestScore = 0;
+
+  for (const item of queries) {
+    if (!item) continue;
+    if (name.startsWith(item)) bestScore = Math.max(bestScore, 120);
+    if (titleParts.some((part) => part.startsWith(item))) bestScore = Math.max(bestScore, 112);
+    if (visibleFields.some((field) => field.startsWith(item))) bestScore = Math.max(bestScore, 104);
+    if (name.includes(item)) bestScore = Math.max(bestScore, 96);
+    if (visibleFields.some((field) => field.includes(item))) bestScore = Math.max(bestScore, 88);
+    if (fullText.includes(item)) bestScore = Math.max(bestScore, 72);
+    if (isSubsequence(item, name)) bestScore = Math.max(bestScore, 54);
+    if (hasCloseWordMatch(item, visibleFields.join(" "))) bestScore = Math.max(bestScore, 48);
+  }
+
+  return bestScore;
+}
+
+function compareSearchMatch(a: ModelCard, b: ModelCard, search: string): number {
+  const query = normalizeSearch(search);
+  if (!query) return 0;
+  return searchMatchScore(b, query) - searchMatchScore(a, query);
+}
+
+function searchableModelText(model: ModelCard): string {
+  return normalizeSearch([
+    model.name,
+    model.faction,
+    model.keywords.join(" "),
+    model.strategicKeywords.join(" "),
+    modelRole(model),
+    model.abilities.map((ability) => `${ability.name} ${ability.text}`).join(" "),
+    model.actions.map((action) => `${action.name} ${action.effect} ${(action.triggers ?? []).map((trigger) => `${trigger.name} ${trigger.effect ?? ""}`).join(" ")}`).join(" "),
+    model.textIndex
+  ].join(" "));
+}
+
+function searchQueries(query: string): string[] {
+  const aliases: Record<string, string[]> = {
+    viks: ["viktoria", "viktoria chambers"],
+    vik: ["viktoria", "viktoria chambers"],
+    vikkies: ["viktoria", "viktoria chambers"],
+    ashes: ["ashes and blood"],
+    blood: ["ashes and blood"],
+    rezzer: ["resurrectionists"],
+    ressers: ["resurrectionists"],
+    guild: ["the guild"],
+    explorer: ["explorer society", "explorer's society"]
+  };
+
+  return [query, ...(aliases[query] ?? [])];
+}
+
+function normalizeSearch(text: string): string {
+  return text.toLowerCase().replace(/['’]/g, "").replace(/[^a-z0-9]+/g, " ").trim();
+}
+
+function isSubsequence(needle: string, haystack: string): boolean {
+  if (needle.length < 3) return false;
+  let index = 0;
+  for (const character of haystack) {
+    if (character === needle[index]) index += 1;
+    if (index === needle.length) return true;
+  }
+  return false;
+}
+
+function hasCloseWordMatch(query: string, text: string): boolean {
+  if (query.length < 4) return false;
+  const threshold = Math.max(1, Math.floor(query.length / 4));
+  return text
+    .split(/\s+/)
+    .filter((word) => Math.abs(word.length - query.length) <= threshold)
+    .some((word) => levenshteinDistance(query, word) <= threshold);
+}
+
+function levenshteinDistance(a: string, b: string): number {
+  const previous = Array.from({ length: b.length + 1 }, (_, index) => index);
+  for (let i = 1; i <= a.length; i += 1) {
+    let last = i - 1;
+    previous[0] = i;
+    for (let j = 1; j <= b.length; j += 1) {
+      const old = previous[j];
+      previous[j] = a[i - 1] === b[j - 1]
+        ? last
+        : Math.min(previous[j] + 1, previous[j - 1] + 1, last + 1);
+      last = old;
+    }
+  }
+  return previous[b.length];
 }
 
 function hasFullModelDetails(model: ModelCard): boolean {
@@ -3869,18 +3973,20 @@ function groupModelsForMaster(
   master: ModelCard | undefined,
   faction: string,
   mandatoryModels: Array<{ model: ModelCard; quantity: number }>,
-  sortMode: ModelSortMode = "name"
+  sortMode: ModelSortMode = "name",
+  search = ""
 ): ModelSection[] {
   const masterKeywords = new Set(master?.strategicKeywords.map((keyword) => keyword.toLowerCase()) ?? []);
   const isKeywordModel = (model: ModelCard) =>
     model.strategicKeywords.some((keyword) => masterKeywords.has(keyword.toLowerCase()));
   const isVersatile = (model: ModelCard) => model.keywords.some((keyword) => keyword.toLowerCase() === "versatile");
 
-  const keywordModels = sortModelList(pool.filter(isKeywordModel), sortMode);
-  const versatileModels = sortModelList(pool.filter((model) => !isKeywordModel(model) && isVersatile(model)), sortMode);
+  const keywordModels = sortModelList(pool.filter(isKeywordModel), sortMode, search);
+  const versatileModels = sortModelList(pool.filter((model) => !isKeywordModel(model) && isVersatile(model)), sortMode, search);
   const factionModels = sortModelList(
     pool.filter((model) => !isKeywordModel(model) && !isVersatile(model) && model.faction === faction),
-    sortMode
+    sortMode,
+    search
   );
 
   return [
@@ -3895,8 +4001,11 @@ function getMandatoryModelsForMaster(master: ModelCard | undefined, pool: ModelC
   return getMandatoryCrewEntries(master, pool);
 }
 
-function sortModelList(models: ModelCard[], sortMode: ModelSortMode): ModelCard[] {
-  return [...models].sort((a, b) => sortModels(a, b, sortMode));
+function sortModelList(models: ModelCard[], sortMode: ModelSortMode, search = ""): ModelCard[] {
+  return [...models].sort((a, b) => {
+    const searchOrder = compareSearchMatch(a, b, search);
+    return searchOrder || sortModels(a, b, sortMode);
+  });
 }
 
 function sortModels(a: ModelCard, b: ModelCard, sortMode: ModelSortMode = "name"): number {

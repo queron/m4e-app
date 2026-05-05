@@ -4,7 +4,7 @@ import path from "node:path";
 import { performance } from "node:perf_hooks";
 
 const CLIENT_ROUTE_BUNDLE_BUDGET_BYTES = 800 * 1024;
-const API_CARDS_RESPONSE_BUDGET_BYTES = 7 * 1024 * 1024;
+const API_CARDS_RESPONSE_BUDGET_BYTES = 2 * 1024 * 1024;
 const HOST = "127.0.0.1";
 const PORT = Number(process.env.SIZE_BUDGET_PORT ?? 3211);
 const BASE_URL = `http://${HOST}:${PORT}`;

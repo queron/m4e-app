@@ -633,6 +633,10 @@ select option {
   grid-column: 1 / -1;
 }
 
+.nextStepsPanel {
+  grid-column: 1 / -1;
+}
+
 .strategyImpact {
   grid-column: 1 / -1;
 }
@@ -685,6 +689,35 @@ select option {
 .briefGrid li {
   color: var(--parchment-2);
   line-height: 1.4;
+}
+
+.nextStepList {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.nextStepList article {
+  border: 1px solid var(--line-2);
+  border-radius: var(--radius-md);
+  background: rgba(15, 12, 10, 0.34);
+  padding: 12px;
+}
+
+.nextStepList strong {
+  display: inline-flex;
+  margin-bottom: 7px;
+  color: var(--accent);
+  font-family: Inter, Arial, sans-serif;
+  font-size: 0.78rem;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+
+.nextStepList p {
+  margin: 0;
+  color: var(--parchment-2);
+  line-height: 1.45;
 }
 
 .crewAdjustmentGrid {
@@ -2897,6 +2930,7 @@ li + li {
   .listControls,
   .briefGrid,
   .crewAdjustmentGrid,
+  .nextStepList,
   .masterProfilePair,
   .setupStepper,
   .scoreGrid {

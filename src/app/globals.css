@@ -616,8 +616,8 @@ select option {
 .resultTabs {
   grid-column: 1 / -1;
   display: inline-grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  width: min(680px, 100%);
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  width: min(820px, 100%);
   border: 1px solid var(--line);
   border-radius: 999px;
   overflow: hidden;
@@ -647,17 +647,10 @@ select option {
 
 .schemeWatchlist {
   grid-column: 1 / -1;
-  border: 1px solid rgba(176, 138, 60, 0.3);
-  border-radius: var(--radius-lg);
-  background: rgba(17, 14, 11, 0.76);
-  padding: 12px 14px;
 }
 
-.schemeWatchlist summary {
-  cursor: pointer;
-  color: var(--parchment);
-  font-family: "Source Serif 4", Georgia, serif;
-  font-weight: 700;
+.schemeWatchlist .panelHeader {
+  margin-bottom: 12px;
 }
 
 .schemeWatchlistGrid {

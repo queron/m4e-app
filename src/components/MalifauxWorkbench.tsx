@@ -59,7 +59,7 @@ import {
 } from "@/lib/client-persistence";
 
 type PathKind = "available" | "optimal";
-type ActiveResultTab = "picks" | "matchup" | "draft";
+type ActiveResultTab = "picks" | "matchup" | "schemes" | "draft";
 
 const DEFAULT_POINT_LIMIT = 50;
 const INTERNAL_MODEL_LIMIT = 99;
@@ -880,6 +880,15 @@ export default function MalifauxWorkbench() {
               Understand Matchup
             </button>
             <button
+              className={activeResultTab === "schemes" ? "active" : ""}
+              type="button"
+              role="tab"
+              aria-selected={activeResultTab === "schemes"}
+              onClick={() => setActiveResultTab("schemes")}
+            >
+              Schemes
+            </button>
+            <button
               className={activeResultTab === "draft" ? "active" : ""}
               type="button"
               role="tab"
@@ -889,7 +898,6 @@ export default function MalifauxWorkbench() {
               Draft Crew
             </button>
           </div>
-          {analysis.schemeWatchlist ? <SchemeWatchlistPanel watchlist={analysis.schemeWatchlist} pairings={analysis.recommendedSchemePairs ?? []} /> : null}
           {activeResultTab === "picks" ? (
             <>
               <div className="analysisColumn">
@@ -949,6 +957,9 @@ export default function MalifauxWorkbench() {
                 />
               </div>
             </>
+          ) : null}
+          {activeResultTab === "schemes" && analysis.schemeWatchlist ? (
+            <SchemeWatchlistPanel watchlist={analysis.schemeWatchlist} pairings={analysis.recommendedSchemePairs ?? []} />
           ) : null}
           {activeResultTab === "draft" ? (
             <div className="draftResults">
@@ -1774,14 +1785,17 @@ function SchemeWatchlistPanel({
   pairings: NonNullable<MatchupAnalysis["recommendedSchemePairs"]>;
 }) {
   return (
-    <details className="schemeWatchlist">
-      <summary>Scheme Watchlist</summary>
+    <section className="schemeWatchlist panel">
+      <div className="panelHeader">
+        <h2>Scheme Watchlist</h2>
+        <span>Scheme planning</span>
+      </div>
       <div className="schemeWatchlistGrid">
         <SchemeWatchlistColumn title="Good for your crew" items={watchlist.goodForPlayer} />
         <SchemeWatchlistColumn title="Watch opponent for" items={watchlist.opponentThreats} />
       </div>
       <SchemePairingIdeas pairings={pairings} />
-    </details>
+    </section>
   );
 }
 

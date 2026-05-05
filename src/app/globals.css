@@ -284,6 +284,22 @@ select option {
   background: rgba(196, 154, 70, 0.12);
 }
 
+.stepBadge {
+  display: inline-grid;
+  place-items: center;
+  flex: 0 0 auto;
+  width: 26px;
+  height: 26px;
+  border: 1px solid rgba(196, 154, 70, 0.62);
+  border-radius: 50%;
+  background: rgba(196, 154, 70, 0.14);
+  color: var(--parchment);
+  font-family: Inter, Arial, sans-serif;
+  font-size: 0.78rem;
+  font-weight: 800;
+  line-height: 1;
+}
+
 .primary {
   min-height: 42px;
   border: 1px solid #c4a257;
@@ -336,6 +352,9 @@ select option {
 }
 
 .stickyAnalyzeBar strong {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   color: var(--parchment);
   font-family: "Source Serif 4", Georgia, serif;
   font-size: 0.98rem;
@@ -347,6 +366,13 @@ select option {
   color: var(--muted);
   font-size: 0.78rem;
   line-height: 1.35;
+}
+
+.stickyAnalyzeBar .stepBadge {
+  display: inline-grid;
+  margin-top: 0;
+  font-size: 0.78rem;
+  line-height: 1;
 }
 
 .stickyAnalyzeActions {
@@ -764,11 +790,22 @@ select option {
   margin-bottom: 12px;
 }
 
+.panelHeader h2 {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+
 .panelHeader span {
   color: var(--muted);
   font-family: Inter, Arial, sans-serif;
   font-size: 0.82rem;
   font-weight: 600;
+}
+
+.panelHeader .stepBadge,
+.stickyAnalyzeBar .stepBadge {
+  color: var(--parchment);
 }
 
 .panelHeader small {

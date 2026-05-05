@@ -1,13 +1,22 @@
 import { analyzeMatchup } from "@/lib/matchup-engine";
-import type { PlannerInput } from "@/lib/types";
+import { validatePlannerInput } from "@/lib/api-validation";
 import { NextResponse } from "next/server";
 
 export async function POST(request: Request) {
-  const input = (await request.json()) as PlannerInput;
+  let payload: unknown;
 
-  if (!input.playerMasterId || !input.opponentMasterId) {
-    return NextResponse.json({ error: "Select both masters before analyzing the matchup." }, { status: 400 });
+  try {
+    payload = await request.json();
+  } catch {
+    return NextResponse.json({ error: "Request body must be valid JSON." }, { status: 400 });
   }
 
-  return NextResponse.json(analyzeMatchup(input));
+  const result = validatePlannerInput(payload);
+
+  if (!result.ok) {
+    const { status, ...body } = result.error;
+    return NextResponse.json(body, { status });
+  }
+
+  return NextResponse.json(analyzeMatchup(result.value));
 }

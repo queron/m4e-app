@@ -35,7 +35,7 @@ import masterPlaystyleNotes from "@/data/master_playstyle_notes.json";
 import { SCHEME_POOLS } from "@/lib/scheme-pools";
 import { STRATEGY_POOLS } from "@/lib/strategy-pools";
 import { findSyntheticRuleForMaster, getMandatoryCrewEntries, getTitleTotemRules } from "@/lib/mandatory-crew";
-import type { Strategy } from "@/lib/strategy-pools";
+import type { Strategy, StrategyTag } from "@/lib/strategy-pools";
 import {
   actionPrefixIcon,
   cleanActionName,
@@ -862,6 +862,11 @@ export default function MalifauxWorkbench() {
             </button>
           </div>
           <MatchupBriefPanel brief={analysis.matchupBrief} />
+          <StrategyImpactPanel
+            opponentCrew={analysis.opponentCrew.expectedModels.length > 0 ? analysis.opponentCrew.expectedModels : analysis.opponentCrew.likelyModels.map((recommendation) => recommendation.model)}
+            path={selectedPath}
+            strategy={analysis.match.strategy}
+          />
           <div className="resultTabs" role="tablist" aria-label="Analysis views">
             <button
               className={activeResultTab === "picks" ? "active" : ""}
@@ -908,7 +913,7 @@ export default function MalifauxWorkbench() {
                   setPathKind={setPathKind}
                   selectedPath={selectedPath}
                   usedFullPool={pathKind === "available" && analyzedCollectionCount === 0}
-                  strategyName={analysis.match.strategy?.name}
+                  strategy={analysis.match.strategy}
                   onUsePlan={(path) => {
                     setDraftPath(path);
                     setActiveResultTab("draft");
@@ -1863,6 +1868,51 @@ function MatchupBriefPanel({ brief }: { brief: MatchupAnalysis["matchupBrief"] }
   );
 }
 
+function StrategyImpactPanel({
+  opponentCrew,
+  path,
+  strategy
+}: {
+  opponentCrew: ModelCard[];
+  path?: RecommendationPath;
+  strategy?: Strategy;
+}) {
+  const recommendations = path?.models ?? [];
+  const topFits = recommendations
+    .map((recommendation) => ({
+      modelName: recommendation.model.name,
+      tags: strategyFitTags(recommendation.model, strategy)
+    }))
+    .filter((entry) => entry.tags.length > 0)
+    .slice(0, 3);
+  const opponentPressure = strategy ? strategyRelevantModels(opponentCrew, strategy).slice(0, 3) : [];
+  const bullets = strategy
+    ? [
+        `${strategy.name} rewards ${strategyRewardText(strategy)}.`,
+        topFits.length > 0
+          ? `Your recommended hires lean toward ${topFits.map((entry) => `${entry.modelName} (${formatVisibleTags(entry.tags)})`).join("; ")}.`
+          : "No current recommendation has a clear direct strategy-tag overlap, so confirm your scoring roles before locking the list.",
+        opponentPressure.length > 0
+          ? `Watch opposing strategy pressure from ${opponentPressure.map((entry) => `${entry.model.name} (${formatVisibleTags(entry.tags)})`).join("; ")}.`
+          : "No expected opponent model has an obvious strategy-tag overlap yet; mark likely enemy models to sharpen this read."
+      ]
+    : ["Choose a strategy to see strategy impact."];
+
+  return (
+    <section className="panel strategyImpact">
+      <div className="panelHeader">
+        <h2>Strategy Impact</h2>
+        <span>{strategy?.name ?? "No strategy selected"}</span>
+      </div>
+      <ul>
+        {bullets.map((bullet, index) => (
+          <li key={`${strategy?.id ?? "none"}-${index}`}>{bullet}</li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
 function BriefColumn({ title, items }: { title: string; items: string[] }) {
   return (
     <div>
@@ -1935,7 +1985,7 @@ export function RecommendationPanel({
   setPathKind,
   selectedPath,
   usedFullPool,
-  strategyName,
+  strategy,
   onUsePlan,
   onSavePlan,
   onExportPlan,
@@ -1945,7 +1995,7 @@ export function RecommendationPanel({
   setPathKind: (value: PathKind) => void;
   selectedPath?: RecommendationPath;
   usedFullPool: boolean;
-  strategyName?: string;
+  strategy?: Strategy;
   onUsePlan: (path: RecommendationPath) => void;
   onSavePlan: (path: RecommendationPath) => void;
   onExportPlan: (path: RecommendationPath) => void;
@@ -2020,8 +2070,9 @@ export function RecommendationPanel({
         {sortedRecommendations.map((recommendation) => {
           const modelIssues = selectedPath.validation.modelIssues[recommendation.model.id] ?? [];
           const chips = recommendationChips(recommendation);
+          const fitTags = strategyFitTags(recommendation.model, strategy);
           const fitPercent = normalizedScorePercent(recommendation.score, maxRecommendationScore);
-          const plan = recommendationPlan(recommendation, strategyName);
+          const plan = recommendationPlan(recommendation, strategy?.name);
 
           return (
             <article className="recommendation" key={recommendation.model.id}>
@@ -2052,6 +2103,11 @@ export function RecommendationPanel({
               </div>
               {modelIssues.length > 0 ? <InlineIssues issues={modelIssues} /> : null}
               <div className="recChipRow" aria-label={`${recommendation.model.name} tactical summary`}>
+                {fitTags.length > 0 ? (
+                  <span className="recChip strategyFitChip" title={`${recommendation.model.name} directly supports ${strategy?.name} through ${formatVisibleTags(fitTags)}.`}>
+                    Strategy fit: {formatVisibleTags(fitTags.slice(0, 2))}
+                  </span>
+                ) : null}
                 {chips.map((chip) => (
                   <span className="recChip" key={chip.label} title={chip.title}>
                     {chip.label}
@@ -2102,7 +2158,7 @@ export function RecommendationPanel({
               </button>
               {expandedModelId === recommendation.model.id ? (
                 <>
-                  <RecSection title="How to Use" items={modelUseNotes(recommendation, strategyName, plan)} />
+                  <RecSection title="How to Use" items={modelUseNotes(recommendation, strategy?.name, plan)} />
                   <RecSection title="Matchup Risks" items={riskFlagNotes(recommendation.vulnerabilityFlags)} />
                   <RecSection title="Key Tech" items={recommendation.relevantTech} />
                   <RecSection title="Targets" items={recommendation.priorityTargets} />
@@ -3119,6 +3175,38 @@ function triggerIcons(condition?: string) {
     .map((item) => (item === "ss" ? "s" : item))
     .filter((item) => TRIGGER_SUIT_ICONS[item])
     .map((item, index) => <RulesIcon key={`${item}-${index}`} iconKey={TRIGGER_SUIT_ICONS[item]} />);
+}
+
+const STRATEGY_TO_TACTICAL_TAGS: Record<StrategyTag, TacticalTag[]> = {
+  antiScheme: ["scheme", "marker", "control"],
+  center: ["armor", "healing", "control", "demise"],
+  control: ["control", "slow", "staggered", "stunned"],
+  denial: ["control", "marker", "staggered", "slow"],
+  durability: ["armor", "incorporeal", "healing", "demise"],
+  enemyHalf: ["mobility", "placement", "scheme"],
+  interact: ["scheme", "mobility", "placement"],
+  killing: ["damage", "burst", "melee", "ranged"],
+  markers: ["marker", "scheme", "placement"],
+  mobility: ["mobility", "placement"],
+  scheme: ["scheme", "marker", "mobility"],
+  spread: ["mobility", "placement", "scheme"]
+};
+
+function strategyFitTags(model: ModelCard, strategy?: Strategy): TacticalTag[] {
+  if (!strategy) return [];
+  const desiredTags = new Set(strategy.tags.flatMap((tag) => STRATEGY_TO_TACTICAL_TAGS[tag]));
+  return topTacticalTags(model.tacticalTags.filter((tag) => desiredTags.has(tag)));
+}
+
+function strategyRelevantModels(models: ModelCard[], strategy: Strategy): Array<{ model: ModelCard; tags: TacticalTag[] }> {
+  return models
+    .map((model) => ({ model, tags: strategyFitTags(model, strategy) }))
+    .filter((entry) => entry.tags.length > 0)
+    .sort((left, right) => right.tags.length - left.tags.length || right.model.cost - left.model.cost || left.model.name.localeCompare(right.model.name));
+}
+
+function strategyRewardText(strategy: Strategy): string {
+  return strategy.summary.replace(/^Rewards\s+/i, "").replace(/\.$/, "").toLowerCase();
 }
 
 function strategyReasons(items: string[], strategyName?: string): string[] {

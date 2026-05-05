@@ -537,6 +537,22 @@ select option {
   grid-column: 1 / -1;
 }
 
+.strategyImpact {
+  grid-column: 1 / -1;
+}
+
+.strategyImpact ul {
+  display: grid;
+  gap: 9px;
+  margin: 0;
+  padding-left: 20px;
+}
+
+.strategyImpact li {
+  color: var(--parchment-2);
+  line-height: 1.45;
+}
+
 .briefGrid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -1977,6 +1993,12 @@ li + li {
   font-size: 0.72rem;
   font-weight: 700;
   line-height: 1.2;
+}
+
+.strategyFitChip {
+  border-color: rgba(142, 154, 114, 0.54);
+  background: rgba(47, 90, 69, 0.28);
+  color: #cfddb3;
 }
 
 .recChip[title*="risk"],

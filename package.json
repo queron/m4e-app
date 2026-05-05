@@ -6,7 +6,7 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint",
+    "lint": "eslint .",
     "benchmark:analysis": "node scripts/benchmark-analysis.mjs",
     "validate:data": "node scripts/validate-card-data.mjs && node scripts/validate-crew-fixtures.mjs && node scripts/validate-scheme-pools.mjs",
     "validate:fixtures": "node scripts/validate-crew-fixtures.mjs"

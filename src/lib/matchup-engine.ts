@@ -5,9 +5,8 @@ import {
   getPrimaryKeywords,
   legalModelsForMaster
 } from "./card-data";
-import strategyNotes from "@/data/strategy_notes.json";
 import { buildCrewByScore, validateCrew } from "./crew-validation";
-import { getSchemePool, type Scheme, type SchemePool } from "./scheme-pools";
+import { getSchemePool, type SchemePool } from "./scheme-pools";
 import { getStrategy, type Strategy } from "./strategy-pools";
 import type {
   CrewCard,
@@ -18,56 +17,23 @@ import type {
   ModelRecommendation,
   PlannerInput,
   RecommendationPath,
-  SchemePairRecommendation,
+  ScoredModel,
   SynergyGroup,
-  TacticalTag,
-  VulnerabilityFlag
+  TacticalTag
 } from "./types";
 import { actionToText, cleanText, containsTag } from "./strategy-tags";
-
-const COUNTER_TAGS: Partial<Record<TacticalTag, TacticalTag[]>> = {
-  armor: ["antiArmor", "injured", "poison", "burning", "control"],
-  incorporeal: ["damage", "antiArmor", "cardPressure"],
-  healing: ["damage", "stunned", "cardPressure"],
-  mobility: ["staggered", "slow", "placement", "control"],
-  placement: ["staggered", "slow", "control"],
-  scheme: ["mobility", "scheme", "marker", "placement"],
-  marker: ["mobility", "marker", "scheme", "placement"],
-  cardPressure: ["cardPressure", "summon", "damage"],
-  stunned: ["antiTrigger", "cardPressure", "damage"],
-  slow: ["mobility", "cardPressure"],
-  staggered: ["ranged", "placement", "mobility"],
-  burning: ["damage", "healing", "control"],
-  poison: ["damage", "healing", "control"],
-  summon: ["burst", "damage", "scheme", "cardPressure"],
-  ranged: ["mobility", "placement", "melee"],
-  melee: ["ranged", "mobility", "control"],
-  willpowerAttack: ["willpowerAttack", "cardPressure", "stunned"],
-  defenseAttack: ["injured", "control", "damage"],
-  speedAttack: ["staggered", "slow", "mobility"],
-  sizeAttack: ["placement", "damage"],
-  soulstone: ["cardPressure", "damage", "control"]
-};
-
-const ROLE_RULES: Array<[string, TacticalTag[]]> = [
-  ["scheme runner", ["scheme", "mobility", "placement"]],
-  ["scheme denial", ["marker", "placement", "control"]],
-  ["beater", ["damage", "burst", "melee", "ranged"]],
-  ["control", ["stunned", "slow", "staggered", "injured", "control"]],
-  ["support", ["healing", "cardPressure", "summon"]],
-  ["anchor", ["armor", "incorporeal", "demise"]]
-];
-
-const LOW_WP_THRESHOLD = 4;
-const LOW_SPEED_THRESHOLD = 4;
-
-type StrategyNotes = {
-  keywords: Record<string, string[]>;
-  masters: Record<string, string[]>;
-  strategyTags?: Record<string, string[]>;
-};
-
-const NOTES = strategyNotes as StrategyNotes;
+import { buildSchemePairRecommendations, buildSchemeWatchlist } from "./scheme-recommendations";
+import { clamp, curatedNotesFor, formatTags, strategyNotesFor, uniqueSentences } from "./explanation-text";
+import { confidenceFromScore, duplicateGuidance, efficiencyBonus, inferRole } from "./scoring";
+import {
+  COUNTER_TAGS,
+  buildOpponentPressureContext,
+  buildVulnerabilityFlagIndex,
+  detectVulnerabilityFlags,
+  isRelevantText,
+  summarizeVulnerabilityThemes,
+  type OpponentPressureContext
+} from "./vulnerability-flags";
 
 export function analyzeMatchup(input: PlannerInput): MatchupAnalysis {
   const catalog = getCatalog();
@@ -447,101 +413,6 @@ function buildSynergyGroups(master: ModelCard | undefined, recommendations: Mode
   return groups.slice(0, 3);
 }
 
-function buildSchemeWatchlist(schemePool: SchemePool, playerSources: Array<ModelCard | CrewCard>, opponentCrew: ModelCard[]) {
-  const playerTags = new Set<TacticalTag>(playerSources.flatMap((source) => source.tacticalTags));
-  const opponentTags = new Set<TacticalTag>(opponentCrew.flatMap((model) => model.tacticalTags));
-
-  const scoreScheme = (scheme: Scheme, tags: Set<TacticalTag>) => scheme.tags.filter((tag) => tags.has(tag)).length;
-  const goodForPlayer = schemePool.schemes
-    .map((scheme) => ({ scheme, score: scoreScheme(scheme, playerTags) }))
-    .filter((item) => item.score > 0)
-    .sort((a, b) => b.score - a.score || a.scheme.name.localeCompare(b.scheme.name))
-    .slice(0, 5)
-    .map(({ scheme }) => ({
-      scheme,
-      rationale: `Your crew shows ${formatTags(scheme.tags.filter((tag) => playerTags.has(tag)))}, so ${scheme.name} may be a live scoring lane.`
-    }));
-
-  const opponentThreats = schemePool.schemes
-    .map((scheme) => ({ scheme, score: scoreScheme(scheme, opponentTags) }))
-    .filter((item) => item.score > 0)
-    .sort((a, b) => b.score - a.score || a.scheme.name.localeCompare(b.scheme.name))
-    .slice(0, 5)
-    .map(({ scheme }) => ({
-      scheme,
-      rationale: `Watch for opposing ${formatTags(scheme.tags.filter((tag) => opponentTags.has(tag)))}, which can make ${scheme.name} easier to threaten.`
-    }));
-
-  return { goodForPlayer, opponentThreats };
-}
-
-function buildSchemePairRecommendations(
-  schemePool: SchemePool,
-  playerSources: Array<ModelCard | CrewCard>,
-  recommendations: ModelRecommendation[],
-  opponentCrew: ModelCard[],
-  strategy?: Strategy
-): SchemePairRecommendation[] {
-  if (schemePool.incomplete || schemePool.schemes.length < 2) return [];
-
-  const playerTags = new Set<TacticalTag>([
-    ...playerSources.flatMap((source) => source.tacticalTags),
-    ...recommendations.slice(0, 6).flatMap((recommendation) => recommendation.model.tacticalTags)
-  ]);
-  const opponentTags = new Set<TacticalTag>(opponentCrew.flatMap((model) => model.tacticalTags));
-  const strategyTagText = new Set<string>(strategy?.tags ?? []);
-  const pairs: Array<{
-    schemes: [Scheme, Scheme];
-    score: number;
-    overlap: TacticalTag[];
-  }> = [];
-
-  for (let leftIndex = 0; leftIndex < schemePool.schemes.length; leftIndex += 1) {
-    for (let rightIndex = leftIndex + 1; rightIndex < schemePool.schemes.length; rightIndex += 1) {
-      const left = schemePool.schemes[leftIndex];
-      const right = schemePool.schemes[rightIndex];
-      const pairTags = Array.from(new Set([...left.tags, ...right.tags]));
-      const overlap = pairTags.filter((tag) => playerTags.has(tag));
-      const strategyBonus = pairTags.some((tag) => strategyTagText.has(tag)) ? 1 : 0;
-      const denialRisk = pairTags.filter((tag) => opponentTags.has(tag)).length;
-      const score = overlap.length * 3 + strategyBonus - Math.min(2, denialRisk);
-      if (score > 0) pairs.push({ schemes: [left, right], score, overlap });
-    }
-  }
-
-  return pairs
-    .sort((a, b) => b.score - a.score || a.schemes[0].name.localeCompare(b.schemes[0].name))
-    .slice(0, 3)
-    .map((pair) => {
-      const sharedJobs = pair.overlap.length ? pair.overlap : Array.from(new Set([...pair.schemes[0].tags, ...pair.schemes[1].tags])).slice(0, 3);
-      return {
-        schemes: pair.schemes,
-        rationale: `${pair.schemes[0].name} + ${pair.schemes[1].name} both lean on ${formatTags(sharedJobs)}, which your current plan can support.`,
-        requiredJobs: sharedJobs.map((tag) => `Maintain ${formatTags([tag])} coverage without committing every scoring piece early.`),
-        opponentWatchout: opponentTags.size > 0
-          ? `Opponent pressure includes ${formatTags(Array.from(opponentTags).slice(0, 4))}; keep the pair advisory until you see their denial plan.`
-          : "Opponent model data is light, so confirm denial pressure before locking in this lane.",
-        confidence: pair.score >= 8 ? "High" : pair.score >= 4 ? "Medium" : "Low"
-      };
-    });
-}
-
-type ScoredModel = {
-  model: ModelCard;
-  score: number;
-  role: string;
-  scoreBreakdown: {
-    masterAbilities: number;
-    crewSynergy: number;
-    compositionMatchup: number;
-  };
-  why: string[];
-  relevantTech: string[];
-  priorityTargets: string[];
-  alliedSynergies: string[];
-  vulnerabilityFlags: VulnerabilityFlag[];
-};
-
 function scoreModel(
   model: ModelCard,
   playerMaster: ModelCard | undefined,
@@ -573,170 +444,6 @@ function scoreModel(
     alliedSynergies: alliedSynergies(model, playerMaster, playerCrewCard).slice(0, 4),
     vulnerabilityFlags: detectVulnerabilityFlags(model, opponentPressure)
   };
-}
-
-type OpponentPressureContext = {
-  wpPressure: string[];
-  conditionPressure: string[];
-  markerDenial: string[];
-  mobilityPressure: string[];
-};
-
-function buildOpponentPressureContext(
-  opponentMaster: ModelCard | undefined,
-  opponentCrewCard: CrewCard | undefined,
-  opponentCrew: ModelCard[]
-): OpponentPressureContext {
-  const modelSources = uniqueModels([opponentMaster, ...opponentCrew]);
-  const allSources = [...modelSources, opponentCrewCard].filter(Boolean) as Array<ModelCard | CrewCard>;
-  const context: OpponentPressureContext = {
-    wpPressure: [],
-    conditionPressure: [],
-    markerDenial: [],
-    mobilityPressure: []
-  };
-
-  for (const source of allSources) {
-    const name = source.name;
-    const tags = new Set(source.tacticalTags);
-    const actions = "actions" in source ? source.actions : [];
-    const actionableText = [
-      ...("abilities" in source ? source.abilities.map((ability) => `${ability.name} ${ability.text ?? ""}`) : []),
-      ...actions.map(actionToText)
-    ].join(" ");
-
-    if (tags.has("willpowerAttack") || /stunned|slow|staggered|injured|obey|discard a card/i.test(actionableText) || actions.some(isWpPressureAction) || /wp duel|willpower/i.test(actionableText)) {
-      context.wpPressure.push(`${name}: Wp or control pressure`);
-    }
-
-    const conditionTags = conditionTagsFromText(actionableText);
-    if (conditionTags.length > 0) {
-      context.conditionPressure.push(`${name}: ${formatTags(conditionTags)}`);
-    }
-
-    if (/remove (?:up to )?(?:one |a )?(?:scheme |corpse |scrap |strategy |shadow )?marker|enemy scheme marker|markers? within/i.test(actionableText)) {
-      context.markerDenial.push(`${name}: marker interaction or denial`);
-    }
-
-    if (/staggered|slow|move the target|place the target|cannot be moved/i.test(actionableText)) {
-      context.mobilityPressure.push(`${name}: movement control`);
-    }
-  }
-
-  return {
-    wpPressure: uniqueSentences(context.wpPressure).slice(0, 4),
-    conditionPressure: uniqueSentences(context.conditionPressure).slice(0, 4),
-    markerDenial: uniqueSentences(context.markerDenial).slice(0, 4),
-    mobilityPressure: uniqueSentences(context.mobilityPressure).slice(0, 4)
-  };
-}
-
-function isWpPressureAction(action: ModelCard["actions"][number]): boolean {
-  return action.resist?.toLowerCase() === "wp" || /wp duel|resisted by .*wp/i.test(actionToText(action));
-}
-
-function conditionTagsFromText(text: string): TacticalTag[] {
-  return (["stunned", "slow", "staggered", "injured", "burning", "poison"] as TacticalTag[]).filter((tag) =>
-    new RegExp(tag, "i").test(text)
-  );
-}
-
-function detectVulnerabilityFlags(model: ModelCard, opponentPressure: OpponentPressureContext): VulnerabilityFlag[] {
-  const flags: VulnerabilityFlag[] = [];
-
-  if (opponentPressure.wpPressure.length > 0 && model.statBlock.willpower > 0 && model.statBlock.willpower <= LOW_WP_THRESHOLD) {
-    flags.push({
-      id: "lowWp",
-      label: "Low Wp risk",
-      severity: "High",
-      summary: `${model.name} has Wp ${model.statBlock.willpower}, so Wp/control pressure can force defensive flips and card spend.`,
-      causedBy: opponentPressure.wpPressure
-    });
-  }
-
-  if (opponentPressure.conditionPressure.length > 0 && !hasConditionProtection(model)) {
-    flags.push({
-      id: "conditionExposure",
-      label: "Condition exposure",
-      severity: model.statBlock.willpower <= LOW_WP_THRESHOLD ? "High" : "Medium",
-      summary: `${model.name} does not show obvious condition removal or mitigation, so condition pressure can tax its activation plan.`,
-      causedBy: opponentPressure.conditionPressure
-    });
-  }
-
-  if (opponentPressure.markerDenial.length > 0 && hasAnyTag(model, ["scheme", "marker"])) {
-    flags.push({
-      id: "markerDenial",
-      label: "Marker denial risk",
-      severity: "Medium",
-      summary: `${model.name} leans on marker or scheme play, so opposing marker interaction may blunt its scoring job.`,
-      causedBy: opponentPressure.markerDenial
-    });
-  }
-
-  if (
-    opponentPressure.mobilityPressure.length > 0 &&
-    model.statBlock.speed > 0 &&
-    model.statBlock.speed <= LOW_SPEED_THRESHOLD &&
-    !hasAnyTag(model, ["mobility", "placement"])
-  ) {
-    flags.push({
-      id: "lowMobility",
-      label: "Low mobility risk",
-      severity: "Medium",
-      summary: `${model.name} is Sp ${model.statBlock.speed} without clear movement tech, making slow or displacement pressure harder to absorb.`,
-      causedBy: opponentPressure.mobilityPressure
-    });
-  }
-
-  return flags;
-}
-
-function hasConditionProtection(model: ModelCard): boolean {
-  if (hasAnyTag(model, ["healing", "armor", "incorporeal", "demise"])) return true;
-  return /remove .*condition|remove .*token|condition .*cannot|shielded|armor|hard to kill|evasive|aegis|serene countenance/i.test(model.textIndex);
-}
-
-function buildVulnerabilityFlagIndex(scored: ScoredModel[]): Record<string, VulnerabilityFlag[]> {
-  return Object.fromEntries(scored.map((item) => [item.model.id, item.vulnerabilityFlags]));
-}
-
-function summarizeVulnerabilityThemes(recommendations: ModelRecommendation[]): string[] {
-  const counts = new Map<string, { label: string; count: number; causedBy: string[] }>();
-
-  for (const recommendation of recommendations) {
-    for (const flag of recommendation.vulnerabilityFlags) {
-      const current = counts.get(flag.id) ?? { label: flag.label, count: 0, causedBy: [] };
-      current.count += 1;
-      current.causedBy.push(...flag.causedBy);
-      counts.set(flag.id, current);
-    }
-  }
-
-  return Array.from(counts.values())
-    .sort((left, right) => right.count - left.count || left.label.localeCompare(right.label))
-    .slice(0, 3)
-    .map((item) => `${item.label}: ${item.count} recommended pick${item.count === 1 ? "" : "s"} flagged; caused by ${uniqueSentences(item.causedBy).slice(0, 2).join("; ")}.`);
-}
-
-function duplicateGuidance(model: ModelCard, scored: ScoredModel): string | undefined {
-  if (model.maxCopies <= 1) return undefined;
-
-  const role = scored.role;
-  const strongRepeatRole = ["scheme runner", "beater", "control"].includes(role);
-  const pressureTags = scored.model.tacticalTags.filter((tag) =>
-    ["damage", "scheme", "mobility", "control", "marker", "ranged"].includes(tag)
-  );
-
-  if (scored.score >= 24 && strongRepeatRole) {
-    return `A second copy can be justified when you want redundant ${role} pressure; ${formatTags(pressureTags.slice(0, 3))} scales well across multiple activations.`;
-  }
-
-  if (scored.score >= 14) {
-    return `A second copy is playable, but check whether the crew still has enough distinct scoring, support, and answer pieces before doubling down.`;
-  }
-
-  return `Extra copies look like diminishing returns in this setup; prefer one copy unless the scenario specifically rewards repeated ${role} pieces.`;
 }
 
 function scoreAgainstMaster(model: ModelCard, opponentMaster?: ModelCard, opponentCrewCard?: CrewCard) {
@@ -1040,36 +747,6 @@ function uniqueModels(models: Array<ModelCard | undefined>): ModelCard[] {
   });
 }
 
-function isRelevantText(text: string, opponentTags: Set<TacticalTag>): boolean {
-  const normalized = cleanText(text);
-  if (!normalized) return false;
-  for (const tag of opponentTags) {
-    const counters = COUNTER_TAGS[tag] ?? [];
-    if (counters.some((counter) => normalized.toLowerCase().includes(counter.toLowerCase()))) return true;
-  }
-  return /damage|discard|stunned|slow|staggered|injured|burning|poison|scheme|marker|place|move|heal|irreducible/i.test(normalized);
-}
-
-function inferRole(model: Pick<ModelCard, "tacticalTags">): string {
-  let best = ROLE_RULES[0][0];
-  let bestScore = -1;
-  for (const [role, tags] of ROLE_RULES) {
-    const score = tags.filter((tag) => model.tacticalTags.includes(tag)).length;
-    if (score > bestScore) {
-      best = role;
-      bestScore = score;
-    }
-  }
-  return bestScore <= 0 ? "tech pick" : best;
-}
-
-function efficiencyBonus(model: ModelCard): number {
-  if (model.cost <= 5) return 4;
-  if (model.cost <= 7) return 2;
-  if (model.cost >= 10 && (model.tacticalTags.includes("damage") || model.tacticalTags.includes("control"))) return 2;
-  return 0;
-}
-
 function toRecommendation(scored: ScoredModel, master: ModelCard | undefined, ownedIds: Set<string>, treatAsOwned = false): ModelRecommendation {
   const hireDetails = getHireDetails(master, scored.model);
   const roundedScore = Math.round(scored.score);
@@ -1103,46 +780,4 @@ function toRecommendation(scored: ScoredModel, master: ModelCard | undefined, ow
     alliedSynergies: scored.alliedSynergies,
     vulnerabilityFlags: scored.vulnerabilityFlags
   };
-}
-
-function confidenceFromScore(score: number): "High" | "Medium" | "Low" {
-  if (score >= 24) return "High";
-  if (score >= 14) return "Medium";
-  return "Low";
-}
-
-function curatedNotesFor(model?: ModelCard, master?: ModelCard): string[] {
-  const notes: string[] = [];
-  if (model) {
-    notes.push(...(NOTES.masters[model.name] ?? []));
-    for (const keyword of getPrimaryKeywords(model)) {
-      notes.push(...(NOTES.keywords[keyword] ?? []));
-    }
-  }
-  if (master && master.id !== model?.id) {
-    notes.push(...(NOTES.masters[master.name] ?? []));
-    for (const keyword of getPrimaryKeywords(master)) {
-      notes.push(...(NOTES.keywords[keyword] ?? []));
-    }
-  }
-  return uniqueSentences(notes);
-}
-
-function strategyNotesFor(strategy?: Strategy): string[] {
-  if (!strategy) return [];
-  return uniqueSentences(strategy.tags.flatMap((tag) => NOTES.strategyTags?.[tag] ?? []));
-}
-
-function formatTags(tags: TacticalTag[]): string {
-  const unique = Array.from(new Set(tags));
-  if (unique.length === 0) return "flex table job";
-  return unique.map((tag) => tag.replace(/([A-Z])/g, " $1").toLowerCase()).join(", ");
-}
-
-function uniqueSentences(lines: string[]): string[] {
-  return Array.from(new Set(lines.filter(Boolean)));
-}
-
-function clamp(value: number, min: number, max: number): number {
-  return Math.max(min, Math.min(max, value));
 }

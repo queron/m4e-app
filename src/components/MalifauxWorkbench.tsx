@@ -2421,12 +2421,6 @@ function HelpDisclosure({ label, text, className }: { label: string; text: strin
   );
 }
 
-function confidenceLabel(score: number): "High" | "Medium" | "Low" {
-  if (score >= 12) return "High";
-  if (score >= 8) return "Medium";
-  return "Low";
-}
-
 function formatRecommendationCost(recommendation: ModelRecommendation): string {
   if (recommendation.hireTax <= 0) return `${recommendation.hireCost}ss`;
   return `${recommendation.hireCost}ss (${recommendation.printedCost}+${recommendation.hireTax})`;
@@ -2576,11 +2570,6 @@ function tacticalTagLabel(tag: TacticalTag): string {
     soulstone: "Soulstone use"
   };
   return labels[tag] ?? tacticalRoleLabel(tag.replace(/([A-Z])/g, " $1").toLowerCase());
-}
-
-function formatExportHireLine(recommendation: ModelRecommendation): string {
-  const reason = recommendation.hireTax > 0 ? ` - ${recommendation.hireReason}` : "";
-  return `${recommendation.model.name} (${formatRecommendationCost(recommendation)}) - ${recommendation.role}${reason}`;
 }
 
 function modelUseNotes(recommendation: ModelRecommendation, strategyName: string | undefined, plan: ReturnType<typeof recommendationPlan>): string[] {
@@ -2959,28 +2948,6 @@ function StatChip({ iconKey, value }: { iconKey: Extract<RulesIconKey, "defense"
   return (
     <span className="statChip">
       <RulesIcon iconKey={iconKey} /> {value}
-    </span>
-  );
-}
-
-function ActionChip({ action }: { action: ModelCard["actions"][number] }) {
-  const prefixIcon = actionPrefixIcon(action.name);
-  const typeIcon = rangeIcon(action.range);
-  const triggers = (action.triggers ?? [])
-    .flatMap((trigger) => trigger.condition?.toLowerCase().match(/ss|[rmcts]/g) ?? [])
-    .map((condition) => (condition === "ss" ? "s" : condition))
-    .filter((condition) => TRIGGER_SUIT_ICONS[condition])
-    .slice(0, 3);
-
-  return (
-    <span className="actionChip" title={cleanActionName(action.name)}>
-      {prefixIcon ? <RulesIcon iconKey={prefixIcon} /> : null}
-      {typeIcon ? <RulesIcon iconKey={typeIcon} /> : null}
-      <span>{cleanActionName(action.name)}</span>
-      {cleanRange(action.range) ? <em>{cleanRange(action.range)}</em> : null}
-      {triggers.map((condition, index) => (
-        <RulesIcon key={`${condition}-${index}`} iconKey={TRIGGER_SUIT_ICONS[condition]} />
-      ))}
     </span>
   );
 }

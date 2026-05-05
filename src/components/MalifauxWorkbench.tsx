@@ -833,7 +833,7 @@ export default function MalifauxWorkbench() {
       ) : null}
 
       <nav className="setupStepper" aria-label="Counter-pick setup sequence">
-        <span>1. Match</span>
+        <span>1. Match Context</span>
         <span>2. Player Collection</span>
         <span>3. Opponent Intel</span>
         <span>4. Analyze</span>
@@ -843,10 +843,12 @@ export default function MalifauxWorkbench() {
         <div className="panelHeader">
           <h2>
             <span className="stepBadge">1</span>
-            <RulesIcon iconKey="strategy" /> Match
+            <RulesIcon iconKey="strategy" /> Match Context
             <InlineHelp label="Match setup help" text={analyzeReadiness.detail} />
           </h2>
+          <span>{strategy?.name ?? "No strategy selected"} | {strategyPool.name} | {pointLimit}ss</span>
         </div>
+        <p className="matchContextLead">Recommendations use this strategy context before applying crew-specific evidence.</p>
         <div className="matchGrid">
           <label>
             Strategy Pool
@@ -1016,7 +1018,7 @@ export default function MalifauxWorkbench() {
               <h2>
                 {analysis.playerCrew.master?.name ?? "Player"} vs {analysis.opponentCrew.master?.name ?? "Opponent"}
               </h2>
-              <p>{analysis.match.strategy?.name ?? strategy.name} - {strategyPool.name} - {analysis.match.pointLimit}ss</p>
+              <p>{analysis.match.strategy?.name ?? "No strategy selected"} - {strategyPool.name} - {analysis.match.pointLimit}ss</p>
               <p className="intentResultSummary">{selectedIntent.label}: {selectedIntent.summary}</p>
             </div>
             <button className="subtleButton" type="button" onClick={() => setSetupCollapsed(false)}>

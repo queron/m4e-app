@@ -246,6 +246,50 @@ select option {
   color: var(--accent);
 }
 
+.crewModifierPicker {
+  display: grid;
+  gap: 9px;
+  margin-top: 12px;
+  border: 1px solid var(--line-2);
+  border-radius: var(--radius-md);
+  background: rgba(15, 12, 10, 0.34);
+  padding: 12px;
+}
+
+.crewModifierPicker > span {
+  color: var(--accent);
+  font-family: Inter, Arial, sans-serif;
+  font-size: 0.76rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.crewModifierPicker > div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.crewModifierPicker button {
+  min-height: 32px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: rgba(17, 14, 11, 0.72);
+  color: var(--parchment-2);
+  padding: 7px 11px;
+  font-family: Inter, Arial, sans-serif;
+  font-size: 0.74rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.crewModifierPicker button.active {
+  border-color: rgba(142, 154, 114, 0.62);
+  background: rgba(47, 90, 69, 0.32);
+  color: #cfddb3;
+}
+
 .actionBar {
   position: relative;
   display: flex;
@@ -555,6 +599,10 @@ select option {
   grid-column: 1 / -1;
 }
 
+.crewAdjustmentPanel {
+  grid-column: 1 / -1;
+}
+
 .strategyImpact ul {
   display: grid;
   gap: 9px;
@@ -597,6 +645,40 @@ select option {
 }
 
 .briefGrid li {
+  color: var(--parchment-2);
+  line-height: 1.4;
+}
+
+.crewAdjustmentGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.crewAdjustmentGrid > div {
+  border: 1px solid var(--line-2);
+  border-radius: var(--radius-md);
+  background: rgba(15, 12, 10, 0.34);
+  padding: 12px;
+}
+
+.crewAdjustmentGrid h3 {
+  margin: 0 0 8px;
+  color: var(--accent);
+  font-family: Inter, Arial, sans-serif;
+  font-size: 0.78rem;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+
+.crewAdjustmentGrid ul {
+  display: grid;
+  gap: 7px;
+  margin: 0;
+  padding-left: 18px;
+}
+
+.crewAdjustmentGrid li {
   color: var(--parchment-2);
   line-height: 1.4;
 }
@@ -2704,6 +2786,7 @@ li + li {
   .formGrid,
   .listControls,
   .briefGrid,
+  .crewAdjustmentGrid,
   .masterProfilePair,
   .setupStepper,
   .scoreGrid {

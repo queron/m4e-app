@@ -62,6 +62,7 @@ import {
 type PathKind = "available" | "optimal";
 type ActiveResultTab = "picks" | "matchup" | "schemes" | "draft";
 type MatchIntent = "core" | "tournament" | "casual" | "learning" | "narrative";
+type CrewModifierId = "needMobility" | "needConditionRemoval" | "expectSummons" | "needMarkerPlan";
 
 const DEFAULT_POINT_LIMIT = 50;
 const DEFAULT_MATCH_INTENT: MatchIntent = "core";
@@ -119,6 +120,33 @@ const MATCH_INTENTS: Array<{ value: MatchIntent; label: string; summary: string;
 function intentProfile(intent: MatchIntent) {
   return MATCH_INTENTS.find((candidate) => candidate.value === intent) ?? MATCH_INTENTS[0];
 }
+
+const CREW_MODIFIERS: Array<{ id: CrewModifierId; label: string; summary: string; tags: TacticalTag[] }> = [
+  {
+    id: "needMobility",
+    label: "I need mobility",
+    summary: "Prioritise models that can reach scoring lanes, reposition, or solve spread-out scoring.",
+    tags: ["mobility", "placement", "scheme"]
+  },
+  {
+    id: "needConditionRemoval",
+    label: "I need condition answers",
+    summary: "Watch for Stunned, Slow, Staggered, Injured, Burning, and Poison pressure.",
+    tags: ["healing", "control", "cardPressure"]
+  },
+  {
+    id: "expectSummons",
+    label: "I expect summons",
+    summary: "Prioritise burst damage, denial, and scheme pressure into extra enemy bodies.",
+    tags: ["burst", "damage", "scheme", "control"]
+  },
+  {
+    id: "needMarkerPlan",
+    label: "I need marker play",
+    summary: "Prioritise marker, scheme, and placement tools for scoring or denial.",
+    tags: ["marker", "scheme", "placement"]
+  }
+];
 type MasterProfile = {
   gamePlan: string;
   tableJobs: string[];
@@ -243,6 +271,7 @@ export default function MalifauxWorkbench() {
   const [strategyId, setStrategyId] = useState(STRATEGY_POOLS[0].strategies[0].id);
   const [schemePoolId, setSchemePoolId] = useState(SCHEME_POOLS[0].id);
   const [matchIntent, setMatchIntent] = useState<MatchIntent>(DEFAULT_MATCH_INTENT);
+  const [crewModifierIds, setCrewModifierIds] = useState<CrewModifierId[]>([]);
   const [pathKind, setPathKind] = useState<PathKind>("available");
   const [collectionSearch, setCollectionSearch] = useState("");
   const [opponentSearch, setOpponentSearch] = useState("");
@@ -534,6 +563,10 @@ export default function MalifauxWorkbench() {
   const strategy = strategyPool.strategies.find((candidate) => candidate.id === strategyId) ?? strategyPool.strategies[0];
   const schemePool = SCHEME_POOLS.find((pool) => pool.id === schemePoolId) ?? SCHEME_POOLS[0];
   const selectedIntent = intentProfile(matchIntent);
+  const collectionModels = useMemo(
+    () => (catalog ? ownedModelIds.map((id) => catalog.models.find((model) => model.id === id)).filter(Boolean) as ModelCard[] : []),
+    [catalog, ownedModelIds]
+  );
   const canAnalyze = Boolean(playerMasterId && opponentMasterId);
   const analyzeButtonLabel = isAnalyzing ? "Analyzing..." : analysis ? "Analyze again" : "Analyze";
   const analyzeReadiness = buildAnalyzeReadiness({
@@ -602,6 +635,10 @@ export default function MalifauxWorkbench() {
     setDraftPath(null);
     setSetupCollapsed(false);
     setStatusMessage("Analysis cleared. Setup selections are still available.");
+  }
+
+  function toggleCrewModifier(id: CrewModifierId) {
+    setCrewModifierIds((current) => (current.includes(id) ? current.filter((item) => item !== id) : [...current, id]));
   }
 
   async function shareSetup() {
@@ -825,6 +862,23 @@ export default function MalifauxWorkbench() {
         <p className="intentSummary">
           <strong>{selectedIntent.label}:</strong> {selectedIntent.summary}
         </p>
+        <div className="crewModifierPicker" aria-label="Crew adjustment focus">
+          <span>Crew adjustments</span>
+          <div>
+            {CREW_MODIFIERS.map((modifier) => (
+              <button
+                className={crewModifierIds.includes(modifier.id) ? "active" : ""}
+                key={modifier.id}
+                type="button"
+                aria-pressed={crewModifierIds.includes(modifier.id)}
+                onClick={() => toggleCrewModifier(modifier.id)}
+                title={modifier.summary}
+              >
+                {modifier.label}
+              </button>
+            ))}
+          </div>
+        </div>
         {schemePool.incomplete ? (
           <div className="warning">Scheme data for {schemePool.name} is incomplete, so scheme pairings are intentionally limited.</div>
         ) : null}
@@ -922,6 +976,7 @@ export default function MalifauxWorkbench() {
             path={selectedPath}
             strategy={analysis.match.strategy}
           />
+          <CrewAdjustmentPanel collectionModels={collectionModels} modifierIds={crewModifierIds} />
           <div className="resultTabs" role="tablist" aria-label="Analysis views">
             <button
               className={activeResultTab === "picks" ? "active" : ""}
@@ -969,6 +1024,7 @@ export default function MalifauxWorkbench() {
                   selectedPath={selectedPath}
                   usedFullPool={pathKind === "available" && analyzedCollectionCount === 0}
                   intent={matchIntent}
+                  crewModifierIds={crewModifierIds}
                   strategy={analysis.match.strategy}
                   onUsePlan={(path) => {
                     setDraftPath(path);
@@ -1969,6 +2025,48 @@ function StrategyImpactPanel({
   );
 }
 
+function CrewAdjustmentPanel({
+  collectionModels,
+  modifierIds
+}: {
+  collectionModels: ModelCard[];
+  modifierIds: CrewModifierId[];
+}) {
+  const collectionTags = topTacticalTags(collectionModels.flatMap((model) => model.tacticalTags));
+  const collectionTagSet = new Set(collectionModels.flatMap((model) => model.tacticalTags));
+  const hasAnyTag = (tags: TacticalTag[]) => tags.some((tag) => collectionTagSet.has(tag));
+  const selectedModifiers = CREW_MODIFIERS.filter((modifier) => modifierIds.includes(modifier.id));
+  const detectedStrengths = collectionTags.length > 0
+    ? [
+        `Mobility ${hasAnyTag(["mobility", "placement"]) ? "present" : "not marked"} in collection signals.`,
+        `Condition answers ${hasAnyTag(["healing", "control", "cardPressure"]) ? "present" : "not marked"} in collection signals.`,
+        `Anti-summon pressure ${hasAnyTag(["burst", "damage", "scheme", "control"]) ? "present" : "not marked"} in collection signals.`,
+        `Marker plan ${hasAnyTag(["marker", "scheme", "placement"]) ? "present" : "not marked"} in collection signals.`
+      ]
+    : ["No optional collection models are marked, so analysis stays close to master and legal-pool assumptions."];
+  const modifierNotes = selectedModifiers.length > 0
+    ? selectedModifiers.map((modifier) => {
+        const alreadyCovered = modifier.tags.some((tag) => collectionTags.includes(tag));
+        return alreadyCovered
+          ? `${modifier.label}: your marked collection already shows ${formatVisibleTags(modifier.tags.filter((tag) => collectionTags.includes(tag)))} coverage.`
+          : `${modifier.label}: ${modifier.summary}`;
+      })
+    : ["No manual crew adjustment focus is selected."];
+
+  return (
+    <section className="panel crewAdjustmentPanel">
+      <div className="panelHeader">
+        <h2>Crew Adjustments</h2>
+        <span>{collectionModels.length} collection models marked</span>
+      </div>
+      <div className="crewAdjustmentGrid">
+        <BriefColumn title="Detected Signals" items={detectedStrengths} />
+        <BriefColumn title="Manual Focus" items={modifierNotes} />
+      </div>
+    </section>
+  );
+}
+
 function BriefColumn({ title, items }: { title: string; items: string[] }) {
   return (
     <div>
@@ -2037,6 +2135,7 @@ function ProfileList({ title, items }: { title: string; items: string[] }) {
 }
 
 export function RecommendationPanel({
+  crewModifierIds,
   intent,
   pathKind,
   setPathKind,
@@ -2048,6 +2147,7 @@ export function RecommendationPanel({
   onExportPlan,
   onOpenModel
 }: {
+  crewModifierIds: CrewModifierId[];
   intent: MatchIntent;
   pathKind: PathKind;
   setPathKind: (value: PathKind) => void;
@@ -2063,6 +2163,7 @@ export function RecommendationPanel({
   const [recommendationSort, setRecommendationSort] = useState<RecommendationSortMode>("fit");
   if (!selectedPath) return null;
   const intentCopy = intentProfile(intent);
+  const modifierCopy = recommendationModifierCopy(crewModifierIds);
   const sortedRecommendations = sortRecommendations(selectedPath.models, recommendationSort);
   const maxRecommendationScore = Math.max(0, ...selectedPath.models.map((recommendation) => recommendation.score));
   const maxBreakdownScore = Math.max(
@@ -2125,6 +2226,7 @@ export function RecommendationPanel({
       {usedFullPool ? (
         <div className="infoCallout">No collection models were selected, so Available is using the full legal model pool.</div>
       ) : null}
+      {modifierCopy ? <div className="infoCallout">{modifierCopy}</div> : null}
 
       <div className="recommendationList">
         {sortedRecommendations.map((recommendation) => {
@@ -2715,6 +2817,15 @@ function recommendationPlan(recommendation: ModelRecommendation, strategyName?: 
         : undefined;
 
   return { why, tableJob, tradeoff };
+}
+
+function recommendationModifierCopy(modifierIds: CrewModifierId[]): string {
+  if (modifierIds.length === 0) return "";
+  const labels = CREW_MODIFIERS
+    .filter((modifier) => modifierIds.includes(modifier.id))
+    .map((modifier) => modifier.label.toLowerCase());
+
+  return `Crew adjustment focus: ${labels.join("; ")}. Use recommendation details to confirm which hires patch those priorities without duplicating tools you already marked.`;
 }
 
 function riskTitle(flags: VulnerabilityFlag[]): string {

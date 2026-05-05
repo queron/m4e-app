@@ -18,6 +18,7 @@ jobs:
       - run: npm ci
       - run: npm run validate:data
       - run: npm run lint
+      - run: npm test
       - run: npm run build
       - run: npm run check:size-budgets
       - run: npm run test:api

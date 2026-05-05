@@ -34,6 +34,7 @@ import type { CardCatalog, CatalogSummary, CrewCard, MatchupAnalysis, ModelCard,
 import masterPlaystyleNotes from "@/data/master_playstyle_notes.json";
 import { SCHEME_POOLS } from "@/lib/scheme-pools";
 import { STRATEGY_POOLS } from "@/lib/strategy-pools";
+import { glossaryText } from "@/lib/glossary";
 import { findSyntheticRuleForMaster, getMandatoryCrewEntries, getTitleTotemRules } from "@/lib/mandatory-crew";
 import type { Strategy, StrategyTag } from "@/lib/strategy-pools";
 import {
@@ -849,6 +850,7 @@ export default function MalifauxWorkbench() {
         <div className="matchGrid">
           <label>
             Strategy Pool
+            <InlineHelp label="Strategy help" text={glossaryText("strategy")} />
             <select
               value={strategyPoolId}
               onChange={(event) => {
@@ -867,6 +869,7 @@ export default function MalifauxWorkbench() {
           </label>
           <label>
             Strategy
+            <InlineHelp label="Strategy help" text={glossaryText("strategy")} />
             <select value={strategyId} onChange={(event) => setStrategyId(event.target.value)}>
               {strategyPool.strategies.map((poolStrategy) => (
                 <option key={poolStrategy.id} value={poolStrategy.id}>
@@ -877,6 +880,7 @@ export default function MalifauxWorkbench() {
           </label>
           <label>
             Scheme Pool
+            <InlineHelp label="Scheme help" text={glossaryText("scheme")} />
             <select value={schemePoolId} onChange={(event) => setSchemePoolId(event.target.value)}>
               {SCHEME_POOLS.map((pool) => (
                 <option key={pool.id} value={pool.id}>
@@ -887,6 +891,7 @@ export default function MalifauxWorkbench() {
           </label>
           <label>
             Intent
+            <InlineHelp label="Crew help" text={glossaryText("crew")} />
             <select value={matchIntent} onChange={(event) => setMatchIntent(event.target.value as MatchIntent)}>
               {MATCH_INTENTS.map((intent) => (
                 <option key={intent.value} value={intent.value}>
@@ -897,6 +902,7 @@ export default function MalifauxWorkbench() {
           </label>
           <label>
             Soulstones
+            <InlineHelp label="Soulstones help" text={glossaryText("soulstones")} />
             <input value={pointLimit} min={1} max={150} type="number" onChange={(event) => setPointLimit(Number(event.target.value))} />
           </label>
         </div>
@@ -1430,11 +1436,14 @@ export function CrewPanel(props: {
       <div className="spendSummary">
         <span>
           Required models: {requiredCount}
-          <InlineHelp label="Required model help" text="Leader and required totem models are included automatically." />
+          <InlineHelp label="Required model help" text={`${glossaryText("requiredModel")} ${glossaryText("totem")}`} />
         </span>
         <span>
           {selectedMetricLabel}: {props.selectedIds.length}
-          <InlineHelp label={`${selectedMetricLabel} help`} text={selectedMetricHelp} />
+          <InlineHelp
+            label={`${selectedMetricLabel} help`}
+            text={isPlayerPanel ? `${selectedMetricHelp} ${glossaryText("keyword")}` : `${selectedMetricHelp} ${glossaryText("expectedModel")}`}
+          />
         </span>
         <strong>{props.totalSummaryLabel ?? "Displayed cost"}: {totalSoulstones}ss</strong>
         {props.collapsed ? (
@@ -1537,7 +1546,7 @@ export function CrewPanel(props: {
           </select>
         </label>
       </div>
-      <HelpDisclosure className="helperText" label="Required models" text="Leader and associated totem models are included automatically and cannot be removed from this crew setup." />
+      <HelpDisclosure className="helperText" label="Required models" text={`${glossaryText("requiredModel")} ${glossaryText("totem")}`} />
       <div className="modelList">
         {sections.map((section) => (
           <div className="modelSection" key={section.title}>
@@ -1550,6 +1559,9 @@ export function CrewPanel(props: {
               >
                 <RulesIcon iconKey={sectionIcon(section.title)} /> {section.title}
               </button>
+              {sectionGlossaryText(section.title) ? (
+                <InlineHelp label={`${section.title} help`} text={sectionGlossaryText(section.title)} />
+              ) : null}
               <span className="modelSectionMeta">
                 <span>{section.models.length}</span>
                 {section.action}
@@ -1668,7 +1680,10 @@ function MasterCombobox({
 
   return (
     <div className="comboField" ref={wrapperRef}>
-      <span className="comboLabel">Master</span>
+      <span className="comboLabel">
+        Master
+        <InlineHelp label="Master help" text={`${glossaryText("master")} ${glossaryText("title")}`} />
+      </span>
       <button
         aria-controls={listId}
         aria-expanded={open}
@@ -2057,8 +2072,8 @@ function ResultsContextBar({
       <span
         className={`confidenceContext confidence-${confidence.label.toLowerCase()}`}
         tabIndex={0}
-        title={confidence.explanation}
-        aria-label={`Confidence ${confidence.label}. ${confidence.explanation}`}
+        title={`${glossaryText("confidence")} ${confidence.explanation}`}
+        aria-label={`Confidence ${confidence.label}. ${glossaryText("confidence")} ${confidence.explanation}`}
       >
         Confidence: {confidence.label}
       </span>
@@ -3632,6 +3647,14 @@ function sectionIcon(title: string): RulesIconKey {
   if (title.includes("Keyword")) return "keyword";
   if (title.includes("Versatile")) return "versatile";
   return "collection";
+}
+
+function sectionGlossaryText(title: string): string {
+  if (title.includes("Leader")) return `${glossaryText("master")} ${glossaryText("totem")}`;
+  if (title.includes("Suggested")) return glossaryText("expectedModel");
+  if (title.includes("Keyword")) return glossaryText("keyword");
+  if (title.includes("Versatile")) return glossaryText("versatile");
+  return "";
 }
 
 function triggerIcons(condition?: string) {

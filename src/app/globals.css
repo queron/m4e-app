@@ -309,6 +309,13 @@ select option {
   margin: -4px 0 12px;
 }
 
+.resultActions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
 .globalStatus {
   margin-bottom: 14px;
 }
@@ -318,6 +325,24 @@ select option {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
+}
+
+.copyFallback {
+  margin-bottom: 14px;
+}
+
+.copyFallback textarea {
+  width: 100%;
+  min-height: 180px;
+  resize: vertical;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: rgba(15, 12, 10, 0.68);
+  color: var(--parchment);
+  padding: 12px;
+  font-family: "Cascadia Code", Consolas, monospace;
+  font-size: 0.82rem;
+  line-height: 1.45;
 }
 
 .matchHint,

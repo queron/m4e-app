@@ -243,6 +243,8 @@ export type ModelRecommendation = {
   curatedNotes: string[];
   score: number;
   role: string;
+  secondaryRoles?: string[];
+  versatility?: RoleVersatility;
   scoreBreakdown: {
     masterAbilities: number;
     crewSynergy: number;
@@ -253,6 +255,15 @@ export type ModelRecommendation = {
   priorityTargets: string[];
   alliedSynergies: string[];
   vulnerabilityFlags: VulnerabilityFlag[];
+};
+
+export type VersatilityJob = "score" | "kill" | "control" | "support" | "contest" | "marker" | "mobility";
+
+export type RoleVersatility = {
+  band: "High" | "Medium" | "Low";
+  jobs: VersatilityJob[];
+  evidence: string[];
+  schemeRelevance: string[];
 };
 
 export type ScoredModel = {

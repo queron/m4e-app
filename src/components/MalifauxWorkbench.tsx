@@ -1421,6 +1421,23 @@ export default function MalifauxWorkbench() {
               ))}
             </select>
           </label>
+          <div className="crewModifierPicker" aria-label="Crew adjustment focus">
+            <span>Crew adjustments</span>
+            <div>
+              {CREW_MODIFIERS.map((modifier) => (
+                <button
+                  className={crewModifierIds.includes(modifier.id) ? "active" : ""}
+                  key={modifier.id}
+                  type="button"
+                  aria-pressed={crewModifierIds.includes(modifier.id)}
+                  onClick={() => toggleCrewModifier(modifier.id)}
+                  title={modifier.summary}
+                >
+                  {modifier.label}
+                </button>
+              ))}
+            </div>
+          </div>
           <label>
             Soulstones
             <InlineHelp label="Soulstones help" text={glossaryText("soulstones")} />
@@ -1431,23 +1448,6 @@ export default function MalifauxWorkbench() {
         <p className="intentSummary">
           <strong>{selectedIntent.label}:</strong> {selectedIntent.summary}
         </p>
-        <div className="crewModifierPicker" aria-label="Crew adjustment focus">
-          <span>Crew adjustments</span>
-          <div>
-            {CREW_MODIFIERS.map((modifier) => (
-              <button
-                className={crewModifierIds.includes(modifier.id) ? "active" : ""}
-                key={modifier.id}
-                type="button"
-                aria-pressed={crewModifierIds.includes(modifier.id)}
-                onClick={() => toggleCrewModifier(modifier.id)}
-                title={modifier.summary}
-              >
-                {modifier.label}
-              </button>
-            ))}
-          </div>
-        </div>
         {schemePool.incomplete ? (
           <div className="warning">Scheme data for {schemePool.name} is incomplete, so scheme pairings are intentionally limited.</div>
         ) : null}

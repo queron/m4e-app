@@ -1179,6 +1179,10 @@ select option {
   grid-column: 1 / -1;
 }
 
+.matchupWarningsPanel {
+  grid-column: 1 / -1;
+}
+
 .terrainMobilityPanel {
   grid-column: 1 / -1;
 }
@@ -1242,6 +1246,49 @@ select option {
 
 .terrainToolChips {
   margin-bottom: 12px;
+}
+
+.matchupWarningList {
+  display: grid;
+  gap: 12px;
+}
+
+.matchupWarning {
+  display: grid;
+  grid-template-columns: minmax(220px, 1fr) minmax(0, 1.2fr) minmax(220px, 1fr);
+  gap: 12px;
+  border: 1px solid rgba(201, 106, 58, 0.42);
+  border-radius: var(--radius-md);
+  background: rgba(110, 31, 42, 0.18);
+  padding: 12px;
+}
+
+.matchupWarning strong {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--parchment);
+}
+
+.matchupWarning strong span {
+  border: 1px solid rgba(201, 106, 58, 0.48);
+  border-radius: 999px;
+  color: #f0b781;
+  padding: 2px 6px;
+  font-family: Inter, Arial, sans-serif;
+  font-size: 0.68rem;
+}
+
+.matchupWarning p,
+.matchupWarning li,
+.matchupWarning small {
+  color: var(--parchment-2);
+  line-height: 1.4;
+}
+
+.matchupWarning ul {
+  margin: 0;
+  padding-left: 18px;
 }
 
 .resourceDimensionGrid {
@@ -4067,6 +4114,7 @@ li + li {
   .tempoProfileHeader,
   .tempoReadinessGrid,
   .resourceDimensionGrid,
+  .matchupWarning,
   .crewAdjustmentGrid,
   .nextStepList,
   .masterProfilePair,

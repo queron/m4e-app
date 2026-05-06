@@ -36,7 +36,7 @@ import {
   Wrench,
   X
 } from "lucide-react";
-import type { CardCatalog, CatalogSummary, CrewCard, MatchupAnalysis, ModelCard, ModelMatchupEvaluation, ModelRecommendation, ProxyAvailability, RecommendationPath, SynergyGroup, TacticalTag, VulnerabilityFlag } from "@/lib/types";
+import type { CardCatalog, CatalogSummary, CrewCard, MatchupAnalysis, MatchupWarning, ModelCard, ModelMatchupEvaluation, ModelRecommendation, ProxyAvailability, RecommendationPath, SynergyGroup, TacticalTag, VulnerabilityFlag } from "@/lib/types";
 import masterPlaystyleNotes from "@/data/master_playstyle_notes.json";
 import { DEFAULT_SCHEME_POOL, DEFAULT_SCHEME_POOL_ID, SCHEME_POOLS, getSchemeBranches, hasSchemeGraph } from "@/lib/scheme-pools";
 import type { SchemePool } from "@/lib/scheme-pools";
@@ -1792,6 +1792,7 @@ export default function MalifauxWorkbench() {
                   directOwnedIds={ownedModelIds}
                   strategy={analysis.match.strategy}
                   proxyOwnedByModelId={proxyOwnedByModelId}
+                  matchupWarnings={analysis.matchupWarnings}
                   onUsePlan={(path) => {
                     setDraftPath(path);
                     setActiveResultTab("draft");
@@ -1816,6 +1817,7 @@ export default function MalifauxWorkbench() {
                 inferredOpponent={analysis.opponentCrew.expectedModels.length === 0}
                 rows={matchupProfile}
               />
+              <MatchupWarningsPanel warnings={analysis.matchupWarnings} />
               <MasterProfilePair
                 playerProfile={buildMasterProfile(analysis.playerCrew.master, analysis.playerCrew.crewCard)}
                 opponentProfile={buildMasterProfile(analysis.opponentCrew.master, analysis.opponentCrew.crewCard)}
@@ -3684,6 +3686,42 @@ function MatchupProfilePanel({ inferredOpponent, rows }: { inferredOpponent: boo
   );
 }
 
+function MatchupWarningsPanel({ warnings }: { warnings: MatchupWarning[] }) {
+  if (warnings.length === 0) {
+    return (
+      <section className="panel matchupWarningsPanel">
+        <div className="panelHeader">
+          <h2>Matchup Warnings</h2>
+          <span>Engine-specific risks</span>
+        </div>
+        <p className="panelHint">No major engine-specific matchup warnings detected from the current data.</p>
+      </section>
+    );
+  }
+
+  return (
+    <section className="panel matchupWarningsPanel">
+      <div className="panelHeader">
+        <h2>Matchup Warnings</h2>
+        <span>{warnings.length} engine warning{warnings.length === 1 ? "" : "s"}</span>
+      </div>
+      <div className="matchupWarningList">
+        {warnings.map((warning) => (
+          <article className={`matchupWarning severity-${warning.severity.toLowerCase()}`} key={warning.id}>
+            <div>
+              <strong><span>{warning.severity}</span>{warning.label}</strong>
+              <p>{warning.summary}</p>
+              <small>{warning.affectedEngine}</small>
+            </div>
+            <ul>{warning.evidence.slice(0, 3).map((item) => <li key={item}>{item}</li>)}</ul>
+            <p><strong>Adjustment:</strong> {warning.recommendation}</p>
+          </article>
+        ))}
+      </div>
+    </section>
+  );
+}
+
 function ProfileMeter({ band, label, opponent = false, score }: { band: MatchupProfileRow["playerBand"]; label: string; opponent?: boolean; score: number }) {
   const width = band === "Unknown" ? 0 : Math.max(12, Math.round((score / 6) * 100));
   return (
@@ -3979,6 +4017,7 @@ export function RecommendationPanel({
   directOwnedIds,
   intent,
   pathKind,
+  matchupWarnings,
   proxyOwnedByModelId,
   setPathKind,
   selectedPath,
@@ -3993,6 +4032,7 @@ export function RecommendationPanel({
   directOwnedIds: string[];
   intent: MatchIntentSelection;
   pathKind: PathKind;
+  matchupWarnings: MatchupWarning[];
   proxyOwnedByModelId: Record<string, ProxyAvailability[]>;
   setPathKind: (value: PathKind) => void;
   selectedPath?: RecommendationPath;
@@ -4076,7 +4116,7 @@ export function RecommendationPanel({
       <div className="recommendationList">
         {sortedRecommendations.map((recommendation) => {
           const modelIssues = selectedPath.validation.modelIssues[recommendation.model.id] ?? [];
-          const chips = recommendationChips(recommendation);
+          const chips = recommendationChips(recommendation, matchupWarnings);
           const fitTags = strategyFitTags(recommendation.model, strategy);
           const fitPercent = normalizedScorePercent(recommendation.score, maxRecommendationScore);
           const plan = recommendationPlan(recommendation, strategy?.name);
@@ -4674,7 +4714,7 @@ function sortRecommendations(recommendations: ModelRecommendation[], sortMode: R
   });
 }
 
-function recommendationChips(recommendation: ModelRecommendation): Array<{ label: string; title: string }> {
+function recommendationChips(recommendation: ModelRecommendation, matchupWarnings: MatchupWarning[] = []): Array<{ label: string; title: string }> {
   return [
     { label: tacticalRoleLabel(recommendation.role), title: "Recommended table role." },
     ...(recommendation.versatility && recommendation.versatility.band !== "Low"
@@ -4692,6 +4732,7 @@ function recommendationChips(recommendation: ModelRecommendation): Array<{ label
       label: tag,
       title: `${recommendation.model.name} may mitigate crew resource pressure.`
     })),
+    ...modelWarningChips(recommendation, matchupWarnings),
     {
       label: `Strategy fit: ${fitBand(recommendation.scoreBreakdown.compositionMatchup)}`,
       title: "How strongly this pick addresses the selected strategy and matchup demands."
@@ -4706,6 +4747,25 @@ function recommendationChips(recommendation: ModelRecommendation): Array<{ label
       title: `Detected tactical tag: ${tacticalTagLabel(tag)}.`
     }))
   ];
+}
+
+function modelWarningChips(recommendation: ModelRecommendation, warnings: MatchupWarning[]): Array<{ label: string; title: string }> {
+  const text = `${recommendation.model.textIndex} ${recommendation.model.tacticalTags.join(" ")}`.toLowerCase();
+  return warnings
+    .filter((warning) => warningRelevantToText(warning, text))
+    .slice(0, 1)
+    .map((warning) => ({
+      label: `Warning: ${warning.label}`,
+      title: warning.summary
+    }));
+}
+
+function warningRelevantToText(warning: MatchupWarning, text: string): boolean {
+  if (warning.id === "marker-denial") return /marker|scheme|corpse|scrap|summon/.test(text);
+  if (warning.id === "condition-bury") return /bury|unbury|condition|token|fast|slow|placement|mobility/.test(text);
+  if (warning.id === "wp-terror") return /willpower|wp|terrifying|control|stunned|slow|staggered/.test(text);
+  if (warning.id === "summon-attrition") return /summon|replace|corpse|scrap|demise|marker/.test(text);
+  return false;
 }
 
 function terrainMobilityChips(recommendation: ModelRecommendation): Array<{ label: string; title: string }> {

@@ -3,6 +3,7 @@ import { getCatalog, getHireDetails } from "@/lib/card-data";
 import { buildCrewByScore, validateCrew } from "@/lib/crew-validation";
 import { getMandatoryCrewEntries } from "@/lib/mandatory-crew";
 import { analyzeMatchup, evaluateModelMatchup } from "@/lib/matchup-engine";
+import { buildMatchupWarnings } from "@/lib/matchup-warnings";
 import { STRATEGY_POOLS } from "@/lib/strategy-pools";
 import { buildTempoProfile, modelTempoTags } from "@/lib/tempo-profile";
 import { proxyAvailabilityForCatalog, proxyTargetIdsForKeys } from "@/lib/proxy-data";
@@ -285,6 +286,58 @@ describe("recommendation scoring", () => {
     expect(analysis.playerCrew.resourceProfile.overall).toMatch(/Low|Medium|High/);
     expect(analysis.playerCrew.resourceProfile.dimensions).toHaveLength(4);
     expect(analysis.paths.optimal.models.every((recommendation) => Array.isArray(recommendation.resourceTags))).toBe(true);
+  });
+
+  it("adds crew-level matchup warnings for countered engines", () => {
+    const tara = masterByName("Tara, Voidcaller");
+    const colette = masterByName("Colette Du Bois, Smuggler");
+
+    const analysis = analyzeMatchup({
+      playerFaction: tara.faction,
+      playerMasterId: tara.id,
+      opponentFaction: colette.faction,
+      opponentMasterId: colette.id,
+      ownedModelIds: [],
+      opponentModelIds: [],
+      pointLimit: 50,
+      modelLimit: 99,
+      strategyPoolId: "gg-zero",
+      strategyId: "plant-explosives",
+      schemePoolId: "gg-zero"
+    });
+
+    expect(analysis.matchupWarnings.length).toBeGreaterThan(0);
+    expect(analysis.matchupWarnings.map((warning) => warning.id)).toEqual(expect.arrayContaining(["marker-denial"]));
+  });
+
+  it("does not warn when dependency and counter signals are absent", () => {
+    const simplePlayer = tempoFixture("Simple Player", ["damage"], 5, "Melee attack.");
+    const simpleOpponent = tempoFixture("Simple Opponent", ["damage"], 5, "Melee attack.");
+
+    const warnings = buildMatchupWarnings({
+      playerMaster: simplePlayer,
+      recommendations: [],
+      opponentMaster: simpleOpponent,
+      opponentModels: [],
+      inferredOpponent: true
+    });
+
+    expect(warnings).toEqual([]);
+  });
+
+  it("labels master-only opponent warning evidence as inferred", () => {
+    const tara = masterByName("Tara, Voidcaller");
+    const colette = masterByName("Colette Du Bois, Smuggler");
+
+    const warnings = buildMatchupWarnings({
+      playerMaster: tara,
+      recommendations: [],
+      opponentMaster: colette,
+      opponentModels: [],
+      inferredOpponent: true
+    });
+
+    expect(warnings.flatMap((warning) => warning.evidence).join(" ")).toContain("master/crew-card inferred");
   });
 
   it("rates high and low resource profiles from parsed text", () => {

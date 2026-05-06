@@ -9,6 +9,7 @@ import {
   AlertTriangle,
   BookOpen,
   Brain,
+  ChevronDown,
   CircleDot,
   CirclePlus,
   CircleMinus,
@@ -22,12 +23,16 @@ import {
   Hexagon,
   KeyRound,
   Library,
+  Link as LinkIcon,
+  Printer,
   ScrollText,
   Shield,
   Sparkles,
   Swords,
   Target,
+  Trash2,
   Waves,
+  Wrench,
   X
 } from "lucide-react";
 import type { CardCatalog, CatalogSummary, CrewCard, MatchupAnalysis, ModelCard, ModelMatchupEvaluation, ModelRecommendation, RecommendationPath, SynergyGroup, TacticalTag, VulnerabilityFlag } from "@/lib/types";
@@ -648,9 +653,11 @@ export default function MalifauxWorkbench() {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [setupCollapsed, setSetupCollapsed] = useState(false);
   const [activeResultTab, setActiveResultTab] = useState<ActiveResultTab>("picks");
+  const [toolsOpen, setToolsOpen] = useState(false);
   const [error, setError] = useState("");
   const [isOffline, setIsOffline] = useState(false);
   const [updateAvailable, setUpdateAvailable] = useState(false);
+  const toolsMenuRef = useRef<HTMLDivElement | null>(null);
   const waitingWorkerRef = useRef<ServiceWorker | null>(null);
   const refreshingForUpdateRef = useRef(false);
 
@@ -682,6 +689,27 @@ export default function MalifauxWorkbench() {
         setError("Card data did not load. Retry or refresh; your local selections are preserved where possible.");
       });
   }, []);
+
+  useEffect(() => {
+    if (!toolsOpen) return;
+
+    function closeOnOutsideInteraction(event: PointerEvent) {
+      if (toolsMenuRef.current?.contains(event.target as Node)) return;
+      setToolsOpen(false);
+    }
+
+    function closeOnEscape(event: KeyboardEvent) {
+      if (event.key === "Escape") setToolsOpen(false);
+    }
+
+    document.addEventListener("pointerdown", closeOnOutsideInteraction);
+    document.addEventListener("keydown", closeOnEscape);
+
+    return () => {
+      document.removeEventListener("pointerdown", closeOnOutsideInteraction);
+      document.removeEventListener("keydown", closeOnEscape);
+    };
+  }, [toolsOpen]);
 
   useEffect(() => {
     setIsOffline(!navigator.onLine);
@@ -1112,6 +1140,11 @@ export default function MalifauxWorkbench() {
     setStatusMessage("Collection selections cleared.");
   }
 
+  function runToolAction(action: () => void | Promise<void>) {
+    setToolsOpen(false);
+    void action();
+  }
+
   function saveDraft(path: RecommendationPath) {
     const requiredCost = playerRequiredModels.reduce((sum, entry) => sum + entry.model.cost * entry.quantity, 0);
     const totalCost = requiredCost + path.totalCost;
@@ -1247,12 +1280,43 @@ export default function MalifauxWorkbench() {
             <h1 className="appTitle">Crew Optimizer</h1>
           </div>
         </div>
-        <nav className="topNavLinks" aria-label="Primary app navigation">
-          <a href="#match-context">Context</a>
-          <a href="#player-collection">Collection</a>
-          <a href="#opponent-intel">Intel</a>
-          <a href="#analyze">Analyze</a>
-        </nav>
+        <div className="topNavCluster">
+          <nav className="topNavLinks" aria-label="Primary app navigation">
+            <a href="#match-context">Context</a>
+            <a href="#player-collection">Collection</a>
+            <a href="#opponent-intel">Intel</a>
+            <a href="#analyze">Analyze</a>
+          </nav>
+          <div className="topTools" ref={toolsMenuRef}>
+            <button
+              className="topToolsButton"
+              type="button"
+              aria-expanded={toolsOpen}
+              aria-haspopup="menu"
+              onClick={() => setToolsOpen((open) => !open)}
+            >
+              <Wrench aria-hidden="true" size={16} />
+              Tools
+              <ChevronDown aria-hidden="true" size={14} />
+            </button>
+            {toolsOpen ? (
+              <div className="topToolsMenu" role="menu" aria-label="Global tools">
+                <button type="button" role="menuitem" onClick={() => runToolAction(shareSetup)}>
+                  <LinkIcon aria-hidden="true" size={16} />
+                  Copy share link
+                </button>
+                <button type="button" role="menuitem" onClick={() => runToolAction(printPlan)}>
+                  <Printer aria-hidden="true" size={16} />
+                  Print view
+                </button>
+                <button type="button" role="menuitem" onClick={() => runToolAction(clearCollection)}>
+                  <Trash2 aria-hidden="true" size={16} />
+                  Clear collection
+                </button>
+              </div>
+            ) : null}
+          </div>
+        </div>
       </header>
 
       {error ? <div className="error">{error}</div> : null}
@@ -1351,11 +1415,6 @@ export default function MalifauxWorkbench() {
             <InlineHelp label="Soulstones help" text={glossaryText("soulstones")} />
             <input value={pointLimit} min={1} max={150} type="number" onChange={(event) => setPointLimit(Number(event.target.value))} />
           </label>
-        </div>
-        <div className="actionBar">
-          <button className="subtleButton" type="button" onClick={shareSetup}>Copy share link</button>
-          <button className="subtleButton" type="button" onClick={printPlan}>Print view</button>
-          <button className="subtleButton" type="button" onClick={clearCollection}>Clear collection</button>
         </div>
         <p className="matchSummary">{strategy.summary}</p>
         <p className="intentSummary">

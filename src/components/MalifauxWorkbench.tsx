@@ -1697,6 +1697,7 @@ export default function MalifauxWorkbench() {
             strategy={analysis.match.strategy}
           />
           <MatchupDriversPanel brief={analysis.matchupBrief} path={selectedPath} strategy={analysis.match.strategy} />
+          <TerrainMobilityPanel profile={analysis.playerCrew.terrainMobilityProfile} />
           <StrategyImpactPanel
             opponentCrew={analysis.opponentCrew.expectedModels.length > 0 ? analysis.opponentCrew.expectedModels : analysis.opponentCrew.likelyModels.map((recommendation) => recommendation.model)}
             path={selectedPath}
@@ -3516,6 +3517,40 @@ function MatchupDriversPanel({
   );
 }
 
+function TerrainMobilityPanel({ profile }: { profile: MatchupAnalysis["playerCrew"]["terrainMobilityProfile"] }) {
+  const tools = profile.terrainTools.length > 0 ? profile.terrainTools : ["No explicit terrain tools detected"];
+  const risks = profile.terrainRisks.length > 0 ? profile.terrainRisks : ["No major terrain mobility risks detected from the current recommendations."];
+
+  return (
+    <section className="panel terrainMobilityPanel">
+      <div className="panelHeader">
+        <h2>Terrain & Mobility Fit</h2>
+        <span>{profile.boardFit}</span>
+      </div>
+      <div className="terrainMobilitySummary" aria-label="Crew terrain and mobility summary">
+        <div>
+          <span>Board fit</span>
+          <strong>{profile.boardFit}</strong>
+        </div>
+        <div>
+          <span>Mobility</span>
+          <strong>{profile.mobilityBand}</strong>
+        </div>
+      </div>
+      <div className="recChipRow terrainToolChips" aria-label="Detected terrain and mobility tools">
+        {tools.map((tool) => (
+          <span className="recChip" key={tool}>{tool}</span>
+        ))}
+      </div>
+      <p className="panelHint">{profile.recommendedTablePlan}</p>
+      <div className="briefGrid">
+        <BriefColumn title="Tools" items={tools} />
+        <BriefColumn title="Risks" items={risks} />
+      </div>
+    </section>
+  );
+}
+
 function StrategyImpactPanel({
   opponentCrew,
   path,
@@ -3868,6 +3903,7 @@ export function RecommendationPanel({
                   <RecSection title="Key Tech" items={recommendation.relevantTech} />
                   <RecSection title="Targets" items={recommendation.priorityTargets} />
                   <RecSection title="Synergy" items={recommendation.alliedSynergies} />
+                  <RecSection title="Terrain & Mobility" items={terrainMobilityNotes(recommendation)} />
                   <RecSection title="Role Flexibility" items={roleVersatilityNotes(recommendation)} />
                   <RecSection title="Score Trace" items={recommendation.trace} />
                   <RecSection title="Notes" items={recommendation.curatedNotes} />
@@ -4369,6 +4405,7 @@ function recommendationChips(recommendation: ModelRecommendation): Array<{ label
           title: `Role flexibility across ${recommendation.versatility.jobs.map(versatilityJobLabel).join(", ")}.`
         }]
       : []),
+    ...terrainMobilityChips(recommendation),
     {
       label: `Strategy fit: ${fitBand(recommendation.scoreBreakdown.compositionMatchup)}`,
       title: "How strongly this pick addresses the selected strategy and matchup demands."
@@ -4383,6 +4420,33 @@ function recommendationChips(recommendation: ModelRecommendation): Array<{ label
       title: `Detected tactical tag: ${tacticalTagLabel(tag)}.`
     }))
   ];
+}
+
+function terrainMobilityChips(recommendation: ModelRecommendation): Array<{ label: string; title: string }> {
+  const toolChips = recommendation.terrainTools.slice(0, 2).map((tool) => ({
+    label: tool,
+    title: `${recommendation.model.name} has detected terrain or mobility tech: ${tool}.`
+  }));
+  const lowSpeedChip = recommendation.model.statBlock.speed > 0 &&
+    recommendation.model.statBlock.speed <= 4 &&
+    recommendation.terrainTools.length === 0
+    ? [{
+        label: "Low Sp",
+        title: `${recommendation.model.name} may need deployment or lane support on dense or wide boards.`
+      }]
+    : [];
+
+  return [...toolChips, ...lowSpeedChip];
+}
+
+function terrainMobilityNotes(recommendation: ModelRecommendation): string[] {
+  const notes = recommendation.terrainTools.map((tool) => `${tool}: detected from tactical tags, stat line, or card text.`);
+
+  if (recommendation.model.statBlock.speed > 0 && recommendation.model.statBlock.speed <= 4 && recommendation.terrainTools.length === 0) {
+    notes.push("Low Sp without detected terrain tech: avoid assigning this model to unsupported wide, rooftop, or backline jobs.");
+  }
+
+  return notes;
 }
 
 function recommendationDrivers(recommendation: ModelRecommendation, strategy?: Strategy): MatchupDriver[] {

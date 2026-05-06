@@ -254,6 +254,7 @@ export type ModelRecommendation = {
   relevantTech: string[];
   priorityTargets: string[];
   alliedSynergies: string[];
+  terrainTools: string[];
   vulnerabilityFlags: VulnerabilityFlag[];
 };
 
@@ -329,6 +330,7 @@ export type MatchupAnalysis = {
     strengths: string[];
     vulnerabilities: string[];
     playstyle: string;
+    terrainMobilityProfile: TerrainMobilityProfile;
   };
   opponentCrew: {
     master?: ModelCard;
@@ -344,6 +346,14 @@ export type MatchupAnalysis = {
     available: RecommendationPath;
     optimal: RecommendationPath;
   };
+};
+
+export type TerrainMobilityProfile = {
+  boardFit: "Open" | "Dense" | "Vertical" | "Flexible" | "Data-limited";
+  mobilityBand: "High" | "Medium" | "Low";
+  terrainTools: string[];
+  terrainRisks: string[];
+  recommendedTablePlan: string;
 };
 
 export type MatchupBrief = {

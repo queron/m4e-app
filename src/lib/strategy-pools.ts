@@ -196,5 +196,6 @@ export const DEFAULT_STRATEGY_ID = DEFAULT_STRATEGY_POOL.strategies[0]?.id ?? ST
 
 export function getStrategy(poolId?: string, strategyId?: string): Strategy | undefined {
   const pool = STRATEGY_POOLS.find((candidate) => candidate.id === poolId) ?? DEFAULT_STRATEGY_POOL;
-  return pool.strategies.find((strategy) => strategy.id === strategyId) ?? pool.strategies[0];
+  if (!strategyId) return undefined;
+  return pool.strategies.find((strategy) => strategy.id === strategyId);
 }

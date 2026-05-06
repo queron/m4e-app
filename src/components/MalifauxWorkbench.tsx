@@ -38,7 +38,7 @@ import {
 import type { CardCatalog, CatalogSummary, CrewCard, MatchupAnalysis, ModelCard, ModelMatchupEvaluation, ModelRecommendation, RecommendationPath, SynergyGroup, TacticalTag, VulnerabilityFlag } from "@/lib/types";
 import masterPlaystyleNotes from "@/data/master_playstyle_notes.json";
 import { DEFAULT_SCHEME_POOL, DEFAULT_SCHEME_POOL_ID, SCHEME_POOLS } from "@/lib/scheme-pools";
-import { DEFAULT_STRATEGY_ID, DEFAULT_STRATEGY_POOL, DEFAULT_STRATEGY_POOL_ID, STRATEGY_POOLS } from "@/lib/strategy-pools";
+import { DEFAULT_STRATEGY_POOL, DEFAULT_STRATEGY_POOL_ID, STRATEGY_POOLS } from "@/lib/strategy-pools";
 import { glossaryText } from "@/lib/glossary";
 import { findSyntheticRuleForMaster, getMandatoryCrewEntries, getTitleTotemRules } from "@/lib/mandatory-crew";
 import type { Strategy, StrategyTag } from "@/lib/strategy-pools";
@@ -624,7 +624,7 @@ export default function MalifauxWorkbench() {
   const [opponentModelIds, setOpponentModelIds] = useState<string[]>([]);
   const [pointLimit, setPointLimit] = useState(DEFAULT_POINT_LIMIT);
   const [strategyPoolId, setStrategyPoolId] = useState(DEFAULT_STRATEGY_POOL_ID);
-  const [strategyId, setStrategyId] = useState(DEFAULT_STRATEGY_ID);
+  const [strategyId, setStrategyId] = useState("");
   const [schemePoolId, setSchemePoolId] = useState(DEFAULT_SCHEME_POOL_ID);
   const [matchIntent, setMatchIntent] = useState<MatchIntent>(DEFAULT_MATCH_INTENT);
   const [crewModifierIds, setCrewModifierIds] = useState<CrewModifierId[]>([]);
@@ -945,7 +945,8 @@ export default function MalifauxWorkbench() {
 
   const selectedPath = analysis?.paths[pathKind];
   const strategyPool = STRATEGY_POOLS.find((pool) => pool.id === strategyPoolId) ?? DEFAULT_STRATEGY_POOL;
-  const strategy = strategyPool.strategies.find((candidate) => candidate.id === strategyId) ?? strategyPool.strategies[0];
+  const strategy = strategyPool.strategies.find((candidate) => candidate.id === strategyId);
+  const strategyLabel = strategy?.name ?? "No strategy selected";
   const schemePool = SCHEME_POOLS.find((pool) => pool.id === schemePoolId) ?? DEFAULT_SCHEME_POOL;
   const selectedIntent = intentProfile(matchIntent);
   const collectionModels = useMemo(
@@ -1085,7 +1086,7 @@ export default function MalifauxWorkbench() {
       return;
     }
     setMatrixCells(playerPool.flatMap((player) => opponentPool.map((opponent) => buildMatrixCell(player, opponent, strategy, catalog))));
-    setStatusMessage(`Matrix generated for ${cellCount} pairings using ${strategy.name}.`);
+    setStatusMessage(`Matrix generated for ${cellCount} pairings using ${strategyLabel}.`);
   }
 
   function openMatrixCell(cell: MatrixCell) {
@@ -1242,7 +1243,7 @@ export default function MalifauxWorkbench() {
   function draftSummaryContext(): DraftSummaryContext {
     return {
       strategyPoolName: strategyPool.name,
-      strategyName: strategy.name,
+      strategyName: strategyLabel,
       playerMasterName: playerMaster?.name,
       opponentMasterName: opponentMaster?.name,
       schemePairings: analysis?.recommendedSchemePairs
@@ -1354,7 +1355,7 @@ export default function MalifauxWorkbench() {
             <RulesIcon iconKey="strategy" /> Match Context
             <InlineHelp label="Match setup help" text={analyzeReadiness.detail} />
           </h2>
-          <span>{strategy?.name ?? "No strategy selected"} | {strategyPool.name} | {pointLimit}ss</span>
+          <span>{strategyLabel} | {strategyPool.name} | {pointLimit}ss</span>
         </div>
         <p className="matchContextLead">Recommendations use this strategy context before applying crew-specific evidence.</p>
         <div className="matchGrid">
@@ -1366,7 +1367,7 @@ export default function MalifauxWorkbench() {
               onChange={(event) => {
                 const nextPool = STRATEGY_POOLS.find((pool) => pool.id === event.target.value) ?? DEFAULT_STRATEGY_POOL;
                 setStrategyPoolId(nextPool.id);
-                setStrategyId(nextPool.strategies[0].id);
+                setStrategyId("");
                 setSchemePoolId(nextPool.schemePoolId);
               }}
             >
@@ -1381,6 +1382,7 @@ export default function MalifauxWorkbench() {
             Strategy
             <InlineHelp label="Strategy help" text={glossaryText("strategy")} />
             <select value={strategyId} onChange={(event) => setStrategyId(event.target.value)}>
+              <option value="">Pick a strategy</option>
               {strategyPool.strategies.map((poolStrategy) => (
                 <option key={poolStrategy.id} value={poolStrategy.id}>
                   {poolStrategy.name}
@@ -1416,7 +1418,7 @@ export default function MalifauxWorkbench() {
             <input value={pointLimit} min={1} max={150} type="number" onChange={(event) => setPointLimit(Number(event.target.value))} />
           </label>
         </div>
-        <p className="matchSummary">{strategy.summary}</p>
+        <p className="matchSummary">{strategy?.summary ?? "Pick a strategy to add scenario-specific scoring context."}</p>
         <p className="intentSummary">
           <strong>{selectedIntent.label}:</strong> {selectedIntent.summary}
         </p>
@@ -1718,8 +1720,8 @@ export default function MalifauxWorkbench() {
           <strong><span className="stepBadge">4</span>{analyzeReadiness.status}</strong>
           <span>
             {canAnalyze
-              ? `${playerMaster?.name ?? "Player master"} vs ${opponentMaster?.name ?? "opponent master"} | ${strategy?.name ?? "No strategy selected"} | ${pointLimit}ss`
-              : `${playerMaster?.name ?? "No player master"} vs ${opponentMaster?.name ?? "no opponent master"} - ${strategy.name}`}
+              ? `${playerMaster?.name ?? "Player master"} vs ${opponentMaster?.name ?? "opponent master"} | ${strategyLabel} | ${pointLimit}ss`
+              : `${playerMaster?.name ?? "No player master"} vs ${opponentMaster?.name ?? "no opponent master"} - ${strategyLabel}`}
           </span>
         </div>
         <div className="stickyAnalyzeActions">
@@ -1978,7 +1980,7 @@ function MatrixModePanel({
   selectedOpponentIds: string[];
   selectedPlayerIds: string[];
   setOpen: (value: boolean) => void;
-  strategy: Strategy;
+  strategy?: Strategy;
 }) {
   const cellCount = selectedPlayerIds.length * selectedOpponentIds.length;
   const columns = opponentMasters.filter((master) => selectedOpponentIds.includes(master.id));
@@ -1993,7 +1995,7 @@ function MatrixModePanel({
           {open ? "Hide matrix" : "Show matrix"}
         </button>
       </div>
-      <p className="panelHint">Compare selected player masters into selected opponent masters for {strategy.name}. Matrix Mode uses high-level signals and opens single-matchup setup for detail.</p>
+      <p className="panelHint">Compare selected player masters into selected opponent masters for {strategy?.name ?? "no selected strategy"}. Matrix Mode uses high-level signals and opens single-matchup setup for detail.</p>
       {open ? (
         <>
           <div className="matrixSetup">
@@ -4496,12 +4498,13 @@ function matchupCardFilename(card: MatchupCardData): string {
   return `${slugifyForMatch(card.playerMaster)}-into-${slugifyForMatch(card.opponentMaster)}-${date}.png`;
 }
 
-function buildMatrixCell(playerMaster: ModelCard, opponentMaster: ModelCard, strategy: Strategy, catalog: CardCatalog): MatrixCell {
+function buildMatrixCell(playerMaster: ModelCard, opponentMaster: ModelCard, strategy: Strategy | undefined, catalog: CardCatalog): MatrixCell {
   const playerCrewCard = findCrewCardForSelectedMaster(playerMaster, catalog);
   const opponentCrewCard = findCrewCardForSelectedMaster(opponentMaster, catalog);
   const playerProfile = buildMasterProfile(playerMaster, playerCrewCard);
   const opponentProfile = buildMasterProfile(opponentMaster, opponentCrewCard);
-  const playerStrategyFit = strategyFitTags(playerMaster, strategy).length + playerProfile.pressureVectors.filter((tag) => STRATEGY_TO_TACTICAL_TAGS[strategy.tags[0]]?.includes(tag)).length;
+  const primaryStrategyTags = strategy ? (STRATEGY_TO_TACTICAL_TAGS[strategy.tags[0]] ?? []) : [];
+  const playerStrategyFit = strategyFitTags(playerMaster, strategy).length + playerProfile.pressureVectors.filter((tag) => primaryStrategyTags.includes(tag)).length;
   const opponentPressure = new Set([...opponentMaster.tacticalTags, ...opponentProfile.pressureVectors]);
   const playerTools = new Set([...playerMaster.tacticalTags, ...playerProfile.pressureVectors]);
   const riskyPressure = (opponentPressure.has("control") || opponentPressure.has("summon") || opponentPressure.has("cardPressure")) &&
@@ -4536,7 +4539,7 @@ function buildMatrixCell(playerMaster: ModelCard, opponentMaster: ModelCard, str
       opponentMaster,
       read: "Favourable",
       confidence,
-      reason: `Visible tools support ${strategy.name}.`
+      reason: `Visible tools support ${strategy?.name ?? "the selected matchup context"}.`
     };
   }
 

@@ -257,6 +257,7 @@ export type ModelRecommendation = {
   alliedSynergies: string[];
   terrainTools: string[];
   tempoTags: string[];
+  resourceTags: string[];
   vulnerabilityFlags: VulnerabilityFlag[];
 };
 
@@ -333,6 +334,7 @@ export type MatchupAnalysis = {
     vulnerabilities: string[];
     playstyle: string;
     terrainMobilityProfile: TerrainMobilityProfile;
+    resourceProfile: ResourceProfile;
   };
   opponentCrew: {
     master?: ModelCard;
@@ -391,6 +393,22 @@ export type ProxyAvailability = {
   baseSize?: string;
   source: string;
   notes?: string;
+};
+
+export type ResourceDimensionId = "hand" | "suits" | "soulstones" | "setup";
+
+export type ResourceDimension = {
+  id: ResourceDimensionId;
+  label: string;
+  rating: "Low" | "Medium" | "High";
+  evidence: string[];
+  mitigation: string;
+};
+
+export type ResourceProfile = {
+  overall: "Low" | "Medium" | "High";
+  dimensions: ResourceDimension[];
+  dataLimited: boolean;
 };
 
 export type MatchupBrief = {

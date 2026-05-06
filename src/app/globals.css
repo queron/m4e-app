@@ -1183,6 +1183,10 @@ select option {
   grid-column: 1 / -1;
 }
 
+.resourceIntensityPanel {
+  grid-column: 1 / -1;
+}
+
 .nextStepsPanel {
   grid-column: 1 / -1;
 }
@@ -1238,6 +1242,45 @@ select option {
 
 .terrainToolChips {
   margin-bottom: 12px;
+}
+
+.resourceDimensionGrid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.resourceDimensionGrid article {
+  display: grid;
+  gap: 8px;
+  border: 1px solid var(--line-2);
+  border-radius: var(--radius-md);
+  background: rgba(15, 12, 10, 0.34);
+  padding: 12px;
+}
+
+.resourceDimensionGrid div {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.resourceDimensionGrid span {
+  color: var(--muted);
+  font-family: Inter, Arial, sans-serif;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.resourceDimensionGrid strong {
+  color: var(--accent);
+}
+
+.resourceDimensionGrid p,
+.resourceDimensionGrid small {
+  color: var(--parchment-2);
+  line-height: 1.4;
 }
 
 .tempoProfilePanel {
@@ -4023,6 +4066,7 @@ li + li {
   .terrainMobilitySummary,
   .tempoProfileHeader,
   .tempoReadinessGrid,
+  .resourceDimensionGrid,
   .crewAdjustmentGrid,
   .nextStepList,
   .masterProfilePair,

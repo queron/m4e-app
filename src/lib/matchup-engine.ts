@@ -26,6 +26,7 @@ import { buildSchemePairRecommendations, buildSchemeWatchlist } from "./scheme-r
 import { clamp, curatedNotesFor, formatTags, strategyNotesFor, uniqueSentences } from "./explanation-text";
 import { buildRoleVersatility, confidenceFromScore, duplicateGuidance, efficiencyBonus, inferRole, secondaryRolesForVersatility } from "./scoring";
 import { buildTerrainMobilityProfile, modelTerrainTools } from "./terrain-mobility";
+import { buildTempoProfile, modelTempoTags } from "./tempo-profile";
 import {
   COUNTER_TAGS,
   buildOpponentPressureContext,
@@ -350,7 +351,8 @@ function buildPath(
       modelLimit
     ),
     models: recommendations,
-    synergyGroups: buildSynergyGroups(master, recommendations, strategy)
+    synergyGroups: buildSynergyGroups(master, recommendations, strategy),
+    tempoProfile: buildTempoProfile(recommendations, strategy)
   };
 }
 
@@ -793,6 +795,7 @@ function toRecommendation(
     priorityTargets: scored.priorityTargets,
     alliedSynergies: scored.alliedSynergies,
     terrainTools: modelTerrainTools(scored.model),
+    tempoTags: modelTempoTags(scored.model),
     vulnerabilityFlags: scored.vulnerabilityFlags
   };
 }

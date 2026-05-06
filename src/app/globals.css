@@ -1240,6 +1240,60 @@ select option {
   margin-bottom: 12px;
 }
 
+.tempoProfilePanel {
+  display: grid;
+  gap: 12px;
+  margin: 16px 0 18px;
+  border: 1px solid var(--line-2);
+  border-radius: var(--radius-md);
+  background: rgba(15, 12, 10, 0.34);
+  padding: 14px;
+}
+
+.tempoProfileHeader {
+  display: grid;
+  grid-template-columns: minmax(140px, 0.8fr) minmax(0, 2fr);
+  gap: 12px;
+  align-items: stretch;
+}
+
+.tempoProfileHeader > div {
+  border: 1px solid var(--line-2);
+  border-radius: var(--radius-md);
+  background: rgba(26, 22, 18, 0.62);
+  padding: 12px;
+}
+
+.tempoProfileHeader span,
+.tempoReadinessGrid span {
+  display: block;
+  margin-bottom: 4px;
+  color: var(--muted);
+  font-family: Inter, Arial, sans-serif;
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.tempoProfileHeader strong,
+.tempoReadinessGrid strong {
+  color: var(--parchment);
+}
+
+.tempoReadinessGrid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.tempoReadinessGrid > div {
+  min-width: 0;
+}
+
+.tempoBriefGrid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
 .briefGrid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -3891,6 +3945,9 @@ li + li {
   .matchupProfileRow,
   .listControls,
   .briefGrid,
+  .terrainMobilitySummary,
+  .tempoProfileHeader,
+  .tempoReadinessGrid,
   .crewAdjustmentGrid,
   .nextStepList,
   .masterProfilePair,

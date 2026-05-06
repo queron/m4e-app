@@ -3551,6 +3551,35 @@ function TerrainMobilityPanel({ profile }: { profile: MatchupAnalysis["playerCre
   );
 }
 
+function TempoProfilePanel({ profile }: { profile: RecommendationPath["tempoProfile"] }) {
+  return (
+    <section className="tempoProfilePanel" aria-label="Early-turn tempo profile">
+      <div className="tempoProfileHeader">
+        <div>
+          <span>Tempo read</span>
+          <strong>{profile.overall}</strong>
+        </div>
+        <div className="tempoReadinessGrid">
+          {profile.turnTwoReadiness.map((readiness) => (
+            <div key={readiness.job}>
+              <span>{tempoJobLabel(readiness.job)}</span>
+              <strong>{readiness.band}</strong>
+            </div>
+          ))}
+        </div>
+      </div>
+      <div className="briefGrid tempoBriefGrid">
+        <BriefColumn title="Turn 1 Plan" items={profile.turnOnePlan} />
+        <BriefColumn
+          title="Turn 2 Readiness"
+          items={profile.turnTwoReadiness.map((readiness) => `${tempoJobLabel(readiness.job)}: ${readiness.band} - ${readiness.evidence[0]}`)}
+        />
+        <BriefColumn title="Tempo Risks" items={profile.risks} />
+      </div>
+    </section>
+  );
+}
+
 function StrategyImpactPanel({
   opponentCrew,
   path,
@@ -3798,6 +3827,7 @@ export function RecommendationPanel({
         <div className="infoCallout">No collection models were selected, so Available is using the full legal model pool.</div>
       ) : null}
       {modifierCopy ? <div className="infoCallout">{modifierCopy}</div> : null}
+      <TempoProfilePanel profile={selectedPath.tempoProfile} />
 
       <div className="recommendationList">
         {sortedRecommendations.map((recommendation) => {
@@ -3903,6 +3933,7 @@ export function RecommendationPanel({
                   <RecSection title="Key Tech" items={recommendation.relevantTech} />
                   <RecSection title="Targets" items={recommendation.priorityTargets} />
                   <RecSection title="Synergy" items={recommendation.alliedSynergies} />
+                  <RecSection title="Tempo" items={tempoNotes(recommendation)} />
                   <RecSection title="Terrain & Mobility" items={terrainMobilityNotes(recommendation)} />
                   <RecSection title="Role Flexibility" items={roleVersatilityNotes(recommendation)} />
                   <RecSection title="Score Trace" items={recommendation.trace} />
@@ -4406,6 +4437,10 @@ function recommendationChips(recommendation: ModelRecommendation): Array<{ label
         }]
       : []),
     ...terrainMobilityChips(recommendation),
+    ...recommendation.tempoTags.slice(0, 2).map((tag) => ({
+      label: tag,
+      title: `${recommendation.model.name} early-turn tempo signal: ${tag}.`
+    })),
     {
       label: `Strategy fit: ${fitBand(recommendation.scoreBreakdown.compositionMatchup)}`,
       title: "How strongly this pick addresses the selected strategy and matchup demands."
@@ -4444,6 +4479,16 @@ function terrainMobilityNotes(recommendation: ModelRecommendation): string[] {
 
   if (recommendation.model.statBlock.speed > 0 && recommendation.model.statBlock.speed <= 4 && recommendation.terrainTools.length === 0) {
     notes.push("Low Sp without detected terrain tech: avoid assigning this model to unsupported wide, rooftop, or backline jobs.");
+  }
+
+  return notes;
+}
+
+function tempoNotes(recommendation: ModelRecommendation): string[] {
+  const notes = recommendation.tempoTags.map((tag) => `${tag}: detected from speed, tactical tags, or rules-text tempo heuristics.`);
+
+  if (notes.length === 0) {
+    notes.push("No strong Turn 2 tempo signal detected; treat this as a later, reactive, or matchup-specific piece.");
   }
 
   return notes;
@@ -5033,6 +5078,10 @@ function roleVersatilityNotes(recommendation: ModelRecommendation): string[] {
 
 function versatilityJobLabel(job: string): string {
   return job.replace(/([A-Z])/g, " $1").toLowerCase();
+}
+
+function tempoJobLabel(job: string): string {
+  return job.charAt(0).toUpperCase() + job.slice(1);
 }
 
 function versatilityRank(band?: "High" | "Medium" | "Low"): number {

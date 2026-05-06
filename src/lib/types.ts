@@ -221,6 +221,7 @@ export type RecommendationPath = {
   validation: CrewValidation;
   models: ModelRecommendation[];
   synergyGroups: SynergyGroup[];
+  tempoProfile: TempoProfile;
 };
 
 export type SynergyGroup = {
@@ -255,6 +256,7 @@ export type ModelRecommendation = {
   priorityTargets: string[];
   alliedSynergies: string[];
   terrainTools: string[];
+  tempoTags: string[];
   vulnerabilityFlags: VulnerabilityFlag[];
 };
 
@@ -354,6 +356,21 @@ export type TerrainMobilityProfile = {
   terrainTools: string[];
   terrainRisks: string[];
   recommendedTablePlan: string;
+};
+
+export type TempoJob = "score" | "fight" | "contest" | "support";
+
+export type TempoReadiness = {
+  job: TempoJob;
+  band: "Strong" | "Adequate" | "Weak";
+  evidence: string[];
+};
+
+export type TempoProfile = {
+  overall: "Fast" | "Balanced" | "Slow" | "Setup-heavy";
+  turnOnePlan: string[];
+  turnTwoReadiness: TempoReadiness[];
+  risks: string[];
 };
 
 export type MatchupBrief = {

@@ -1891,10 +1891,16 @@ select option {
 }
 
 .spendSummary .inlineHelp {
+  display: inline-grid;
+  place-items: center;
+  align-self: center;
   margin-left: 0;
+  line-height: 1;
 }
 
 .spendSummary .inlineHelpButton {
+  display: inline-grid;
+  place-items: center;
   width: 1em;
   height: 1em;
   border-color: transparent;
@@ -1917,6 +1923,7 @@ select option {
 }
 
 .spendSummary .inlineHelpButton svg {
+  display: block;
   width: 13px;
   height: 13px;
 }

@@ -68,6 +68,7 @@ import {
 
 type PathKind = "available" | "optimal";
 type ActiveResultTab = "picks" | "matchup" | "schemes" | "draft";
+type SetupStepId = "match-context" | "player-collection" | "opponent-intel" | "analyze";
 type MatchIntent = "core" | "tournament" | "casual" | "learning" | "narrative";
 type MatchIntentSelection = MatchIntent | "";
 type CrewModifierId = "needMobility" | "needConditionRemoval" | "expectSummons" | "needMarkerPlan";
@@ -132,6 +133,12 @@ type AnalyzeReadiness = {
   detail: string;
   emptyState: string;
   disabledButtonLabel: string;
+};
+type SetupStep = {
+  id: SetupStepId;
+  label: string;
+  href: string;
+  complete: boolean;
 };
 
 const MATCH_INTENTS: Array<{ value: MatchIntent; label: string; summary: string; recommendationLead: string }> = [
@@ -274,6 +281,73 @@ function buildAnalyzeReadiness({
     disabledButtonLabel: "Analyze"
   };
 }
+
+function deriveCurrentSetupStep({
+  analysis,
+  isAnalyzing,
+  opponentFaction,
+  opponentMasterId,
+  playerFaction,
+  playerMasterId
+}: {
+  analysis: MatchupAnalysis | null;
+  isAnalyzing: boolean;
+  opponentFaction: string;
+  opponentMasterId: string;
+  playerFaction: string;
+  playerMasterId: string;
+}): SetupStepId {
+  if (analysis || isAnalyzing || (playerMasterId && opponentMasterId)) return "analyze";
+  if (opponentFaction || opponentMasterId) return "opponent-intel";
+  if (playerFaction || playerMasterId) return "player-collection";
+  return "match-context";
+}
+
+function buildSetupSteps({
+  analysis,
+  currentStep,
+  opponentMasterId,
+  playerMasterId
+}: {
+  analysis: MatchupAnalysis | null;
+  currentStep: SetupStepId;
+  opponentMasterId: string;
+  playerMasterId: string;
+}): SetupStep[] {
+  const hasPlayerMaster = Boolean(playerMasterId);
+  const hasOpponentMaster = Boolean(opponentMasterId);
+  const hasAnalysis = Boolean(analysis);
+  const currentIndex = SETUP_STEP_ORDER.indexOf(currentStep);
+
+  return [
+    {
+      id: "match-context",
+      label: "Match Context",
+      href: "#match-context",
+      complete: currentIndex > 0 || hasAnalysis
+    },
+    {
+      id: "player-collection",
+      label: "Player Collection",
+      href: "#player-collection",
+      complete: hasPlayerMaster && (currentIndex > 1 || hasAnalysis)
+    },
+    {
+      id: "opponent-intel",
+      label: "Opponent Intel",
+      href: "#opponent-intel",
+      complete: hasOpponentMaster && (currentIndex > 2 || hasAnalysis)
+    },
+    {
+      id: "analyze",
+      label: "Analyze",
+      href: hasAnalysis ? "#analysis-results" : "#analyze",
+      complete: hasAnalysis
+    }
+  ];
+}
+
+const SETUP_STEP_ORDER: SetupStepId[] = ["match-context", "player-collection", "opponent-intel", "analyze"];
 
 function buildResultsConfidence({
   hasStrategy,
@@ -964,6 +1038,20 @@ export default function MalifauxWorkbench() {
   );
   const canAnalyze = Boolean(playerMasterId && opponentMasterId);
   const analyzeButtonLabel = isAnalyzing ? "Analyzing..." : analysis ? "Analyze again" : "Analyze";
+  const currentSetupStep = deriveCurrentSetupStep({
+    analysis,
+    isAnalyzing,
+    opponentFaction,
+    opponentMasterId,
+    playerFaction,
+    playerMasterId
+  });
+  const setupSteps = buildSetupSteps({
+    analysis,
+    currentStep: currentSetupStep,
+    opponentMasterId,
+    playerMasterId
+  });
   const analyzeReadiness = buildAnalyzeReadiness({
     hasPlayerMaster: Boolean(playerMasterId),
     hasOpponentMaster: Boolean(opponentMasterId),
@@ -1351,10 +1439,23 @@ export default function MalifauxWorkbench() {
       ) : null}
 
       <nav className="setupStepper" aria-label="Counter-pick setup sequence">
-        <span className="active" aria-current="step"><span className="stepperNumber">1</span> Match Context</span>
-        <span><span className="stepperNumber">2</span> Player Collection</span>
-        <span><span className="stepperNumber">3</span> Opponent Intel</span>
-        <span><span className="stepperNumber">4</span> Analyze</span>
+        {setupSteps.map((step, index) => {
+          const isCurrent = step.id === currentSetupStep;
+          const status = isCurrent ? "current" : step.complete ? "complete" : "available";
+          return (
+            <a
+              aria-current={isCurrent ? "step" : undefined}
+              aria-label={`${index + 1}. ${step.label}, ${status}`}
+              className={`${isCurrent ? "active" : ""} ${step.complete ? "complete" : ""}`.trim()}
+              href={step.href}
+              key={step.id}
+            >
+              <span className="stepperNumber">{index + 1}</span>
+              <span>{step.label}</span>
+              {step.complete ? <span className="stepperStatus">Complete</span> : null}
+            </a>
+          );
+        })}
       </nav>
 
       <section className="panel matchPanel" id="match-context">

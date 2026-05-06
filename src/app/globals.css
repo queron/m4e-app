@@ -623,7 +623,7 @@ select option {
   backdrop-filter: blur(12px);
 }
 
-.setupStepper > span {
+.setupStepper > a {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -634,7 +634,9 @@ select option {
     linear-gradient(180deg, color-mix(in srgb, var(--wayfinding), transparent 92%), rgba(17, 14, 11, 0.1)),
     rgba(17, 14, 11, 0.72);
   padding: 7px 10px;
+  color: inherit;
   text-align: center;
+  text-decoration: none;
 }
 
 .stepperNumber {
@@ -652,13 +654,38 @@ select option {
   line-height: 1;
 }
 
-.setupStepper > span.active,
-.setupStepper > span[aria-current="step"] {
+.setupStepper > a.complete:not(.active) {
+  border-color: rgba(142, 154, 114, 0.44);
+  color: var(--parchment-2);
+  background:
+    linear-gradient(180deg, rgba(142, 154, 114, 0.13), rgba(17, 14, 11, 0.04)),
+    rgba(17, 14, 11, 0.72);
+}
+
+.setupStepper > a:hover,
+.setupStepper > a:focus-visible {
+  border-color: rgba(196, 154, 70, 0.58);
+  color: var(--parchment);
+  outline: none;
+}
+
+.setupStepper > a.active,
+.setupStepper > a[aria-current="step"] {
   border-color: color-mix(in srgb, var(--wayfinding), white 8%);
   color: var(--parchment);
   background:
     linear-gradient(180deg, color-mix(in srgb, var(--wayfinding), transparent 78%), rgba(17, 14, 11, 0.04)),
     rgba(17, 14, 11, 0.8);
+}
+
+.stepperStatus {
+  border: 1px solid rgba(142, 154, 114, 0.44);
+  border-radius: 999px;
+  color: #cfddb3;
+  padding: 2px 6px;
+  font-size: 0.62rem;
+  line-height: 1;
+  text-transform: uppercase;
 }
 
 .stepBadge {

@@ -38,7 +38,8 @@ import {
 } from "lucide-react";
 import type { CardCatalog, CatalogSummary, CrewCard, MatchupAnalysis, ModelCard, ModelMatchupEvaluation, ModelRecommendation, ProxyAvailability, RecommendationPath, SynergyGroup, TacticalTag, VulnerabilityFlag } from "@/lib/types";
 import masterPlaystyleNotes from "@/data/master_playstyle_notes.json";
-import { DEFAULT_SCHEME_POOL, DEFAULT_SCHEME_POOL_ID, SCHEME_POOLS } from "@/lib/scheme-pools";
+import { DEFAULT_SCHEME_POOL, DEFAULT_SCHEME_POOL_ID, SCHEME_POOLS, getSchemeBranches, hasSchemeGraph } from "@/lib/scheme-pools";
+import type { SchemePool } from "@/lib/scheme-pools";
 import { DEFAULT_STRATEGY_POOL, DEFAULT_STRATEGY_POOL_ID, STRATEGY_POOLS } from "@/lib/strategy-pools";
 import { glossaryText } from "@/lib/glossary";
 import { findSyntheticRuleForMaster, getMandatoryCrewEntries, getTitleTotemRules } from "@/lib/mandatory-crew";
@@ -1849,6 +1850,7 @@ export default function MalifauxWorkbench() {
             <SchemeWatchlistPanel
               pairings={analysis.recommendedSchemePairs ?? []}
               recommendations={selectedPath?.models ?? []}
+              schemePool={analysis.match.schemePool ?? schemePool}
               watchlist={analysis.schemeWatchlist}
             />
           ) : null}
@@ -3375,25 +3377,74 @@ function CrewAnalysisCard({
 function SchemeWatchlistPanel({
   watchlist,
   pairings,
-  recommendations
+  recommendations,
+  schemePool
 }: {
   watchlist: NonNullable<MatchupAnalysis["schemeWatchlist"]>;
   pairings: NonNullable<MatchupAnalysis["recommendedSchemePairs"]>;
   recommendations: ModelRecommendation[];
+  schemePool: SchemePool;
 }) {
+  const [viewMode, setViewMode] = useState<"list" | "paths">("list");
+  const graphAvailable = hasSchemeGraph(schemePool);
+
   return (
     <section className="schemeWatchlist panel">
       <div className="panelHeader">
         <h2>Scheme Watchlist</h2>
         <span>Scheme planning</span>
       </div>
-      <div className="schemeWatchlistGrid">
-        <SchemeWatchlistColumn title="Good for your crew" items={watchlist.goodForPlayer} />
-        <SchemeWatchlistColumn title="Watch opponent for" items={watchlist.opponentThreats} />
+      <div className="segment schemeViewToggle" aria-label="Scheme view">
+        <button className={viewMode === "list" ? "active" : ""} type="button" onClick={() => setViewMode("list")}>List</button>
+        <button className={viewMode === "paths" ? "active" : ""} type="button" onClick={() => setViewMode("paths")}>Paths</button>
       </div>
+      {viewMode === "paths" ? (
+        graphAvailable ? <SchemePathView pool={schemePool} /> : <div className="infoCallout">Branch data unavailable for this pool.</div>
+      ) : (
+        <div className="schemeWatchlistGrid">
+          <SchemeWatchlistColumn title="Good for your crew" items={watchlist.goodForPlayer} />
+          <SchemeWatchlistColumn title="Watch opponent for" items={watchlist.opponentThreats} />
+        </div>
+      )}
       <SchemePairingIdeas pairings={pairings} />
       <VersatileSchemePicks recommendations={recommendations} />
     </section>
+  );
+}
+
+function SchemePathView({ pool }: { pool: SchemePool }) {
+  const branches = getSchemeBranches(pool);
+
+  return (
+    <div className="schemePathView">
+      {branches.map((branch) => (
+        <article className="schemePathCard" key={branch.scheme.id}>
+          <div>
+            <strong>{branch.scheme.name}</strong>
+            <span>{branch.scheme.tags.map(tacticalTagLabel).join(", ")}</span>
+            <p>{branch.scheme.summary}</p>
+          </div>
+          <div className="schemeNextColumn">
+            <span>Next</span>
+            <div>
+              {branch.next.map((scheme) => (
+                <span className="recChip" key={scheme.id} title={scheme.summary}>{scheme.name}</span>
+              ))}
+            </div>
+          </div>
+          {branch.abandonNext.length > 0 ? (
+            <div className="schemeNextColumn">
+              <span>Abandon</span>
+              <div>
+                {branch.abandonNext.map((scheme) => (
+                  <span className="recChip" key={scheme.id} title={scheme.summary}>{scheme.name}</span>
+                ))}
+              </div>
+            </div>
+          ) : null}
+        </article>
+      ))}
+    </div>
   );
 }
 

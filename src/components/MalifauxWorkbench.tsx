@@ -333,6 +333,7 @@ export default function MalifauxWorkbench() {
   const [savedDrafts, setSavedDrafts] = useState<SavedDraft[]>([]);
   const [statusMessage, setStatusMessage] = useState("");
   const [copyFallbackText, setCopyFallbackText] = useState("");
+  const [matchupCardOpen, setMatchupCardOpen] = useState(false);
   const [selectedModel, setSelectedModel] = useState<ModelCard | null>(null);
   const [selectedModelDetailLoading, setSelectedModelDetailLoading] = useState(false);
   const [selectedModelDetailError, setSelectedModelDetailError] = useState("");
@@ -635,6 +636,15 @@ export default function MalifauxWorkbench() {
         recommendationCount: selectedPath?.models.length ?? 0
       })
     : null;
+  const matchupCardData = analysis && selectedPath && resultsConfidence
+    ? buildMatchupCardData({
+        analysis,
+        confidence: resultsConfidence,
+        path: selectedPath,
+        pathKind,
+        strategyPoolName: strategyPool.name
+      })
+    : null;
   const playerRequiredModels = useMemo(
     () => (catalog && playerMaster ? getMandatoryModelsForMaster(playerMaster, catalog.models) : []),
     [catalog, playerMaster]
@@ -854,18 +864,24 @@ export default function MalifauxWorkbench() {
   }
 
   async function copyAnalysisSummary() {
-    if (!analysis || !selectedPath || !resultsConfidence) return;
-    await copyText(buildAnalysisShareSummary({
+    const summary = currentAnalysisShareSummary();
+    if (!summary) return;
+    await copyText(summary, "Analysis summary copied.");
+  }
+
+  async function copyAnalysisLink() {
+    await shareSetup();
+  }
+
+  function currentAnalysisShareSummary() {
+    if (!analysis || !selectedPath || !resultsConfidence) return "";
+    return buildAnalysisShareSummary({
       analysis,
       confidence: resultsConfidence,
       path: selectedPath,
       pathKind,
       strategyPoolName: strategyPool.name
-    }), "Analysis summary copied.");
-  }
-
-  async function copyAnalysisLink() {
-    await shareSetup();
+    });
   }
 
   function draftSummaryContext(): DraftSummaryContext {
@@ -1141,6 +1157,7 @@ export default function MalifauxWorkbench() {
             <div className="resultActions" aria-label="Analysis actions">
               <button className="subtleButton" type="button" onClick={copyAnalysisSummary}>Copy summary</button>
               <button className="subtleButton" type="button" onClick={copyAnalysisLink}>Copy link</button>
+              <button className="subtleButton" type="button" onClick={() => setMatchupCardOpen(true)}>Copy matchup card</button>
               <button className="subtleButton" type="button" onClick={printPlan}>Print / Export</button>
             </div>
           </div>
@@ -1333,6 +1350,15 @@ export default function MalifauxWorkbench() {
           onClose={closeSelectedModel}
         />
       ) : null}
+      {matchupCardOpen && matchupCardData ? (
+        <MatchupCardModal
+          card={matchupCardData}
+          fallbackText={currentAnalysisShareSummary()}
+          onClose={() => setMatchupCardOpen(false)}
+          onCopyFallback={(text) => copyText(text, "Matchup card text copied.")}
+          onStatus={setStatusMessage}
+        />
+      ) : null}
     </main>
   );
 }
@@ -1387,6 +1413,150 @@ class ResultsErrorBoundary extends Component<ResultsErrorBoundaryProps, ResultsE
       </section>
     );
   }
+}
+
+type MatchupCardData = {
+  playerMaster: string;
+  opponentMaster: string;
+  strategyLine: string;
+  pathLabel: string;
+  read: string;
+  confidenceLabel: ResultsConfidence["label"];
+  confidenceEvidence: string;
+  reasons: string[];
+  focus: string;
+  hires: string[];
+  footer: string;
+  generatedAt: string;
+};
+
+function MatchupCardModal({
+  card,
+  fallbackText,
+  onClose,
+  onCopyFallback,
+  onStatus
+}: {
+  card: MatchupCardData;
+  fallbackText: string;
+  onClose: () => void;
+  onCopyFallback: (text: string) => Promise<void>;
+  onStatus: (message: string) => void;
+}) {
+  const titleId = useId();
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    function closeOnEscape(event: KeyboardEvent) {
+      if (event.key === "Escape") onClose();
+    }
+    window.addEventListener("keydown", closeOnEscape);
+    return () => window.removeEventListener("keydown", closeOnEscape);
+  }, [onClose]);
+
+  async function copyImage() {
+    if (!("ClipboardItem" in window) || !navigator.clipboard?.write) {
+      await onCopyFallback(fallbackText);
+      onStatus("Image clipboard unavailable. Copied text fallback instead.");
+      return;
+    }
+
+    setBusy(true);
+    try {
+      const blob = await renderMatchupCardPng(card);
+      await navigator.clipboard.write([new ClipboardItem({ [blob.type]: blob })]);
+      onStatus("Matchup card image copied.");
+    } catch {
+      await onCopyFallback(fallbackText);
+      onStatus("Image export failed. Copied text fallback instead.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function downloadImage() {
+    setBusy(true);
+    try {
+      const blob = await renderMatchupCardPng(card);
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement("a");
+      anchor.href = url;
+      anchor.download = matchupCardFilename(card);
+      anchor.click();
+      URL.revokeObjectURL(url);
+      onStatus("Matchup card PNG downloaded.");
+    } catch {
+      await onCopyFallback(fallbackText);
+      onStatus("Image export failed. Copied text fallback instead.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="modalBackdrop" role="presentation" onMouseDown={onClose}>
+      <section
+        aria-labelledby={titleId}
+        className="modal matchupCardModal"
+        role="dialog"
+        aria-modal="true"
+        onMouseDown={(event) => event.stopPropagation()}
+      >
+        <div className="modalHeader">
+          <div>
+            <p className="eyebrow">Export card</p>
+            <h2 id={titleId}>Shareable matchup card</h2>
+          </div>
+          <button className="subtleButton" type="button" onClick={onClose}>Close</button>
+        </div>
+        <MatchupCardPreview card={card} />
+        <div className="matchupCardActions">
+          <button className="primary" type="button" onClick={copyImage} disabled={busy}>
+            {busy ? "Preparing..." : "Copy image"}
+          </button>
+          <button className="subtleButton" type="button" onClick={downloadImage} disabled={busy}>
+            Download PNG
+          </button>
+          <button className="subtleButton" type="button" onClick={() => onCopyFallback(fallbackText)}>
+            Copy text fallback
+          </button>
+        </div>
+      </section>
+    </div>
+  );
+}
+
+function MatchupCardPreview({ card }: { card: MatchupCardData }) {
+  return (
+    <article className="matchupCardPreview" aria-label="Matchup card preview">
+      <div className="matchupCardTopline">
+        <span>Malifaux 4E Crew Optimizer</span>
+        <strong>{card.pathLabel}</strong>
+      </div>
+      <div className="matchupCardMasters">
+        <h3>{card.playerMaster}</h3>
+        <span>into</span>
+        <h3>{card.opponentMaster}</h3>
+      </div>
+      <p className="matchupCardStrategy">{card.strategyLine}</p>
+      <div className="matchupCardBadges">
+        <span>{card.read}</span>
+        <span>{card.confidenceLabel} confidence</span>
+      </div>
+      <div className="matchupCardGrid">
+        <section>
+          <strong>Top reasons</strong>
+          <ol>{card.reasons.map((reason) => <li key={reason}>{reason}</li>)}</ol>
+        </section>
+        <section>
+          <strong>Recommended hires</strong>
+          <ul>{card.hires.map((hire) => <li key={hire}>{hire}</li>)}</ul>
+        </section>
+      </div>
+      <p className="matchupCardFocus">Suggested focus: {card.focus}</p>
+      <footer>{card.footer}</footer>
+    </article>
+  );
 }
 
 function MatrixModePanel({
@@ -3676,6 +3846,160 @@ function buildAnalysisShareSummary({
     `Suggested focus: ${focus}`,
     `Confidence: ${confidence.label} - ${confidence.evidence}`
   ].join("\n");
+}
+
+function buildMatchupCardData({
+  analysis,
+  confidence,
+  path,
+  pathKind,
+  strategyPoolName
+}: {
+  analysis: MatchupAnalysis;
+  confidence: ResultsConfidence;
+  path: RecommendationPath;
+  pathKind: PathKind;
+  strategyPoolName: string;
+}): MatchupCardData {
+  const playerMaster = analysis.playerCrew.master?.name ?? "Player master";
+  const opponentMaster = analysis.opponentCrew.master?.name ?? "Opponent master";
+  const strategyName = analysis.match.strategy?.name ?? "No strategy selected";
+  const riskCount = path.models.reduce((sum, recommendation) => sum + recommendation.vulnerabilityFlags.filter((flag) => flag.severity === "High").length, 0);
+  const read = riskCount > 0 ? "Risky" : confidence.label === "High" ? "Favourable" : "Balanced";
+  const reasons = [
+    ...analysis.matchupBrief.priorityHires,
+    ...analysis.matchupBrief.answerWith,
+    ...path.models.slice(0, 3).map((recommendation) => recommendation.why[0] ?? recommendation.hireReason)
+  ].filter(Boolean).slice(0, 3);
+  const hires = path.models
+    .slice(0, 3)
+    .map((recommendation) => `${recommendation.model.name} - ${recommendation.role}, ${formatRecommendationCost(recommendation)}`);
+
+  return {
+    playerMaster,
+    opponentMaster,
+    strategyLine: `${strategyName} | ${strategyPoolName} | ${analysis.match.pointLimit}ss`,
+    pathLabel: pathKind === "available" ? "Available path" : "Optimal path",
+    read,
+    confidenceLabel: confidence.label,
+    confidenceEvidence: confidence.evidence,
+    reasons: reasons.length ? reasons : ["Run analysis with more crew context to generate stronger reasons."],
+    focus: analysis.matchupBrief.answerWith[0] ?? path.models[0]?.role ?? "confirm model roles against the table plan",
+    hires: hires.length ? hires : ["No recommended hires available for this path."],
+    generatedAt: analysis.generatedAt,
+    footer: `App v0.1.0 | ${confidence.evidence} | Generated ${new Date(analysis.generatedAt).toLocaleDateString()}`
+  };
+}
+
+async function renderMatchupCardPng(card: MatchupCardData): Promise<Blob> {
+  const svg = buildMatchupCardSvg(card);
+  const svgBlob = new Blob([svg], { type: "image/svg+xml;charset=utf-8" });
+  const url = URL.createObjectURL(svgBlob);
+
+  try {
+    const image = await loadImage(url);
+    const canvas = document.createElement("canvas");
+    canvas.width = 1200;
+    canvas.height = 675;
+    const context = canvas.getContext("2d");
+    if (!context) throw new Error("Canvas unavailable.");
+    context.drawImage(image, 0, 0);
+    const blob = await new Promise<Blob>((resolve, reject) => {
+      canvas.toBlob((result) => {
+        if (result) resolve(result);
+        else reject(new Error("PNG export failed."));
+      }, "image/png");
+    });
+    return blob;
+  } finally {
+    URL.revokeObjectURL(url);
+  }
+}
+
+function loadImage(url: string): Promise<HTMLImageElement> {
+  return new Promise((resolve, reject) => {
+    const image = new window.Image();
+    image.onload = () => resolve(image);
+    image.onerror = () => reject(new Error("Card preview could not render."));
+    image.src = url;
+  });
+}
+
+function buildMatchupCardSvg(card: MatchupCardData): string {
+  const reasonLines = card.reasons.slice(0, 3).flatMap((reason, index) => wrapText(`${index + 1}. ${reason}`, 72, 2));
+  const hireLines = card.hires.slice(0, 3).flatMap((hire) => wrapText(`- ${hire}`, 42, 2));
+  const focusLines = wrapText(`Suggested focus: ${card.focus}`, 106, 2);
+
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="675" viewBox="0 0 1200 675">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#241b13"/>
+      <stop offset="0.58" stop-color="#12100d"/>
+      <stop offset="1" stop-color="#2b2217"/>
+    </linearGradient>
+  </defs>
+  <rect width="1200" height="675" rx="34" fill="url(#bg)"/>
+  <rect x="34" y="34" width="1132" height="607" rx="26" fill="none" stroke="#c49a46" stroke-opacity="0.45" stroke-width="2"/>
+  <text x="70" y="78" fill="#c49a46" font-family="Inter, Arial, sans-serif" font-size="24" font-weight="700" letter-spacing="3">MALIFAUX 4E CREW OPTIMIZER</text>
+  <text x="70" y="145" fill="#f5e7c8" font-family="Georgia, serif" font-size="46" font-weight="700">${escapeXml(truncateText(card.playerMaster, 34))}</text>
+  <text x="70" y="190" fill="#d8c7a7" font-family="Inter, Arial, sans-serif" font-size="25">into ${escapeXml(truncateText(card.opponentMaster, 42))}</text>
+  <text x="70" y="236" fill="#b9a98b" font-family="Inter, Arial, sans-serif" font-size="22">${escapeXml(card.strategyLine)}</text>
+  <rect x="70" y="270" width="180" height="44" rx="22" fill="#c49a46" fill-opacity="0.18" stroke="#c49a46" stroke-opacity="0.55"/>
+  <text x="96" y="300" fill="#f5e7c8" font-family="Inter, Arial, sans-serif" font-size="23" font-weight="700">${escapeXml(card.read)}</text>
+  <rect x="268" y="270" width="250" height="44" rx="22" fill="#2f5a45" fill-opacity="0.35" stroke="#8e9a72" stroke-opacity="0.55"/>
+  <text x="292" y="300" fill="#f5e7c8" font-family="Inter, Arial, sans-serif" font-size="23" font-weight="700">${escapeXml(card.confidenceLabel)} confidence</text>
+  <text x="70" y="370" fill="#c49a46" font-family="Inter, Arial, sans-serif" font-size="22" font-weight="800">TOP REASONS</text>
+  ${svgTextLines(reasonLines, 70, 408, 24, "#f1dec0", 20)}
+  <text x="720" y="370" fill="#c49a46" font-family="Inter, Arial, sans-serif" font-size="22" font-weight="800">RECOMMENDED HIRES</text>
+  ${svgTextLines(hireLines, 720, 408, 25, "#f1dec0", 21)}
+  ${svgTextLines(focusLines, 70, 555, 25, "#f5e7c8", 22)}
+  <text x="70" y="610" fill="#b9a98b" font-family="Inter, Arial, sans-serif" font-size="18">${escapeXml(truncateText(card.footer, 130))}</text>
+</svg>`;
+}
+
+function svgTextLines(lines: string[], x: number, startY: number, lineHeight: number, fill: string, size: number): string {
+  return lines
+    .map((line, index) => `<text x="${x}" y="${startY + index * lineHeight}" fill="${fill}" font-family="Inter, Arial, sans-serif" font-size="${size}">${escapeXml(line)}</text>`)
+    .join("\n  ");
+}
+
+function wrapText(text: string, maxCharacters: number, maxLines: number): string[] {
+  const words = text.split(/\s+/);
+  const lines: string[] = [];
+  let current = "";
+  for (const word of words) {
+    const next = current ? `${current} ${word}` : word;
+    if (next.length > maxCharacters && current) {
+      lines.push(current);
+      current = word;
+      if (lines.length === maxLines) break;
+    } else {
+      current = next;
+    }
+  }
+  if (current && lines.length < maxLines) lines.push(current);
+  if (lines.length === maxLines && words.join(" ").length > lines.join(" ").length) {
+    lines[lines.length - 1] = `${lines[lines.length - 1].replace(/[.\s]+$/, "")}...`;
+  }
+  return lines;
+}
+
+function escapeXml(value: string): string {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+function truncateText(value: string, maxLength: number): string {
+  return value.length > maxLength ? `${value.slice(0, maxLength - 3).trimEnd()}...` : value;
+}
+
+function matchupCardFilename(card: MatchupCardData): string {
+  const date = new Date(card.generatedAt).toISOString().slice(0, 10);
+  return `${slugifyForMatch(card.playerMaster)}-into-${slugifyForMatch(card.opponentMaster)}-${date}.png`;
 }
 
 function buildMatrixCell(playerMaster: ModelCard, opponentMaster: ModelCard, strategy: Strategy, catalog: CardCatalog): MatrixCell {

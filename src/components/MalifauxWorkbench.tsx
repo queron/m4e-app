@@ -82,6 +82,14 @@ type GameFeelRead = {
   rationale: string;
   reasons: string[];
 };
+type MatchupProfileRow = {
+  label: string;
+  playerBand: "Unknown" | "Low" | "Medium" | "High";
+  opponentBand: "Unknown" | "Low" | "Medium" | "High";
+  playerScore: number;
+  opponentScore: number;
+  interpretation: string;
+};
 type MatrixCell = {
   playerMaster: ModelCard;
   opponentMaster: ModelCard;
@@ -385,6 +393,72 @@ function buildGameFeelRead({
       playerScoring > 0 ? "The path includes scenario/scoring coverage." : "Add a dedicated scoring piece if the table plan feels too fight-heavy."
     ])
   };
+}
+
+function buildMatchupProfileRows(analysis: MatchupAnalysis, path: RecommendationPath): MatchupProfileRow[] {
+  const playerSources = [
+    analysis.playerCrew.master,
+    analysis.playerCrew.crewCard,
+    ...path.models.map((recommendation) => recommendation.model)
+  ].filter(Boolean) as Array<ModelCard | CrewCard>;
+  const opponentModelSources = analysis.opponentCrew.expectedModels.length > 0
+    ? analysis.opponentCrew.expectedModels
+    : analysis.opponentCrew.likelyModels.slice(0, 6).map((recommendation) => recommendation.model);
+  const opponentSources = [
+    analysis.opponentCrew.master,
+    analysis.opponentCrew.crewCard,
+    ...opponentModelSources
+  ].filter(Boolean) as Array<ModelCard | CrewCard>;
+  const dimensions: Array<{ label: string; tags: TacticalTag[] }> = [
+    { label: "Damage", tags: ["damage", "burst", "melee", "ranged"] },
+    { label: "Durability", tags: ["armor", "incorporeal", "healing", "demise"] },
+    { label: "Mobility", tags: ["mobility", "placement"] },
+    { label: "Scheming", tags: ["scheme", "marker", "placement"] },
+    { label: "Control", tags: ["control", "stunned", "slow", "staggered", "injured"] },
+    { label: "Resource Pressure", tags: ["cardPressure", "soulstone", "summon"] }
+  ];
+
+  return dimensions.map((dimension) => {
+    const playerScore = profileDimensionScore(playerSources, dimension.tags);
+    const opponentScore = profileDimensionScore(opponentSources, dimension.tags);
+    const playerBand = profileBand(playerScore);
+    const opponentBand = profileBand(opponentScore);
+    return {
+      label: dimension.label,
+      playerBand,
+      opponentBand,
+      playerScore,
+      opponentScore,
+      interpretation: profileInterpretation(dimension.label, playerBand, opponentBand)
+    };
+  });
+}
+
+function profileDimensionScore(sources: Array<ModelCard | CrewCard>, tags: TacticalTag[]): number {
+  const tagSet = new Set(tags);
+  return Math.min(6, sources.reduce((sum, source) => sum + source.tacticalTags.filter((tag) => tagSet.has(tag)).length, 0));
+}
+
+function profileBand(score: number): MatchupProfileRow["playerBand"] {
+  if (score === 0) return "Unknown";
+  if (score <= 2) return "Low";
+  if (score <= 4) return "Medium";
+  return "High";
+}
+
+function profileInterpretation(label: string, playerBand: MatchupProfileRow["playerBand"], opponentBand: MatchupProfileRow["opponentBand"]): string {
+  if (playerBand === "Unknown" && opponentBand === "Unknown") return "Insufficient signal from the current setup.";
+  if (playerBand === opponentBand) return `${label} looks roughly even from current tags.`;
+  if (opponentBand === "High" && playerBand !== "High") return `Opponent ${label.toLowerCase()} is the stronger signal to plan around.`;
+  if (playerBand === "High" && opponentBand !== "High") return `Your path shows the stronger ${label.toLowerCase()} signal.`;
+  return `${label} leans ${bandRank(playerBand) > bandRank(opponentBand) ? "toward your plan" : "toward the opponent"}.`;
+}
+
+function bandRank(band: MatchupProfileRow["playerBand"]): number {
+  if (band === "High") return 3;
+  if (band === "Medium") return 2;
+  if (band === "Low") return 1;
+  return 0;
 }
 
 function findCrewCardForSelectedMaster(master: ModelCard | undefined, catalog: CardCatalog | null): CrewCard | undefined {
@@ -775,6 +849,7 @@ export default function MalifauxWorkbench() {
         path: selectedPath
       })
     : null;
+  const matchupProfile = analysis && selectedPath ? buildMatchupProfileRows(analysis, selectedPath) : [];
   const playerRequiredModels = useMemo(
     () => (catalog && playerMaster ? getMandatoryModelsForMaster(playerMaster, catalog.models) : []),
     [catalog, playerMaster]
@@ -1384,6 +1459,10 @@ export default function MalifauxWorkbench() {
           ) : null}
           {activeResultTab === "matchup" ? (
             <>
+              <MatchupProfilePanel
+                inferredOpponent={analysis.opponentCrew.expectedModels.length === 0}
+                rows={matchupProfile}
+              />
               <MasterProfilePair
                 playerProfile={buildMasterProfile(analysis.playerCrew.master, analysis.playerCrew.crewCard)}
                 opponentProfile={buildMasterProfile(analysis.opponentCrew.master, analysis.opponentCrew.crewCard)}
@@ -2882,6 +2961,57 @@ function GameFeelPanel({ gameFeel }: { gameFeel: GameFeelRead }) {
         ))}
       </ul>
     </section>
+  );
+}
+
+function MatchupProfilePanel({ inferredOpponent, rows }: { inferredOpponent: boolean; rows: MatchupProfileRow[] }) {
+  return (
+    <section className="panel matchupProfilePanel" aria-label="Matchup profile">
+      <div className="panelHeader">
+        <h2>Matchup Profile</h2>
+        <span>Tag-based comparison, not a win-rate prediction</span>
+      </div>
+      <div className="matchupProfileRows">
+        {rows.map((row) => (
+          <article className="matchupProfileRow" key={row.label}>
+            <div>
+              <strong>{row.label}</strong>
+              <p>{row.interpretation}</p>
+            </div>
+            <ProfileMeter
+              label={`Player ${row.label.toLowerCase()}`}
+              band={row.playerBand}
+              score={row.playerScore}
+            />
+            <ProfileMeter
+              label={`${inferredOpponent ? "Opponent inferred" : "Opponent"} ${row.label.toLowerCase()}`}
+              band={row.opponentBand}
+              score={row.opponentScore}
+              opponent
+            />
+          </article>
+        ))}
+      </div>
+      {inferredOpponent ? <p className="panelHint">Opponent profile is inferred from master, crew card, and likely legal-pool threats because no opponent models are marked.</p> : null}
+    </section>
+  );
+}
+
+function ProfileMeter({ band, label, opponent = false, score }: { band: MatchupProfileRow["playerBand"]; label: string; opponent?: boolean; score: number }) {
+  const width = band === "Unknown" ? 0 : Math.max(12, Math.round((score / 6) * 100));
+  return (
+    <div className={`profileMeter ${opponent ? "opponentMeter" : ""}`}>
+      <span>{opponent ? "Opponent" : "Player"}</span>
+      <div
+        aria-label={`${label}: ${band}`}
+        className="profileMeterTrack"
+        role="img"
+        title={`${label}: ${band}`}
+      >
+        <i style={{ width: `${Math.min(100, width)}%` }} />
+      </div>
+      <strong>{band}</strong>
+    </div>
   );
 }
 

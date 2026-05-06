@@ -94,6 +94,11 @@ type EdgeCaseNotice = {
   title: string;
   body: string;
 };
+type BeginnerSuitabilityRead = {
+  label: "Demo-friendly" | "Playable with guidance" | "Complex" | "High-pressure" | "Avoid for first demo";
+  rationale: string;
+  suggestion: string;
+};
 type MatrixCell = {
   playerMaster: ModelCard;
   opponentMaster: ModelCard;
@@ -396,6 +401,75 @@ function buildGameFeelRead({
       highRiskCount === 0 ? "No severe recommendation risks are present." : "Recommendation risks are present but not overwhelming.",
       playerScoring > 0 ? "The path includes scenario/scoring coverage." : "Add a dedicated scoring piece if the table plan feels too fight-heavy."
     ])
+  };
+}
+
+function buildBeginnerSuitability({
+  analysis,
+  confidence,
+  intent,
+  path
+}: {
+  analysis: MatchupAnalysis;
+  confidence: ResultsConfidence;
+  intent: MatchIntent;
+  path: RecommendationPath;
+}): BeginnerSuitabilityRead | null {
+  if (intent !== "learning" && intent !== "casual") return null;
+
+  const highRiskCount = path.models.reduce(
+    (sum, recommendation) => sum + recommendation.vulnerabilityFlags.filter((flag) => flag.severity === "High").length,
+    0
+  );
+  const pressureTags: TacticalTag[] = ["control", "summon", "cardPressure", "stunned", "slow", "staggered", "injured"];
+  const scoringTags: TacticalTag[] = ["scheme", "mobility", "marker", "placement"];
+  const opponentTags = new Set([
+    ...(analysis.opponentCrew.master?.tacticalTags ?? []),
+    ...analysis.opponentCrew.expectedModels.flatMap((model) => model.tacticalTags),
+    ...analysis.opponentCrew.likelyModels.slice(0, 6).flatMap((recommendation) => recommendation.model.tacticalTags)
+  ]);
+  const playerTags = new Set(path.models.flatMap((recommendation) => recommendation.model.tacticalTags));
+  const pressureCount = pressureTags.filter((tag) => opponentTags.has(tag)).length;
+  const scoringCount = scoringTags.filter((tag) => playerTags.has(tag)).length;
+  const hasKnownOpponent = analysis.opponentCrew.expectedModels.length > 0;
+  const lowConfidence = confidence.label === "Low" || !analysis.match.strategy || !hasKnownOpponent;
+
+  if (pressureCount >= 4 && (highRiskCount >= 2 || lowConfidence)) {
+    return {
+      label: "Avoid for first demo",
+      rationale: "This pairing has heavy disruption signals and limited certainty, so it may teach denial before the core scoring loop.",
+      suggestion: "Choose a lower-control opponent, add known opposing models, or switch to a clearer scoring strategy before demoing."
+    };
+  }
+
+  if (pressureCount >= 3 || highRiskCount >= 2) {
+    return {
+      label: "High-pressure",
+      rationale: "This can work for newer players, but expect control, summon, or resource pressure to need explanation up front.",
+      suggestion: "Brief the new player on the main disruption mechanic and include at least one mobile scoring model."
+    };
+  }
+
+  if (lowConfidence || pressureCount >= 2) {
+    return {
+      label: "Complex",
+      rationale: "The matchup is playable, but the app is inferring important context or seeing several pressure hooks.",
+      suggestion: "Mark likely opponent models and explain the first two turn scoring plan before starting."
+    };
+  }
+
+  if (scoringCount > 0 && confidence.label !== "Low" && highRiskCount === 0) {
+    return {
+      label: "Demo-friendly",
+      rationale: "This looks like a clear teaching game: the recommendation path includes scoring tools and no severe risk flags.",
+      suggestion: "Keep the crew plan focused on one scoring route and avoid adding extra tech pieces for the first game."
+    };
+  }
+
+  return {
+    label: "Playable with guidance",
+    rationale: "The matchup does not look oppressive, but it still benefits from a short pre-game explanation.",
+    suggestion: "Call out each crew's main table job and give newer players one simple scoring priority."
   };
 }
 
@@ -876,6 +950,14 @@ export default function MalifauxWorkbench() {
     : null;
   const gameFeel = analysis && selectedPath && resultsConfidence
     ? buildGameFeelRead({
+        analysis,
+        confidence: resultsConfidence,
+        intent: matchIntent,
+        path: selectedPath
+      })
+    : null;
+  const beginnerSuitability = analysis && selectedPath && resultsConfidence
+    ? buildBeginnerSuitability({
         analysis,
         confidence: resultsConfidence,
         intent: matchIntent,
@@ -1412,6 +1494,7 @@ export default function MalifauxWorkbench() {
           ) : null}
           {edgeCaseNotices.length > 0 ? <EdgeCaseNoticesPanel notices={edgeCaseNotices} /> : null}
           {gameFeel ? <GameFeelPanel gameFeel={gameFeel} /> : null}
+          {beginnerSuitability ? <BeginnerSuitabilityPanel suitability={beginnerSuitability} /> : null}
           <MatchupBriefPanel brief={analysis.matchupBrief} />
           <NextStepsPanel
             brief={analysis.matchupBrief}
@@ -3009,6 +3092,19 @@ function GameFeelPanel({ gameFeel }: { gameFeel: GameFeelRead }) {
           <li key={reason}>{reason}</li>
         ))}
       </ul>
+    </section>
+  );
+}
+
+function BeginnerSuitabilityPanel({ suitability }: { suitability: BeginnerSuitabilityRead }) {
+  return (
+    <section className="beginnerSuitabilityPanel" aria-label="Beginner suitability">
+      <div>
+        <span>Beginner suitability</span>
+        <strong>{suitability.label}</strong>
+      </div>
+      <p>{suitability.rationale}</p>
+      <p><strong>Make it friendlier:</strong> {suitability.suggestion}</p>
     </section>
   );
 }

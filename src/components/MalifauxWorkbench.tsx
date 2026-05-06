@@ -37,8 +37,8 @@ import {
 } from "lucide-react";
 import type { CardCatalog, CatalogSummary, CrewCard, MatchupAnalysis, ModelCard, ModelMatchupEvaluation, ModelRecommendation, RecommendationPath, SynergyGroup, TacticalTag, VulnerabilityFlag } from "@/lib/types";
 import masterPlaystyleNotes from "@/data/master_playstyle_notes.json";
-import { SCHEME_POOLS } from "@/lib/scheme-pools";
-import { STRATEGY_POOLS } from "@/lib/strategy-pools";
+import { DEFAULT_SCHEME_POOL, DEFAULT_SCHEME_POOL_ID, SCHEME_POOLS } from "@/lib/scheme-pools";
+import { DEFAULT_STRATEGY_ID, DEFAULT_STRATEGY_POOL, DEFAULT_STRATEGY_POOL_ID, STRATEGY_POOLS } from "@/lib/strategy-pools";
 import { glossaryText } from "@/lib/glossary";
 import { findSyntheticRuleForMaster, getMandatoryCrewEntries, getTitleTotemRules } from "@/lib/mandatory-crew";
 import type { Strategy, StrategyTag } from "@/lib/strategy-pools";
@@ -623,9 +623,9 @@ export default function MalifauxWorkbench() {
   const [ownedModelIds, setOwnedModelIds] = useState<string[]>([]);
   const [opponentModelIds, setOpponentModelIds] = useState<string[]>([]);
   const [pointLimit, setPointLimit] = useState(DEFAULT_POINT_LIMIT);
-  const [strategyPoolId, setStrategyPoolId] = useState(STRATEGY_POOLS[0].id);
-  const [strategyId, setStrategyId] = useState(STRATEGY_POOLS[0].strategies[0].id);
-  const [schemePoolId, setSchemePoolId] = useState(SCHEME_POOLS[0].id);
+  const [strategyPoolId, setStrategyPoolId] = useState(DEFAULT_STRATEGY_POOL_ID);
+  const [strategyId, setStrategyId] = useState(DEFAULT_STRATEGY_ID);
+  const [schemePoolId, setSchemePoolId] = useState(DEFAULT_SCHEME_POOL_ID);
   const [matchIntent, setMatchIntent] = useState<MatchIntent>(DEFAULT_MATCH_INTENT);
   const [crewModifierIds, setCrewModifierIds] = useState<CrewModifierId[]>([]);
   const [matrixOpen, setMatrixOpen] = useState(false);
@@ -944,9 +944,9 @@ export default function MalifauxWorkbench() {
   }, [catalog, opponentFaction, opponentMaster, opponentSearch]);
 
   const selectedPath = analysis?.paths[pathKind];
-  const strategyPool = STRATEGY_POOLS.find((pool) => pool.id === strategyPoolId) ?? STRATEGY_POOLS[0];
+  const strategyPool = STRATEGY_POOLS.find((pool) => pool.id === strategyPoolId) ?? DEFAULT_STRATEGY_POOL;
   const strategy = strategyPool.strategies.find((candidate) => candidate.id === strategyId) ?? strategyPool.strategies[0];
-  const schemePool = SCHEME_POOLS.find((pool) => pool.id === schemePoolId) ?? SCHEME_POOLS[0];
+  const schemePool = SCHEME_POOLS.find((pool) => pool.id === schemePoolId) ?? DEFAULT_SCHEME_POOL;
   const selectedIntent = intentProfile(matchIntent);
   const collectionModels = useMemo(
     () => (catalog ? ownedModelIds.map((id) => catalog.models.find((model) => model.id === id)).filter(Boolean) as ModelCard[] : []),
@@ -1364,7 +1364,7 @@ export default function MalifauxWorkbench() {
             <select
               value={strategyPoolId}
               onChange={(event) => {
-                const nextPool = STRATEGY_POOLS.find((pool) => pool.id === event.target.value) ?? STRATEGY_POOLS[0];
+                const nextPool = STRATEGY_POOLS.find((pool) => pool.id === event.target.value) ?? DEFAULT_STRATEGY_POOL;
                 setStrategyPoolId(nextPool.id);
                 setStrategyId(nextPool.strategies[0].id);
                 setSchemePoolId(nextPool.schemePoolId);

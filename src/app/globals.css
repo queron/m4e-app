@@ -2049,19 +2049,6 @@ select option {
   color: var(--accent);
 }
 
-.exploreModeTabs {
-  display: inline-grid;
-  grid-template-columns: repeat(2, minmax(120px, 1fr));
-  gap: 4px;
-  width: min(100%, 320px);
-  margin: 14px 0 12px;
-  border: 1px solid var(--line);
-  border-radius: 999px;
-  background: rgba(15, 12, 10, 0.52);
-  padding: 4px;
-}
-
-.exploreModeTabs button,
 .browseChipGroup button {
   border: 1px solid transparent;
   border-radius: 999px;
@@ -2073,12 +2060,6 @@ select option {
   cursor: pointer;
 }
 
-.exploreModeTabs button {
-  padding: 8px 12px;
-}
-
-.exploreModeTabs button.active,
-.exploreModeTabs button[aria-selected="true"],
 .browseChipGroup button.active,
 .browseChipGroup button[aria-pressed="true"] {
   border-color: rgba(196, 154, 70, 0.54);
@@ -2174,6 +2155,38 @@ select option {
 .search {
   position: relative;
   margin: 16px 0 10px;
+}
+
+.discoveryToolbar {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: center;
+  margin: 16px 0 10px;
+}
+
+.discoveryToolbarBlank {
+  display: flex;
+  justify-content: space-between;
+  border: 1px solid var(--line-2);
+  border-radius: var(--radius-sm);
+  background: rgba(15, 12, 10, 0.32);
+  padding: 10px 12px;
+}
+
+.discoveryToolbarBlank span {
+  color: var(--muted);
+  font-family: Inter, Arial, sans-serif;
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.discoverySearch {
+  margin: 0;
+}
+
+.discoveryModeToggle {
+  white-space: nowrap;
 }
 
 .listControls {

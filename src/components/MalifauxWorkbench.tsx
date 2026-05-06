@@ -2347,41 +2347,36 @@ export function CrewPanel(props: {
           onChange={chooseMaster}
         />
       </div>
-      <div className="exploreModeTabs" role="tablist" aria-label={`${props.displayTitle} exploration mode`}>
-        <button
-          aria-selected={exploreMode === "search"}
-          className={exploreMode === "search" ? "active" : ""}
-          role="tab"
-          type="button"
-          onClick={() => setExploreMode("search")}
-        >
-          Search
-        </button>
-        <button
-          aria-selected={exploreMode === "browse"}
-          className={exploreMode === "browse" ? "active" : ""}
-          role="tab"
-          type="button"
-          onClick={() => setExploreMode("browse")}
-        >
-          Browse
-        </button>
-      </div>
-      {exploreMode === "browse" && !props.masterId ? (
-        <BrowseMasterPanel
-          browseKeywords={browseKeywords}
-          browseKeyword={browseKeyword}
-          browseRole={browseRole}
-          factions={props.factions}
-          faction={props.faction}
-          masters={browseMasters}
-          onChooseFaction={chooseFaction}
-          onChooseMaster={chooseMaster}
-          onKeywordChange={setBrowseKeyword}
-          onRoleChange={setBrowseRole}
-        />
-      ) : setupBlankState ? (
-        <CrewPanelBlankState iconKey={isPlayerPanel ? "collection" : "prediction"} title={setupBlankState.title} text={setupBlankState.text} />
+      {setupBlankState ? (
+        <>
+          <div className="discoveryToolbar discoveryToolbarBlank" aria-label={`${props.displayTitle} discovery mode`}>
+            <span>{props.masterId ? "Choose models" : "Find a master"}</span>
+            <button
+              aria-pressed={exploreMode === "browse"}
+              className="subtleButton discoveryModeToggle"
+              type="button"
+              onClick={() => setExploreMode((current) => (current === "browse" ? "search" : "browse"))}
+            >
+              {exploreMode === "browse" ? "Use search" : "Browse"}
+            </button>
+          </div>
+          {exploreMode === "browse" && !props.masterId ? (
+            <BrowseMasterPanel
+              browseKeywords={browseKeywords}
+              browseKeyword={browseKeyword}
+              browseRole={browseRole}
+              factions={props.factions}
+              faction={props.faction}
+              masters={browseMasters}
+              onChooseFaction={chooseFaction}
+              onChooseMaster={chooseMaster}
+              onKeywordChange={setBrowseKeyword}
+              onRoleChange={setBrowseRole}
+            />
+          ) : (
+            <CrewPanelBlankState iconKey={isPlayerPanel ? "collection" : "prediction"} title={setupBlankState.title} text={setupBlankState.text} />
+          )}
+        </>
       ) : (
         <>
       {titleVariants.length > 1 ? (
@@ -2407,14 +2402,26 @@ export function CrewPanel(props: {
         />
       ) : null}
       {titleVariants.length <= 1 ? <MasterProfileDisclosure profile={props.profile} /> : null}
-      {exploreMode === "search" ? (
+      <div className="discoveryToolbar" aria-label={`${props.displayTitle} discovery mode`}>
         <input
-          className="search"
+          className="search discoverySearch"
           value={props.search}
           placeholder="Search name, title, faction, keyword, role, or ability"
-          onChange={(event) => props.setSearch(event.target.value)}
+          onChange={(event) => {
+            if (exploreMode !== "search") setExploreMode("search");
+            props.setSearch(event.target.value);
+          }}
         />
-      ) : (
+        <button
+          aria-pressed={exploreMode === "browse"}
+          className="subtleButton discoveryModeToggle"
+          type="button"
+          onClick={() => setExploreMode((current) => (current === "browse" ? "search" : "browse"))}
+        >
+          {exploreMode === "browse" ? "Search" : "Browse"}
+        </button>
+      </div>
+      {exploreMode === "browse" ? (
         <BrowseModelFilters
           browseKeywords={browseKeywords}
           browseKeyword={browseKeyword}
@@ -2422,7 +2429,7 @@ export function CrewPanel(props: {
           onKeywordChange={setBrowseKeyword}
           onRoleChange={setBrowseRole}
         />
-      )}
+      ) : null}
       <div className={`listControls ${exploreMode === "browse" ? "browseListControls" : ""}`}>
         <label>
           Sort

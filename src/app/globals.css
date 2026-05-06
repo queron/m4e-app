@@ -2784,6 +2784,155 @@ li + li {
   box-shadow: 0 28px 90px rgba(0, 0, 0, 0.7);
 }
 
+.matchupCardModal {
+  width: min(1100px, calc(100vw - 32px));
+  max-height: min(900px, calc(100vh - 32px));
+  overflow: auto;
+  border: 1px solid rgba(196, 154, 70, 0.68);
+  border-radius: 10px;
+  background:
+    radial-gradient(circle at 20% 0%, rgba(176, 138, 60, 0.18), transparent 24rem),
+    #17130f;
+  box-shadow: 0 28px 90px rgba(0, 0, 0, 0.7);
+  padding: 16px;
+}
+
+.matchupCardModal .modalHeader {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 14px;
+}
+
+.matchupCardModal h2 {
+  margin: 0;
+}
+
+.matchupCardPreview {
+  display: grid;
+  gap: 18px;
+  aspect-ratio: 16 / 9;
+  min-height: 0;
+  border: 1px solid rgba(196, 154, 70, 0.42);
+  border-radius: var(--radius-md);
+  background:
+    radial-gradient(circle at top left, rgba(196, 154, 70, 0.16), transparent 32%),
+    linear-gradient(135deg, #241b13, #12100d 58%, #2b2217);
+  padding: clamp(20px, 3vw, 36px);
+  color: var(--parchment);
+}
+
+.matchupCardTopline,
+.matchupCardBadges,
+.matchupCardGrid,
+.matchupCardMasters {
+  display: flex;
+  gap: 12px;
+}
+
+.matchupCardTopline {
+  align-items: center;
+  justify-content: space-between;
+  color: var(--accent);
+  font-family: Inter, Arial, sans-serif;
+  font-size: clamp(0.7rem, 1.4vw, 0.9rem);
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.matchupCardMasters {
+  align-items: baseline;
+  flex-wrap: wrap;
+}
+
+.matchupCardMasters h3 {
+  margin: 0;
+  font-size: clamp(1.45rem, 4.4vw, 3rem);
+  line-height: 1;
+}
+
+.matchupCardMasters span,
+.matchupCardStrategy,
+.matchupCardPreview footer {
+  color: var(--muted);
+  font-family: Inter, Arial, sans-serif;
+}
+
+.matchupCardStrategy {
+  margin: -8px 0 0;
+  font-size: clamp(0.8rem, 1.8vw, 1.05rem);
+}
+
+.matchupCardBadges {
+  flex-wrap: wrap;
+}
+
+.matchupCardBadges span {
+  border: 1px solid rgba(196, 154, 70, 0.52);
+  border-radius: 999px;
+  background: rgba(196, 154, 70, 0.14);
+  padding: 7px 12px;
+  font-family: Inter, Arial, sans-serif;
+  font-size: clamp(0.72rem, 1.5vw, 0.92rem);
+  font-weight: 800;
+}
+
+.matchupCardGrid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.25fr) minmax(240px, 0.75fr);
+}
+
+.matchupCardGrid section {
+  display: grid;
+  align-content: start;
+  gap: 8px;
+  min-width: 0;
+}
+
+.matchupCardGrid strong {
+  color: var(--accent);
+  font-family: Inter, Arial, sans-serif;
+  font-size: clamp(0.72rem, 1.4vw, 0.88rem);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.matchupCardGrid ol,
+.matchupCardGrid ul {
+  display: grid;
+  gap: 7px;
+  margin: 0;
+  padding-left: 20px;
+}
+
+.matchupCardGrid li,
+.matchupCardFocus {
+  color: var(--parchment-2);
+  font-size: clamp(0.78rem, 1.6vw, 0.98rem);
+  line-height: 1.35;
+}
+
+.matchupCardFocus {
+  margin: 0;
+  color: var(--parchment);
+}
+
+.matchupCardPreview footer {
+  align-self: end;
+  border-top: 1px solid rgba(196, 154, 70, 0.24);
+  padding-top: 10px;
+  font-size: clamp(0.68rem, 1.25vw, 0.78rem);
+}
+
+.matchupCardActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 14px;
+}
+
 .statCardTopline {
   position: sticky;
   top: 0;

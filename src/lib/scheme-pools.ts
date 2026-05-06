@@ -5,6 +5,9 @@ export type Scheme = {
   name: string;
   tags: TacticalTag[];
   summary: string;
+  tier?: 1 | 2 | 3;
+  nextAvailable?: string[];
+  abandonNextAvailable?: string[];
 };
 
 export type SchemePool = {
@@ -15,27 +18,33 @@ export type SchemePool = {
   schemes: Scheme[];
 };
 
+export type SchemeBranch = {
+  scheme: Scheme;
+  next: Scheme[];
+  abandonNext: Scheme[];
+};
+
 export const SCHEME_POOLS: SchemePool[] = [
   {
     id: "gg-zero",
     name: "Gaining Grounds Zero",
     source: "M4E current Gaining Grounds packet",
     schemes: [
-      { id: "breakthrough", name: "Breakthrough", tags: ["scheme", "mobility"], summary: "Rewards crews that can reach and operate in the opposing deployment zone." },
-      { id: "harness-the-leyline", name: "Harness the Leyline", tags: ["marker", "scheme", "control"], summary: "Rewards marker placement and control of key table lines." },
-      { id: "frame-job", name: "Frame Job", tags: ["damage", "demise"], summary: "Rewards crews that can trade pieces deliberately and punish enemy kills." },
-      { id: "search-the-area", name: "Search the Area", tags: ["marker", "scheme"], summary: "Rewards efficient marker placement around important table areas." },
-      { id: "assassinate", name: "Assassinate", tags: ["damage", "burst"], summary: "Rewards crews that can threaten leaders or force defensive resource use." },
-      { id: "take-the-highground", name: "Take the Highground", tags: ["mobility", "placement"], summary: "Rewards vertical reach, movement tricks, and table-positioning tools." },
-      { id: "scout-the-rooftops", name: "Scout the Rooftops", tags: ["mobility", "scheme"], summary: "Rewards mobile pieces that can reach awkward scoring positions." },
+      { id: "breakthrough", name: "Breakthrough", tags: ["scheme", "mobility"], summary: "Rewards crews that can reach and operate in the opposing deployment zone.", tier: 1, nextAvailable: ["assassinate", "public-demonstration", "frame-job"] },
+      { id: "harness-the-leyline", name: "Harness the Leyline", tags: ["marker", "scheme", "control"], summary: "Rewards marker placement and control of key table lines.", tier: 1, nextAvailable: ["assassinate", "scout-the-rooftops"] },
+      { id: "frame-job", name: "Frame Job", tags: ["damage", "demise"], summary: "Rewards crews that can trade pieces deliberately and punish enemy kills.", tier: 1, nextAvailable: ["public-demonstration", "harness-the-leyline", "scout-the-rooftops"] },
+      { id: "search-the-area", name: "Search the Area", tags: ["marker", "scheme"], summary: "Rewards efficient marker placement around important table areas.", tier: 1, nextAvailable: ["breakthrough", "frame-job", "harness-the-leyline"] },
+      { id: "assassinate", name: "Assassinate", tags: ["damage", "burst"], summary: "Rewards crews that can threaten leaders or force defensive resource use.", tier: 1, nextAvailable: ["scout-the-rooftops", "detonate-charges", "runic-binding"] },
+      { id: "take-the-highground", name: "Take the Highground", tags: ["mobility", "placement"], summary: "Rewards vertical reach, movement tricks, and table-positioning tools.", tier: 1, nextAvailable: ["make-it-look-like-an-accident", "ensnare", "search-the-area"] },
+      { id: "scout-the-rooftops", name: "Scout the Rooftops", tags: ["mobility", "scheme"], summary: "Rewards mobile pieces that can reach awkward scoring positions.", tier: 1, nextAvailable: ["detonate-charges", "leave-your-mark"] },
       { id: "grave-robbing", name: "Grave Robbing", tags: ["marker", "demise"], summary: "Rewards crews that can work around corpses, markers, and attrition points." },
-      { id: "detonate-charges", name: "Detonate Charges", tags: ["marker", "scheme", "placement"], summary: "Rewards marker setup around enemy models and positional pressure." },
-      { id: "runic-binding", name: "Runic Binding", tags: ["marker", "control"], summary: "Rewards crews that can place and protect a scoring marker pattern." },
-      { id: "ensnare", name: "Ensnare", tags: ["control", "staggered", "slow"], summary: "Rewards crews that can restrict enemy movement and pin targets in place." },
-      { id: "reshape-the-land", name: "Reshape the Land", tags: ["marker", "scheme"], summary: "Rewards crews that can repeatedly place or manipulate markers." },
-      { id: "make-it-look-like-an-accident", name: "Make it Look Like an Accident", tags: ["damage", "control"], summary: "Rewards controlled damage and careful target setup." },
-      { id: "public-demonstration", name: "Public Demonstration", tags: ["scheme", "control"], summary: "Rewards board presence, positioning, and public scoring pressure." },
-      { id: "leave-your-mark", name: "Leave Your Mark", tags: ["scheme", "mobility", "marker"], summary: "Rewards independent scoring pieces that can place markers safely." }
+      { id: "detonate-charges", name: "Detonate Charges", tags: ["marker", "scheme", "placement"], summary: "Rewards marker setup around enemy models and positional pressure.", tier: 2, nextAvailable: ["runic-binding", "take-the-highground"] },
+      { id: "runic-binding", name: "Runic Binding", tags: ["marker", "control"], summary: "Rewards crews that can place and protect a scoring marker pattern.", tier: 2, nextAvailable: ["leave-your-mark", "take-the-highground", "ensnare"] },
+      { id: "ensnare", name: "Ensnare", tags: ["control", "staggered", "slow"], summary: "Rewards crews that can restrict enemy movement and pin targets in place.", tier: 2, nextAvailable: ["reshape-the-land", "search-the-area", "frame-job"] },
+      { id: "reshape-the-land", name: "Reshape the Land", tags: ["marker", "scheme"], summary: "Rewards crews that can repeatedly place or manipulate markers.", tier: 2, nextAvailable: ["search-the-area", "breakthrough", "public-demonstration"] },
+      { id: "make-it-look-like-an-accident", name: "Make it Look Like an Accident", tags: ["damage", "control"], summary: "Rewards controlled damage and careful target setup.", tier: 2, nextAvailable: ["ensnare", "reshape-the-land", "breakthrough"] },
+      { id: "public-demonstration", name: "Public Demonstration", tags: ["scheme", "control"], summary: "Rewards board presence, positioning, and public scoring pressure.", tier: 2, nextAvailable: ["harness-the-leyline", "assassinate", "detonate-charges"] },
+      { id: "leave-your-mark", name: "Leave Your Mark", tags: ["scheme", "mobility", "marker"], summary: "Rewards independent scoring pieces that can place markers safely.", tier: 2, nextAvailable: ["take-the-highground", "make-it-look-like-an-accident", "reshape-the-land"] }
     ]
   },
   {
@@ -86,4 +95,53 @@ export const DEFAULT_SCHEME_POOL = SCHEME_POOLS.find((pool) => pool.id === DEFAU
 
 export function getSchemePool(id?: string): SchemePool {
   return SCHEME_POOLS.find((pool) => pool.id === id) ?? DEFAULT_SCHEME_POOL;
+}
+
+export function hasSchemeGraph(pool: SchemePool): boolean {
+  return !pool.incomplete && pool.schemes.some((scheme) => (scheme.nextAvailable?.length ?? 0) > 0 || (scheme.abandonNextAvailable?.length ?? 0) > 0);
+}
+
+export function getSchemeBranches(pool: SchemePool): SchemeBranch[] {
+  const byId = new Map(pool.schemes.map((scheme) => [scheme.id, scheme]));
+  return pool.schemes
+    .filter((scheme) => (scheme.nextAvailable?.length ?? 0) > 0 || (scheme.abandonNextAvailable?.length ?? 0) > 0)
+    .map((scheme) => ({
+      scheme,
+      next: (scheme.nextAvailable ?? []).map((id) => byId.get(id)).filter(Boolean) as Scheme[],
+      abandonNext: (scheme.abandonNextAvailable ?? []).map((id) => byId.get(id)).filter(Boolean) as Scheme[]
+    }));
+}
+
+export function getReachableSchemes(pool: SchemePool, startingSchemeId: string, depth = 2): Scheme[] {
+  const byId = new Map(pool.schemes.map((scheme) => [scheme.id, scheme]));
+  const results: Scheme[] = [];
+  const queue: Array<{ id: string; depth: number }> = [{ id: startingSchemeId, depth: 0 }];
+  const seen = new Set<string>([startingSchemeId]);
+
+  while (queue.length > 0) {
+    const current = queue.shift();
+    if (!current || current.depth >= depth) continue;
+    const scheme = byId.get(current.id);
+    if (!scheme) continue;
+
+    for (const nextId of [...(scheme.nextAvailable ?? []), ...(scheme.abandonNextAvailable ?? [])]) {
+      if (seen.has(nextId)) continue;
+      const next = byId.get(nextId);
+      if (!next) continue;
+      seen.add(nextId);
+      results.push(next);
+      queue.push({ id: nextId, depth: current.depth + 1 });
+    }
+  }
+
+  return results;
+}
+
+export function validateSchemeGraph(pool: SchemePool): string[] {
+  const ids = new Set(pool.schemes.map((scheme) => scheme.id));
+  return pool.schemes.flatMap((scheme) =>
+    [...(scheme.nextAvailable ?? []), ...(scheme.abandonNextAvailable ?? [])]
+      .filter((id) => !ids.has(id))
+      .map((id) => `${pool.name}: ${scheme.name} references unknown scheme id ${id}.`)
+  );
 }

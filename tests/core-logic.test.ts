@@ -6,6 +6,7 @@ import { analyzeMatchup, evaluateModelMatchup } from "@/lib/matchup-engine";
 import { STRATEGY_POOLS } from "@/lib/strategy-pools";
 import { buildTempoProfile, modelTempoTags } from "@/lib/tempo-profile";
 import { proxyAvailabilityForCatalog, proxyTargetIdsForKeys } from "@/lib/proxy-data";
+import { SCHEME_POOLS, getReachableSchemes, getSchemeBranches, validateSchemeGraph } from "@/lib/scheme-pools";
 import type { ModelCard, ModelRecommendation, TacticalTag } from "@/lib/types";
 
 const catalog = getCatalog();
@@ -148,6 +149,25 @@ describe("legacy proxy data", () => {
 
     expect(bayouProxyKeys.length).toBeGreaterThanOrEqual(2);
     expect(proxyTargetIdsForKeys(availabilities, bayouProxyKeys)).toEqual([bayouGremlin.id]);
+  });
+});
+
+describe("scheme graph data", () => {
+  const ggZeroSchemePool = SCHEME_POOLS.find((pool) => pool.id === "gg-zero") ?? SCHEME_POOLS[0];
+
+  it("builds explicit Next Available branches for GG Zero", () => {
+    const scoutBranch = getSchemeBranches(ggZeroSchemePool).find((branch) => branch.scheme.id === "scout-the-rooftops");
+
+    expect(validateSchemeGraph(ggZeroSchemePool)).toEqual([]);
+    expect(scoutBranch?.next.map((scheme) => scheme.id)).toEqual(expect.arrayContaining(["detonate-charges", "leave-your-mark"]));
+  });
+
+  it("caps reachable scheme traversal by depth", () => {
+    const reachableOneStep = getReachableSchemes(ggZeroSchemePool, "breakthrough", 1).map((scheme) => scheme.id);
+    const reachableTwoSteps = getReachableSchemes(ggZeroSchemePool, "breakthrough", 2).map((scheme) => scheme.id);
+
+    expect(reachableOneStep).toEqual(expect.arrayContaining(["assassinate", "public-demonstration", "frame-job"]));
+    expect(reachableTwoSteps.length).toBeGreaterThan(reachableOneStep.length);
   });
 });
 

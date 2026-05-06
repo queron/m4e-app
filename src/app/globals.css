@@ -1488,6 +1488,11 @@ select option {
   margin-bottom: 12px;
 }
 
+.schemeViewToggle {
+  width: fit-content;
+  margin-bottom: 14px;
+}
+
 .schemeWatchlistGrid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -1525,6 +1530,49 @@ select option {
 
 .schemePairings {
   margin-top: 14px;
+}
+
+.schemePathView {
+  display: grid;
+  gap: 12px;
+}
+
+.schemePathCard {
+  display: grid;
+  grid-template-columns: minmax(220px, 1.2fr) minmax(0, 2fr) minmax(0, 1fr);
+  gap: 12px;
+  align-items: start;
+  border: 1px solid var(--line-2);
+  border-radius: var(--radius-md);
+  background: rgba(15, 12, 10, 0.36);
+  padding: 12px;
+}
+
+.schemePathCard strong {
+  color: var(--parchment);
+}
+
+.schemePathCard p {
+  margin-top: 5px;
+  color: var(--parchment-2);
+  line-height: 1.4;
+}
+
+.schemePathCard > div > span,
+.schemeNextColumn > span {
+  display: block;
+  margin-bottom: 7px;
+  color: var(--muted);
+  font-family: Inter, Arial, sans-serif;
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.schemeNextColumn > div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
 }
 
 .schemePairings h3 {
@@ -3911,6 +3959,10 @@ li + li {
   }
 
   .schemeWatchlistGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .schemePathCard {
     grid-template-columns: 1fr;
   }
 

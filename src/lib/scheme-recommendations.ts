@@ -1,4 +1,5 @@
 import type { CrewCard, ModelCard, ModelRecommendation, SchemePairRecommendation, TacticalTag } from "./types";
+import { getReachableSchemes, hasSchemeGraph } from "./scheme-pools";
 import type { Scheme, SchemePool } from "./scheme-pools";
 import type { Strategy } from "./strategy-pools";
 import { formatTags } from "./explanation-text";
@@ -46,6 +47,7 @@ export function buildSchemePairRecommendations(
   ]);
   const opponentTags = new Set<TacticalTag>(opponentCrew.flatMap((model) => model.tacticalTags));
   const strategyTagText = new Set<string>(strategy?.tags ?? []);
+  const useGraph = hasSchemeGraph(schemePool);
   const pairs: Array<{
     schemes: [Scheme, Scheme];
     score: number;
@@ -56,6 +58,7 @@ export function buildSchemePairRecommendations(
     for (let rightIndex = leftIndex + 1; rightIndex < schemePool.schemes.length; rightIndex += 1) {
       const left = schemePool.schemes[leftIndex];
       const right = schemePool.schemes[rightIndex];
+      if (useGraph && !schemesConnect(schemePool, left, right)) continue;
       const pairTags = Array.from(new Set([...left.tags, ...right.tags]));
       const overlap = pairTags.filter((tag) => playerTags.has(tag));
       const strategyBonus = pairTags.some((tag) => strategyTagText.has(tag)) ? 1 : 0;
@@ -80,4 +83,9 @@ export function buildSchemePairRecommendations(
         confidence: pair.score >= 8 ? "High" : pair.score >= 4 ? "Medium" : "Low"
       };
     });
+}
+
+function schemesConnect(pool: SchemePool, left: Scheme, right: Scheme): boolean {
+  return getReachableSchemes(pool, left.id, 2).some((scheme) => scheme.id === right.id) ||
+    getReachableSchemes(pool, right.id, 2).some((scheme) => scheme.id === left.id);
 }

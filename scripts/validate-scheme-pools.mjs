@@ -71,6 +71,13 @@ for (const tagList of schemeSource.matchAll(/tags:\s*\[([^\]]*)\]/g)) {
   }
 }
 
+for (const graphList of schemeSource.matchAll(/(?:nextAvailable|abandonNextAvailable):\s*\[([^\]]*)\]/g)) {
+  const nextIds = Array.from(graphList[1].matchAll(/"([^"]+)"/g), (match) => match[1]);
+  for (const nextId of nextIds) {
+    if (!ids.includes(nextId)) issues.push(`Scheme graph references missing scheme id: ${nextId}.`);
+  }
+}
+
 const schemePoolIds = new Set(Array.from(schemeSource.matchAll(/^\s*id:\s*"([^"]+)"/gm), (match) => match[1]));
 for (const schemePoolId of quotedValues(strategySource, "schemePoolId")) {
   if (!schemePoolIds.has(schemePoolId)) issues.push(`Strategy pool references missing scheme pool: ${schemePoolId}.`);

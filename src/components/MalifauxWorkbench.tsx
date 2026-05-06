@@ -9,6 +9,7 @@ import {
   AlertTriangle,
   BookOpen,
   Brain,
+  Check,
   ChevronDown,
   CircleDot,
   CirclePlus,
@@ -1421,23 +1422,7 @@ export default function MalifauxWorkbench() {
               ))}
             </select>
           </label>
-          <div className="crewModifierPicker" aria-label="Crew adjustment focus">
-            <span>Crew adjustments</span>
-            <div>
-              {CREW_MODIFIERS.map((modifier) => (
-                <button
-                  className={crewModifierIds.includes(modifier.id) ? "active" : ""}
-                  key={modifier.id}
-                  type="button"
-                  aria-pressed={crewModifierIds.includes(modifier.id)}
-                  onClick={() => toggleCrewModifier(modifier.id)}
-                  title={modifier.summary}
-                >
-                  {modifier.label}
-                </button>
-              ))}
-            </div>
-          </div>
+          <CrewModifierDropdown selectedIds={crewModifierIds} onToggle={toggleCrewModifier} />
           <label>
             Soulstones
             <InlineHelp label="Soulstones help" text={glossaryText("soulstones")} />
@@ -2630,6 +2615,89 @@ function BrowseChipGroup({
           </button>
         ))}
       </div>
+    </div>
+  );
+}
+
+function CrewModifierDropdown({
+  selectedIds,
+  onToggle
+}: {
+  selectedIds: CrewModifierId[];
+  onToggle: (id: CrewModifierId) => void;
+}) {
+  const fieldId = useId();
+  const listId = `${fieldId}-listbox`;
+  const [open, setOpen] = useState(false);
+  const wrapperRef = useRef<HTMLDivElement | null>(null);
+  const selectedLabels = CREW_MODIFIERS
+    .filter((modifier) => selectedIds.includes(modifier.id))
+    .map((modifier) => modifier.label);
+  const buttonLabel = selectedLabels.length > 0
+    ? `${selectedLabels.length} selected: ${selectedLabels.join(", ")}`
+    : "Choose some adjustments";
+
+  useEffect(() => {
+    if (!open) return;
+
+    function closeOnOutsideClick(event: MouseEvent) {
+      if (wrapperRef.current?.contains(event.target as Node)) return;
+      setOpen(false);
+    }
+
+    function closeOnEscape(event: KeyboardEvent) {
+      if (event.key === "Escape") setOpen(false);
+    }
+
+    document.addEventListener("mousedown", closeOnOutsideClick);
+    document.addEventListener("keydown", closeOnEscape);
+
+    return () => {
+      document.removeEventListener("mousedown", closeOnOutsideClick);
+      document.removeEventListener("keydown", closeOnEscape);
+    };
+  }, [open]);
+
+  return (
+    <div className="comboField crewModifierDropdown" ref={wrapperRef}>
+      <span className="comboLabel">Crew adjustments</span>
+      <button
+        aria-controls={listId}
+        aria-expanded={open}
+        aria-haspopup="listbox"
+        className="comboButton crewModifierButton"
+        type="button"
+        onClick={() => setOpen((current) => !current)}
+      >
+        {buttonLabel}
+      </button>
+      {open ? (
+        <div className="comboPopover crewModifierPopover">
+          <div className="comboList" id={listId} role="listbox" aria-label="Crew adjustment options" aria-multiselectable="true">
+            {CREW_MODIFIERS.map((modifier) => {
+              const selected = selectedIds.includes(modifier.id);
+              return (
+                <button
+                  aria-selected={selected}
+                  className={`comboOption crewModifierOption ${selected ? "active" : ""}`}
+                  key={modifier.id}
+                  role="option"
+                  type="button"
+                  onClick={() => onToggle(modifier.id)}
+                >
+                  <span className="modifierCheck" aria-hidden="true">
+                    {selected ? <Check size={14} /> : null}
+                  </span>
+                  <span>
+                    {modifier.label}
+                    <small>{modifier.summary}</small>
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }

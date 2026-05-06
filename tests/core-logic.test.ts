@@ -139,6 +139,30 @@ describe("recommendation scoring", () => {
     expect(flexiblePick?.versatility?.evidence.length).toBeGreaterThan(0);
   });
 
+  it("adds terrain and mobility guidance to crew analysis", () => {
+    const pandora = masterByName("Pandora, Tyrant-Torn");
+    const opponent = masterByName("The Dreamer, Insomniac");
+
+    const analysis = analyzeMatchup({
+      playerFaction: pandora.faction,
+      playerMasterId: pandora.id,
+      opponentFaction: opponent.faction,
+      opponentMasterId: opponent.id,
+      ownedModelIds: [],
+      opponentModelIds: [],
+      pointLimit: 50,
+      modelLimit: 99,
+      strategyPoolId: "gg-zero",
+      strategyId: "plant-explosives",
+      schemePoolId: "gg-zero"
+    });
+
+    expect(analysis.playerCrew.terrainMobilityProfile.boardFit).toMatch(/Open|Dense|Vertical|Flexible|Data-limited/);
+    expect(analysis.playerCrew.terrainMobilityProfile.mobilityBand).toMatch(/High|Medium|Low/);
+    expect(analysis.playerCrew.terrainMobilityProfile.recommendedTablePlan.length).toBeGreaterThan(0);
+    expect(analysis.paths.optimal.models.every((recommendation) => Array.isArray(recommendation.terrainTools))).toBe(true);
+  });
+
   it("flags low-Wp risk into Pandora-style pressure", () => {
     const player = masterByName("Toni Ironsides, Union President");
     const opponent = masterByName("Pandora, Tyrant-Torn");

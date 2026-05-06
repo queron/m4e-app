@@ -1179,6 +1179,10 @@ select option {
   grid-column: 1 / -1;
 }
 
+.terrainMobilityPanel {
+  grid-column: 1 / -1;
+}
+
 .nextStepsPanel {
   grid-column: 1 / -1;
 }
@@ -1201,6 +1205,39 @@ select option {
 .strategyImpact li {
   color: var(--parchment-2);
   line-height: 1.45;
+}
+
+.terrainMobilitySummary {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin: 0 0 12px;
+}
+
+.terrainMobilitySummary > div {
+  border: 1px solid var(--line-2);
+  border-radius: var(--radius-md);
+  background: rgba(15, 12, 10, 0.34);
+  padding: 12px;
+}
+
+.terrainMobilitySummary span {
+  display: block;
+  margin-bottom: 4px;
+  color: var(--muted);
+  font-family: Inter, Arial, sans-serif;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.terrainMobilitySummary strong {
+  color: var(--parchment);
+  font-size: 1rem;
+}
+
+.terrainToolChips {
+  margin-bottom: 12px;
 }
 
 .briefGrid {

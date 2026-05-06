@@ -25,6 +25,7 @@ import { actionToText, cleanText, containsTag } from "./strategy-tags";
 import { buildSchemePairRecommendations, buildSchemeWatchlist } from "./scheme-recommendations";
 import { clamp, curatedNotesFor, formatTags, strategyNotesFor, uniqueSentences } from "./explanation-text";
 import { buildRoleVersatility, confidenceFromScore, duplicateGuidance, efficiencyBonus, inferRole, secondaryRolesForVersatility } from "./scoring";
+import { buildTerrainMobilityProfile, modelTerrainTools } from "./terrain-mobility";
 import {
   COUNTER_TAGS,
   buildOpponentPressureContext,
@@ -71,6 +72,7 @@ export function analyzeMatchup(input: PlannerInput): MatchupAnalysis {
   );
   const availablePath = buildPath("available", playerMaster, scoredAvailable, ownedIds, input.pointLimit, modelLimit, strategy, schemePool, !hasOwnedPool);
   const optimalPath = buildPath("optimal", playerMaster, scoredAll, ownedIds, input.pointLimit, modelLimit, strategy, schemePool);
+  const priorityPath = availablePath.models.length > 0 ? availablePath : optimalPath;
   const vulnerabilityFlags = buildVulnerabilityFlagIndex(scoredAll);
 
   return {
@@ -102,7 +104,8 @@ export function analyzeMatchup(input: PlannerInput): MatchupAnalysis {
       primaryKeywords: getPrimaryKeywords(playerMaster),
       strengths: describeStrengths(playerMaster, playerCrewCard, strategy),
       vulnerabilities: describeVulnerabilities(playerMaster, playerCrewCard, opponentCrew, strategy),
-      playstyle: describePlaystyle(playerMaster, playerCrewCard, strategy)
+      playstyle: describePlaystyle(playerMaster, playerCrewCard, strategy),
+      terrainMobilityProfile: buildTerrainMobilityProfile(priorityPath.models, strategy, schemePool)
     },
     opponentCrew: {
       master: opponentMaster,
@@ -789,6 +792,7 @@ function toRecommendation(
     relevantTech: scored.relevantTech,
     priorityTargets: scored.priorityTargets,
     alliedSynergies: scored.alliedSynergies,
+    terrainTools: modelTerrainTools(scored.model),
     vulnerabilityFlags: scored.vulnerabilityFlags
   };
 }

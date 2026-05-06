@@ -1341,7 +1341,7 @@ export default function MalifauxWorkbench() {
       ) : null}
 
       <nav className="setupStepper" aria-label="Counter-pick setup sequence">
-        <span>1. Match Context</span>
+        <span className="active" aria-current="step">1. Match Context</span>
         <span>2. Player Collection</span>
         <span>3. Opponent Intel</span>
         <span>4. Analyze</span>

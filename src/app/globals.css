@@ -464,7 +464,7 @@ select option {
 
 .matchGrid {
   display: grid;
-  grid-template-columns: minmax(170px, 1fr) minmax(200px, 1fr) minmax(170px, 0.9fr) minmax(170px, 0.9fr) 120px;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
   gap: 14px;
   align-items: end;
 }
@@ -489,11 +489,11 @@ select option {
 .crewModifierPicker {
   display: grid;
   gap: 9px;
-  margin-top: 12px;
+  align-self: stretch;
   border: 1px solid var(--line-2);
   border-radius: var(--radius-md);
   background: rgba(15, 12, 10, 0.34);
-  padding: 12px;
+  padding: 10px;
 }
 
 .crewModifierPicker > span {

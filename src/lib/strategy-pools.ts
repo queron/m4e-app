@@ -190,7 +190,11 @@ export const STRATEGY_POOLS: StrategyPool[] = [
   }
 ];
 
+export const DEFAULT_STRATEGY_POOL_ID = "gg4-legacy";
+export const DEFAULT_STRATEGY_POOL = STRATEGY_POOLS.find((pool) => pool.id === DEFAULT_STRATEGY_POOL_ID) ?? STRATEGY_POOLS[0];
+export const DEFAULT_STRATEGY_ID = DEFAULT_STRATEGY_POOL.strategies[0]?.id ?? STRATEGY_POOLS[0].strategies[0].id;
+
 export function getStrategy(poolId?: string, strategyId?: string): Strategy | undefined {
-  const pool = STRATEGY_POOLS.find((candidate) => candidate.id === poolId) ?? STRATEGY_POOLS[0];
+  const pool = STRATEGY_POOLS.find((candidate) => candidate.id === poolId) ?? DEFAULT_STRATEGY_POOL;
   return pool.strategies.find((strategy) => strategy.id === strategyId) ?? pool.strategies[0];
 }

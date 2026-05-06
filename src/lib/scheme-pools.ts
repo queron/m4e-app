@@ -81,6 +81,9 @@ export const SCHEME_POOLS: SchemePool[] = [
   }
 ];
 
+export const DEFAULT_SCHEME_POOL_ID = "gg4-legacy";
+export const DEFAULT_SCHEME_POOL = SCHEME_POOLS.find((pool) => pool.id === DEFAULT_SCHEME_POOL_ID) ?? SCHEME_POOLS[0];
+
 export function getSchemePool(id?: string): SchemePool {
-  return SCHEME_POOLS.find((pool) => pool.id === id) ?? SCHEME_POOLS[0];
+  return SCHEME_POOLS.find((pool) => pool.id === id) ?? DEFAULT_SCHEME_POOL;
 }

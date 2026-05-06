@@ -36,7 +36,7 @@ import {
   Wrench,
   X
 } from "lucide-react";
-import type { CardCatalog, CatalogSummary, CrewCard, MatchupAnalysis, ModelCard, ModelMatchupEvaluation, ModelRecommendation, RecommendationPath, SynergyGroup, TacticalTag, VulnerabilityFlag } from "@/lib/types";
+import type { CardCatalog, CatalogSummary, CrewCard, MatchupAnalysis, ModelCard, ModelMatchupEvaluation, ModelRecommendation, ProxyAvailability, RecommendationPath, SynergyGroup, TacticalTag, VulnerabilityFlag } from "@/lib/types";
 import masterPlaystyleNotes from "@/data/master_playstyle_notes.json";
 import { DEFAULT_SCHEME_POOL, DEFAULT_SCHEME_POOL_ID, SCHEME_POOLS } from "@/lib/scheme-pools";
 import { DEFAULT_STRATEGY_POOL, DEFAULT_STRATEGY_POOL_ID, STRATEGY_POOLS } from "@/lib/strategy-pools";
@@ -56,15 +56,18 @@ import {
 import {
   COLLECTION_STORAGE_KEY,
   DRAFT_STORAGE_KEY,
+  PROXY_COLLECTION_STORAGE_KEY,
   SHARE_PARAM,
   buildDraftSummary,
   encodeSharePayload,
   readSharedSetup,
   readStoredDrafts,
   readStoredIds,
+  readStoredStringList,
   type DraftSummaryContext,
   type SavedDraft
 } from "@/lib/client-persistence";
+import { proxyAvailabilityByModelId, proxyAvailabilityForCatalog, proxyDataWarnings, proxySearchText, proxyTargetIdsForKeys } from "@/lib/proxy-data";
 
 type PathKind = "available" | "optimal";
 type ActiveResultTab = "picks" | "matchup" | "schemes" | "draft";
@@ -704,6 +707,8 @@ export default function MalifauxWorkbench() {
   const [playerMasterId, setPlayerMasterId] = useState("");
   const [opponentMasterId, setOpponentMasterId] = useState("");
   const [ownedModelIds, setOwnedModelIds] = useState<string[]>([]);
+  const [ownedProxyKeys, setOwnedProxyKeys] = useState<string[]>([]);
+  const [showLegacyProxies, setShowLegacyProxies] = useState(false);
   const [opponentModelIds, setOpponentModelIds] = useState<string[]>([]);
   const [pointLimit, setPointLimit] = useState(DEFAULT_POINT_LIMIT);
   const [strategyPoolId, setStrategyPoolId] = useState(DEFAULT_STRATEGY_POOL_ID);
@@ -749,6 +754,7 @@ export default function MalifauxWorkbench() {
       .then((response) => response.json())
       .then((data: CatalogSummary) => {
         setCatalog(data);
+        const proxyKeys = new Set(proxyAvailabilityForCatalog(data).map((entry) => entry.key));
         const restored = readSharedSetup(data);
         if (restored.warnings.length > 0) {
           setStatusMessage(restored.warnings.slice(0, 3).join(" "));
@@ -759,12 +765,14 @@ export default function MalifauxWorkbench() {
         if (restoredSetup?.playerMasterId) setPlayerMasterId(restoredSetup.playerMasterId);
         if (restoredSetup?.opponentMasterId) setOpponentMasterId(restoredSetup.opponentMasterId);
         if (restoredSetup?.ownedModelIds) setOwnedModelIds(restoredSetup.ownedModelIds);
+        if (restoredSetup?.ownedProxyKeys) setOwnedProxyKeys(restoredSetup.ownedProxyKeys.filter((key) => proxyKeys.has(key)));
         if (restoredSetup?.opponentModelIds) setOpponentModelIds(restoredSetup.opponentModelIds);
         if (restoredSetup?.pointLimit) setPointLimit(restoredSetup.pointLimit);
         if (restoredSetup?.strategyPoolId) setStrategyPoolId(restoredSetup.strategyPoolId);
         if (restoredSetup?.strategyId) setStrategyId(restoredSetup.strategyId);
         if (restoredSetup?.schemePoolId) setSchemePoolId(restoredSetup.schemePoolId);
         if (!restoredSetup?.ownedModelIds) setOwnedModelIds(readStoredIds(COLLECTION_STORAGE_KEY, data));
+        if (!restoredSetup?.ownedProxyKeys) setOwnedProxyKeys(readStoredStringList(PROXY_COLLECTION_STORAGE_KEY, proxyKeys));
         setSavedDrafts(readStoredDrafts(data));
       })
       .catch((currentError) => {
@@ -997,6 +1005,11 @@ export default function MalifauxWorkbench() {
 
   useEffect(() => {
     if (!catalog) return;
+    localStorage.setItem(PROXY_COLLECTION_STORAGE_KEY, JSON.stringify(ownedProxyKeys));
+  }, [catalog, ownedProxyKeys]);
+
+  useEffect(() => {
+    if (!catalog) return;
     localStorage.setItem(DRAFT_STORAGE_KEY, JSON.stringify(savedDrafts));
   }, [catalog, savedDrafts]);
 
@@ -1032,9 +1045,21 @@ export default function MalifauxWorkbench() {
   const strategyLabel = strategy?.name ?? "No strategy selected";
   const schemePool = SCHEME_POOLS.find((pool) => pool.id === schemePoolId) ?? DEFAULT_SCHEME_POOL;
   const selectedIntent = intentProfile(matchIntent);
+  const proxyAvailability = useMemo(() => (catalog ? proxyAvailabilityForCatalog(catalog) : []), [catalog]);
+  const proxyWarnings = useMemo(() => (catalog ? proxyDataWarnings(catalog) : []), [catalog]);
+  const proxyOptionsByModelId = useMemo(() => proxyAvailabilityByModelId(proxyAvailability), [proxyAvailability]);
+  const selectedProxyKeys = useMemo(() => new Set(ownedProxyKeys), [ownedProxyKeys]);
+  const proxyOwnedByModelId = useMemo(
+    () => proxyAvailabilityByModelId(proxyAvailability, selectedProxyKeys),
+    [proxyAvailability, selectedProxyKeys]
+  );
+  const effectiveOwnedModelIds = useMemo(
+    () => Array.from(new Set([...ownedModelIds, ...proxyTargetIdsForKeys(proxyAvailability, ownedProxyKeys)])),
+    [ownedModelIds, ownedProxyKeys, proxyAvailability]
+  );
   const collectionModels = useMemo(
-    () => (catalog ? ownedModelIds.map((id) => catalog.models.find((model) => model.id === id)).filter(Boolean) as ModelCard[] : []),
-    [catalog, ownedModelIds]
+    () => (catalog ? effectiveOwnedModelIds.map((id) => catalog.models.find((model) => model.id === id)).filter(Boolean) as ModelCard[] : []),
+    [catalog, effectiveOwnedModelIds]
   );
   const canAnalyze = Boolean(playerMasterId && opponentMasterId);
   const analyzeButtonLabel = isAnalyzing ? "Analyzing..." : analysis ? "Analyze again" : "Analyze";
@@ -1055,7 +1080,7 @@ export default function MalifauxWorkbench() {
   const analyzeReadiness = buildAnalyzeReadiness({
     hasPlayerMaster: Boolean(playerMasterId),
     hasOpponentMaster: Boolean(opponentMasterId),
-    collectionCount: ownedModelIds.length
+    collectionCount: effectiveOwnedModelIds.length
   });
   const resultsConfidence = analysis
     ? buildResultsConfidence({
@@ -1110,7 +1135,7 @@ export default function MalifauxWorkbench() {
           playerMasterId,
           opponentFaction,
           opponentMasterId,
-          ownedModelIds,
+          ownedModelIds: effectiveOwnedModelIds,
           opponentModelIds,
           pointLimit,
           strategyPoolId,
@@ -1122,7 +1147,7 @@ export default function MalifauxWorkbench() {
       const payload = await response.json();
       if (!response.ok) throw new Error(payload.error ?? "Analysis failed.");
       setAnalysis(payload);
-      setAnalyzedCollectionCount(ownedModelIds.length);
+      setAnalyzedCollectionCount(effectiveOwnedModelIds.length);
       setDraftPath(null);
       setPathKind("available");
       setActiveResultTab("picks");
@@ -1192,6 +1217,7 @@ export default function MalifauxWorkbench() {
     setPlayerMasterId(cell.playerMaster.id);
     setOpponentMasterId(cell.opponentMaster.id);
     setOwnedModelIds([]);
+    setOwnedProxyKeys([]);
     setOpponentModelIds([]);
     setAnalysis(null);
     setDraftPath(null);
@@ -1218,6 +1244,7 @@ export default function MalifauxWorkbench() {
       opponentFaction,
       opponentMasterId,
       ownedModelIds,
+      ownedProxyKeys,
       opponentModelIds,
       pointLimit,
       strategyPoolId,
@@ -1235,6 +1262,7 @@ export default function MalifauxWorkbench() {
 
   function clearCollection() {
     setOwnedModelIds([]);
+    setOwnedProxyKeys([]);
     setStatusMessage("Collection selections cleared.");
   }
 
@@ -1602,6 +1630,13 @@ export default function MalifauxWorkbench() {
           pool={playerPool}
           selectedIds={ownedModelIds}
           setSelectedIds={setOwnedModelIds}
+          effectiveSelectedCount={effectiveOwnedModelIds.length}
+          ownedProxyKeys={ownedProxyKeys}
+          proxyAvailability={proxyAvailability}
+          proxyDataWarnings={proxyWarnings}
+          setOwnedProxyKeys={setOwnedProxyKeys}
+          setShowLegacyProxies={setShowLegacyProxies}
+          showLegacyProxies={showLegacyProxies}
           search={collectionSearch}
           setSearch={setCollectionSearch}
           selectionLabel="In Collection"
@@ -1752,7 +1787,9 @@ export default function MalifauxWorkbench() {
                   usedFullPool={pathKind === "available" && analyzedCollectionCount === 0}
                   intent={matchIntent}
                   crewModifierIds={crewModifierIds}
+                  directOwnedIds={ownedModelIds}
                   strategy={analysis.match.strategy}
+                  proxyOwnedByModelId={proxyOwnedByModelId}
                   onUsePlan={(path) => {
                     setDraftPath(path);
                     setActiveResultTab("draft");
@@ -1874,6 +1911,7 @@ export default function MalifauxWorkbench() {
           evaluationError={selectedModelEvaluationError}
           evaluationLoading={selectedModelEvaluationLoading}
           model={selectedModel}
+          proxyOptions={proxyOptionsByModelId[selectedModel.id] ?? []}
           vulnerabilityFlags={selectedModelVulnerabilityFlags}
           onClose={closeSelectedModel}
         />
@@ -2225,6 +2263,13 @@ export function CrewPanel(props: {
   pool: ModelCard[];
   selectedIds: string[];
   setSelectedIds: (value: string[]) => void;
+  effectiveSelectedCount?: number;
+  ownedProxyKeys?: string[];
+  proxyAvailability?: ProxyAvailability[];
+  proxyDataWarnings?: string[];
+  setOwnedProxyKeys?: (value: string[]) => void;
+  setShowLegacyProxies?: (value: boolean) => void;
+  showLegacyProxies?: boolean;
   search: string;
   setSearch: (value: string) => void;
   selectionLabel: string;
@@ -2247,9 +2292,13 @@ export function CrewPanel(props: {
   const [showTitleComparison, setShowTitleComparison] = useState(false);
   const selected = new Set(props.selectedIds);
   const selectedCounts = countSelectedIds(props.selectedIds);
+  const panelEffectiveSelectedIds = Array.from(new Set([
+    ...props.selectedIds,
+    ...proxyTargetIdsForKeys(props.proxyAvailability ?? [], props.ownedProxyKeys ?? [])
+  ]));
   const mandatoryModels = getMandatoryModelsForMaster(props.master, props.allModels);
   const mandatoryIds = new Set(mandatoryModels.map((entry) => entry.model.id));
-  const selectedModels = props.selectedIds
+  const selectedModels = panelEffectiveSelectedIds
     .map((id) => props.allModels.find((model) => model.id === id))
     .filter(Boolean) as ModelCard[];
   const requiredSoulstones = mandatoryModels.reduce((sum, entry) => sum + entry.model.cost * entry.quantity, 0);
@@ -2284,6 +2333,15 @@ export function CrewPanel(props: {
     .filter((model) => !mandatoryIds.has(model.id))
     .filter((model) => modelMatchesRoleFilter(model, effectiveRoleFilter))
     .filter((model) => exploreMode !== "browse" || browseKeyword === "all" || model.strategicKeywords.includes(browseKeyword));
+  const filteredPoolIds = new Set(filteredPool.map((model) => model.id));
+  const proxySelected = new Set(props.ownedProxyKeys ?? []);
+  const proxyRows = isPlayerPanel && props.showLegacyProxies
+    ? (props.proxyAvailability ?? [])
+        .map((entry) => ({ entry, model: props.allModels.find((model) => model.id === entry.modelId) }))
+        .filter((item): item is { entry: ProxyAvailability; model: ModelCard } => Boolean(item.model))
+        .filter((item) => filteredPoolIds.has(item.model.id))
+        .filter((item) => !effectiveSearch.trim() || proxySearchText(item.entry, item.model).includes(effectiveSearch.trim().toLowerCase()))
+    : [];
   const baseSections = groupModelsForMaster(
     filteredPool,
     props.master,
@@ -2335,9 +2393,25 @@ export function CrewPanel(props: {
         }
       ]
     : [];
+  const proxySection: ModelSection[] = proxyRows.length > 0
+    ? [
+        {
+          title: "Legacy Proxies",
+          models: proxyRows.map(({ entry, model }) => ({
+            model,
+            quantity: 1,
+            forced: false,
+            note: `${entry.proxyName} may proxy for ${entry.targetName}${entry.baseSize ? ` | Base ${entry.baseSize}` : ""}. ${entry.notes ?? entry.source}`,
+            badges: ["Proxy", entry.proxyName],
+            proxyAvailability: entry
+          }))
+        }
+      ]
+    : [];
   const sections: ModelSection[] = [
     baseSections[0],
     ...suggestedSection,
+    ...proxySection,
     ...baseSections.slice(1).map((section) => ({
       ...section,
       models: section.models.filter((entry) => !suggestedModelIds.has(entry.model.id))
@@ -2367,6 +2441,15 @@ export function CrewPanel(props: {
 
   function toggle(id: string) {
     props.setSelectedIds(selected.has(id) ? props.selectedIds.filter((item) => item !== id) : [...props.selectedIds, id]);
+  }
+
+  function toggleProxy(key: string) {
+    if (!props.ownedProxyKeys || !props.setOwnedProxyKeys) return;
+    props.setOwnedProxyKeys(
+      props.ownedProxyKeys.includes(key)
+        ? props.ownedProxyKeys.filter((item) => item !== key)
+        : [...props.ownedProxyKeys, key]
+    );
   }
 
   function setModelQuantity(model: ModelCard, quantity: number) {
@@ -2411,7 +2494,7 @@ export function CrewPanel(props: {
           <InlineHelp label="Required model help" text={`${glossaryText("requiredModel")} ${glossaryText("totem")}`} />
         </span>
         <span>
-          {selectedMetricLabel}: {props.selectedIds.length}
+          {selectedMetricLabel}: {props.effectiveSelectedCount ?? props.selectedIds.length}
           <InlineHelp
             label={`${selectedMetricLabel} help`}
             text={isPlayerPanel ? `${selectedMetricHelp} ${glossaryText("keyword")}` : `${selectedMetricHelp} ${glossaryText("expectedModel")}`}
@@ -2565,7 +2648,23 @@ export function CrewPanel(props: {
             <option value="detailed">Detailed</option>
           </select>
         </label>
+        {isPlayerPanel && props.setShowLegacyProxies ? (
+          <label className="proxyToggle">
+            <input
+              checked={Boolean(props.showLegacyProxies)}
+              type="checkbox"
+              onChange={(event) => props.setShowLegacyProxies?.(event.target.checked)}
+            />
+            Show legacy proxies
+          </label>
+        ) : null}
       </div>
+      {isPlayerPanel && props.showLegacyProxies && proxyRows.length === 0 ? (
+        <div className="infoCallout">Proxy data unavailable for the current filters, search, or legal pool.</div>
+      ) : null}
+      {isPlayerPanel && props.showLegacyProxies && props.proxyDataWarnings?.length ? (
+        <div className="infoCallout">{props.proxyDataWarnings.length} proxy mapping target{props.proxyDataWarnings.length === 1 ? "" : "s"} are not present in parsed card data.</div>
+      ) : null}
       <HelpDisclosure className="helperText" label="Required models" text={`${glossaryText("requiredModel")} ${glossaryText("totem")}`} />
       <div className="modelList">
         {sections.map((section) => (
@@ -2590,7 +2689,18 @@ export function CrewPanel(props: {
             {isSectionCollapsed(section.title) ? (
               <div className="modelSectionCollapsed">{section.models.length} models hidden</div>
             ) : section.models.length > 0 ? (
-              expandSectionEntries(section.models).map((entry, index) => (
+              expandSectionEntries(section.models).map((entry, index) => entry.proxyAvailability ? (
+                <ProxyModelRow
+                  key={`${section.title}-${entry.proxyAvailability.key}-${index}`}
+                  availability={entry.proxyAvailability}
+                  currentModelOwned={selected.has(entry.model.id)}
+                  density={modelDensity}
+                  model={entry.model}
+                  onOpenModel={() => props.onOpenModel(entry.model)}
+                  onToggle={() => toggleProxy(entry.proxyAvailability?.key ?? "")}
+                  selected={proxySelected.has(entry.proxyAvailability.key)}
+                />
+              ) : (
                 <ModelRow
                   key={`${section.title}-${entry.model.id}-${index}`}
                   model={entry.model}
@@ -3169,6 +3279,60 @@ function ModelRow({
   );
 }
 
+function ProxyModelRow({
+  availability,
+  currentModelOwned,
+  density,
+  model,
+  onOpenModel,
+  onToggle,
+  selected
+}: {
+  availability: ProxyAvailability;
+  currentModelOwned: boolean;
+  density: ModelDensity;
+  model: ModelCard;
+  onOpenModel: () => void;
+  onToggle: () => void;
+  selected: boolean;
+}) {
+  const showAbilityPreview = density === "detailed";
+
+  return (
+    <div className={`modelRow proxyModelRow ${selected ? "selected" : ""} density-${density}`}>
+      <button
+        className="check"
+        onClick={onToggle}
+        type="button"
+        aria-pressed={selected}
+        aria-label={`${selected ? "Remove" : "Mark"} ${availability.proxyName} as owned proxy for ${availability.targetName}`}
+      >
+        {selected ? "x" : ""}
+      </button>
+      <span className="modelMain">
+        <button className="modelNameButton" type="button" onClick={onOpenModel}>
+          {availability.proxyName}
+        </button>
+        <small>Proxy for: {availability.targetName} ({model.cost}ss current profile)</small>
+        {availability.baseSize ? <small>Base note: {availability.baseSize}</small> : null}
+        {availability.notes ? <small className="modelRowNote">{availability.notes}</small> : null}
+        {showAbilityPreview ? <small>{model.abilities.slice(0, 2).map((ability) => ability.name).join("; ") || "No parsed abilities"}</small> : null}
+        <span className="modelRowBadges">
+          <span className="expectedBadge">Legacy proxy</span>
+          {currentModelOwned ? <span className="ownedBadge">Current owned</span> : null}
+          <span className="expectedBadge">{availability.source}</span>
+        </span>
+      </span>
+      <span className="stats statChips">
+        <StatChip iconKey="defense" value={model.statBlock.defense} />
+        <StatChip iconKey="willpower" value={model.statBlock.willpower} />
+        <StatChip iconKey="speed" value={model.statBlock.speed} />
+      </span>
+      <span className="pill">{selected ? "Proxy owned" : "Mark proxy owned"}</span>
+    </div>
+  );
+}
+
 function CrewAnalysisCard({
   title,
   subtitle,
@@ -3736,8 +3900,10 @@ function ProfileList({ title, items }: { title: string; items: string[] }) {
 
 export function RecommendationPanel({
   crewModifierIds,
+  directOwnedIds,
   intent,
   pathKind,
+  proxyOwnedByModelId,
   setPathKind,
   selectedPath,
   usedFullPool,
@@ -3748,8 +3914,10 @@ export function RecommendationPanel({
   onOpenModel
 }: {
   crewModifierIds: CrewModifierId[];
+  directOwnedIds: string[];
   intent: MatchIntentSelection;
   pathKind: PathKind;
+  proxyOwnedByModelId: Record<string, ProxyAvailability[]>;
   setPathKind: (value: PathKind) => void;
   selectedPath?: RecommendationPath;
   usedFullPool: boolean;
@@ -3837,6 +4005,8 @@ export function RecommendationPanel({
           const fitPercent = normalizedScorePercent(recommendation.score, maxRecommendationScore);
           const plan = recommendationPlan(recommendation, strategy?.name);
           const driverRows = recommendationDrivers(recommendation, strategy);
+          const directOwned = directOwnedIds.includes(recommendation.model.id);
+          const proxyOwned = !directOwned ? proxyOwnedByModelId[recommendation.model.id]?.[0] : undefined;
 
           return (
             <article className="recommendation" key={recommendation.model.id}>
@@ -3857,8 +4027,8 @@ export function RecommendationPanel({
                       <AlertTriangle aria-hidden="true" /> Risk
                     </span>
                   ) : null}
-                  <span className={recommendation.owned ? "ownedBadge" : "missingBadge"}>
-                    {recommendation.owned ? "Owned" : "Not owned"}
+                  <span className={recommendation.owned ? "ownedBadge" : "missingBadge"} title={proxyOwned ? `${proxyOwned.proxyName} may proxy for ${proxyOwned.targetName}.` : undefined}>
+                    {proxyOwned ? "Owned via proxy" : recommendation.owned ? "Owned" : "Not owned"}
                   </span>
                   <span
                     className={`confidenceBadge confidence-${recommendation.confidence.toLowerCase()}`}
@@ -5119,6 +5289,7 @@ export function StatCardModal({
   evaluationError,
   evaluationLoading,
   model,
+  proxyOptions,
   vulnerabilityFlags,
   onClose
 }: {
@@ -5128,6 +5299,7 @@ export function StatCardModal({
   evaluationError: string;
   evaluationLoading: boolean;
   model: ModelCard;
+  proxyOptions: ProxyAvailability[];
   vulnerabilityFlags: VulnerabilityFlag[];
   onClose: () => void;
 }) {
@@ -5215,6 +5387,20 @@ export function StatCardModal({
           </div>
 
           <MatchupFitSection evaluation={evaluation} error={evaluationError} loading={evaluationLoading} model={model} />
+
+          {proxyOptions.length > 0 ? (
+            <section className="statCardSection">
+              <h3>Legacy Proxy Options</h3>
+              <div className="rulesList">
+                {proxyOptions.map((proxy) => (
+                  <div className="rulesEntry" key={proxy.key}>
+                    <strong>{proxy.proxyName} may proxy for {proxy.targetName}</strong>
+                    <p>{proxy.baseSize ? `Base note: ${proxy.baseSize}. ` : ""}{proxy.notes ?? proxy.source}</p>
+                  </div>
+                ))}
+              </div>
+            </section>
+          ) : null}
 
           {detailLoading || detailError ? (
             <section className="statCardSection">
@@ -5713,6 +5899,7 @@ type ModelSectionEntry = {
   forced: boolean;
   note?: string;
   badges?: string[];
+  proxyAvailability?: ProxyAvailability;
 };
 
 type ModelSection = {

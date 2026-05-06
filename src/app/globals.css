@@ -2454,6 +2454,10 @@ select option {
   box-shadow: inset 0 0 0 1px rgba(255, 236, 190, 0.05);
 }
 
+.proxyModelRow {
+  border-left-color: rgba(111, 154, 188, 0.62);
+}
+
 .modelRow.forced {
   cursor: default;
 }
@@ -2562,6 +2566,25 @@ select option {
 .modelRowBadges .expectedBadge {
   padding: 4px 7px;
   font-size: 0.68rem;
+}
+
+.proxyToggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 42px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: rgba(15, 12, 10, 0.42);
+  padding: 7px 10px;
+  color: var(--parchment-2);
+  font-weight: 700;
+}
+
+.proxyToggle input {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--accent);
 }
 
 .modelMain small .rulesIcon {

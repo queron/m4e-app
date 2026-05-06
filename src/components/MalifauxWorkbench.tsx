@@ -76,6 +76,12 @@ type ResultsConfidence = {
   evidence: string;
   explanation: string;
 };
+type GameFeelRead = {
+  label: "Balanced" | "Swingy" | "High-pressure" | "Teaching-friendly" | "Likely frustrating" | "Theme-friendly but mechanically demanding";
+  tone: "balanced" | "swingy" | "pressure" | "friendly" | "frustrating" | "theme";
+  rationale: string;
+  reasons: string[];
+};
 type MatrixCell = {
   playerMaster: ModelCard;
   opponentMaster: ModelCard;
@@ -262,6 +268,122 @@ function buildResultsConfidence({
     label,
     evidence: evidenceParts.join(" + "),
     explanation: `${label} confidence reflects evidence completeness only. It is not a win-rate prediction.`
+  };
+}
+
+function buildGameFeelRead({
+  analysis,
+  confidence,
+  intent,
+  path
+}: {
+  analysis: MatchupAnalysis;
+  confidence: ResultsConfidence;
+  intent: MatchIntent;
+  path: RecommendationPath;
+}): GameFeelRead | null {
+  const casualIntent = intent === "casual" || intent === "learning" || intent === "narrative";
+  const highRiskCount = path.models.reduce(
+    (sum, recommendation) => sum + recommendation.vulnerabilityFlags.filter((flag) => flag.severity === "High").length,
+    0
+  );
+  const allRiskText = [
+    ...analysis.matchupBrief.matchupRisks,
+    ...analysis.matchupBrief.watchFor,
+    ...path.models.flatMap((recommendation) => recommendation.vulnerabilityFlags.map((flag) => flag.summary))
+  ].join(" ").toLowerCase();
+  const opponentTags = new Set([
+    ...(analysis.opponentCrew.master?.tacticalTags ?? []),
+    ...analysis.opponentCrew.expectedModels.flatMap((model) => model.tacticalTags),
+    ...analysis.opponentCrew.likelyModels.flatMap((recommendation) => recommendation.model.tacticalTags)
+  ]);
+  const playerTags = new Set([
+    ...(analysis.playerCrew.master?.tacticalTags ?? []),
+    ...path.models.flatMap((recommendation) => recommendation.model.tacticalTags)
+  ]);
+  const pressureTags: TacticalTag[] = ["damage", "burst", "control", "summon", "cardPressure", "stunned", "slow", "staggered"];
+  const scoringTags: TacticalTag[] = ["scheme", "mobility", "marker", "placement"];
+  const defensiveTags: TacticalTag[] = ["armor", "incorporeal", "healing", "demise"];
+  const opponentPressure = pressureTags.filter((tag) => opponentTags.has(tag)).length;
+  const playerPressure = pressureTags.filter((tag) => playerTags.has(tag)).length;
+  const playerScoring = scoringTags.filter((tag) => playerTags.has(tag)).length;
+  const playerDefence = defensiveTags.filter((tag) => playerTags.has(tag)).length;
+  const themeFit = path.models.filter((recommendation) =>
+    recommendation.model.strategicKeywords.some((keyword) => analysis.playerCrew.primaryKeywords.includes(keyword))
+  ).length;
+  const highPressure = opponentPressure >= 3 || /summon|activation|control|stunned|slow|staggered|discard/.test(allRiskText);
+  const hasCounterplay = playerScoring > 0 || playerDefence > 0 || analysis.matchupBrief.answerWith.length > 0;
+
+  if (!casualIntent && !(highRiskCount >= 2 && highPressure)) return null;
+
+  if (intent === "narrative" && themeFit >= Math.max(1, Math.ceil(path.models.length / 2)) && (highRiskCount > 0 || highPressure)) {
+    return {
+      label: "Theme-friendly but mechanically demanding",
+      tone: "theme",
+      rationale: "The recommended path keeps close to your crew theme, but the table pressure still needs planning.",
+      reasons: uniqueItems([
+        `${themeFit} recommended ${themeFit === 1 ? "hire shares" : "hires share"} your primary keyword plan.`,
+        highPressure ? "Opponent pressure can still disrupt the story plan if scoring roles are not protected." : "Risk comes from the selected recommendation path rather than theme fit."
+      ])
+    };
+  }
+
+  if (intent === "learning" && !highPressure && highRiskCount === 0 && confidence.label !== "Low" && playerScoring > 0) {
+    return {
+      label: "Teaching-friendly",
+      tone: "friendly",
+      rationale: "This looks readable for learning: the plan has scoring roles and no severe recommendation risks.",
+      reasons: uniqueItems([
+        "Recommended hires include scenario/scoring tools.",
+        `${confidence.label} confidence keeps the guidance explainable without implying a win-rate.`
+      ])
+    };
+  }
+
+  if (highPressure && highRiskCount >= 2 && !hasCounterplay) {
+    return {
+      label: "Likely frustrating",
+      tone: "frustrating",
+      rationale: "This may feel rough casually because the pressure signals are high and the current path shows limited counterplay.",
+      reasons: uniqueItems([
+        `${highRiskCount} severe recommendation risks are present.`,
+        "Add mobility, defensive tech, or clearer scoring pieces before using this as a beginner pairing."
+      ])
+    };
+  }
+
+  if (highPressure || highRiskCount >= 2) {
+    return {
+      label: "High-pressure",
+      tone: "pressure",
+      rationale: "Expect a demanding game, but the recommendations show playable ways to plan around the pressure.",
+      reasons: uniqueItems([
+        highPressure ? "Opponent pressure includes disruption, summons, card pressure, or control signals." : "Several high-risk flags are present.",
+        hasCounterplay ? "Current recommendations include counterplay or scoring routes." : "Counterplay is limited until more crew context is added."
+      ])
+    };
+  }
+
+  if (playerPressure >= 3 && opponentPressure >= 3) {
+    return {
+      label: "Swingy",
+      tone: "swingy",
+      rationale: "Both sides show pressure tools, so the game may turn on early trades and scenario tempo.",
+      reasons: uniqueItems([
+        "Both crews show multiple pressure tags.",
+        playerScoring > 0 ? "Scoring pieces can stabilize the matchup if they avoid the main fight." : "Add scoring coverage to reduce volatility."
+      ])
+    };
+  }
+
+  return {
+    label: "Balanced",
+    tone: "balanced",
+    rationale: "This reads as playable rather than oppressive: the current path has manageable risk and visible table jobs.",
+    reasons: uniqueItems([
+      highRiskCount === 0 ? "No severe recommendation risks are present." : "Recommendation risks are present but not overwhelming.",
+      playerScoring > 0 ? "The path includes scenario/scoring coverage." : "Add a dedicated scoring piece if the table plan feels too fight-heavy."
+    ])
   };
 }
 
@@ -643,6 +765,14 @@ export default function MalifauxWorkbench() {
         path: selectedPath,
         pathKind,
         strategyPoolName: strategyPool.name
+      })
+    : null;
+  const gameFeel = analysis && selectedPath && resultsConfidence
+    ? buildGameFeelRead({
+        analysis,
+        confidence: resultsConfidence,
+        intent: matchIntent,
+        path: selectedPath
       })
     : null;
   const playerRequiredModels = useMemo(
@@ -1170,6 +1300,7 @@ export default function MalifauxWorkbench() {
               strategyPoolName={strategyPool.name}
             />
           ) : null}
+          {gameFeel ? <GameFeelPanel gameFeel={gameFeel} /> : null}
           <MatchupBriefPanel brief={analysis.matchupBrief} />
           <NextStepsPanel
             brief={analysis.matchupBrief}
@@ -2733,6 +2864,23 @@ function ResultsContextBar({
         Data: {dataContext}
       </span>
       <span title={confidence.explanation}>Evidence: {confidence.evidence}</span>
+    </section>
+  );
+}
+
+function GameFeelPanel({ gameFeel }: { gameFeel: GameFeelRead }) {
+  return (
+    <section className={`gameFeelPanel gameFeel-${gameFeel.tone}`} aria-label="Casual game feel">
+      <div>
+        <span>Game feel</span>
+        <strong>{gameFeel.label}</strong>
+      </div>
+      <p>{gameFeel.rationale}</p>
+      <ul>
+        {gameFeel.reasons.map((reason) => (
+          <li key={reason}>{reason}</li>
+        ))}
+      </ul>
     </section>
   );
 }

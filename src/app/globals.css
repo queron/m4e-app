@@ -749,6 +749,79 @@ select option {
   outline-offset: 2px;
 }
 
+.gameFeelPanel {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: minmax(180px, 0.28fr) minmax(0, 0.72fr);
+  gap: 12px 18px;
+  align-items: start;
+  border: 1px solid rgba(196, 154, 70, 0.3);
+  border-left: 4px solid var(--accent);
+  border-radius: var(--radius-md);
+  background: rgba(15, 12, 10, 0.46);
+  padding: 14px;
+}
+
+.gameFeelPanel > div {
+  display: grid;
+  gap: 5px;
+}
+
+.gameFeelPanel span {
+  color: var(--accent);
+  font-family: Inter, Arial, sans-serif;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.gameFeelPanel strong {
+  color: var(--parchment);
+  font-size: 1.16rem;
+}
+
+.gameFeelPanel p {
+  margin: 0;
+  color: var(--parchment-2);
+  line-height: 1.45;
+}
+
+.gameFeelPanel ul {
+  grid-column: 2;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+  margin: -4px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.gameFeelPanel li {
+  border: 1px solid var(--line-2);
+  border-radius: 999px;
+  background: rgba(17, 14, 11, 0.72);
+  color: var(--muted);
+  padding: 6px 10px;
+  font-family: Inter, Arial, sans-serif;
+  font-size: 0.74rem;
+  font-weight: 700;
+}
+
+.gameFeel-friendly {
+  border-left-color: #8e9a72;
+}
+
+.gameFeel-pressure,
+.gameFeel-frustrating {
+  border-left-color: #b85f4c;
+}
+
+.gameFeel-swingy,
+.gameFeel-theme {
+  border-left-color: #9b7bd7;
+}
+
 .strategyContext span,
 .postAnalyzeSummary span {
   flex: 0 0 auto;
@@ -3349,6 +3422,7 @@ li + li {
   .matchGrid,
   .matrixSetup,
   .formGrid,
+  .gameFeelPanel,
   .listControls,
   .briefGrid,
   .crewAdjustmentGrid,
@@ -3358,6 +3432,10 @@ li + li {
   .scoreGrid {
     grid-template-columns: 1fr;
     display: grid;
+  }
+
+  .gameFeelPanel ul {
+    grid-column: 1;
   }
 
   .modelRow {

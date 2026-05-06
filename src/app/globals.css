@@ -1523,25 +1523,25 @@ select option {
 .inlineHelpButton {
   display: inline-grid;
   place-items: center;
-  width: 28px;
-  height: 28px;
-  border: 1px solid rgba(176, 138, 60, 0.42);
-  border-radius: 50%;
-  background: rgba(15, 12, 10, 0.62);
+  width: 22px;
+  height: 22px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: transparent;
   color: var(--parchment-2);
   cursor: pointer;
 }
 
 .inlineHelpButton:hover,
 .inlineHelpButton[aria-expanded="true"] {
-  border-color: rgba(196, 154, 70, 0.78);
+  border-color: rgba(196, 154, 70, 0.36);
   color: var(--parchment);
-  background: rgba(196, 154, 70, 0.14);
+  background: rgba(196, 154, 70, 0.1);
 }
 
 .inlineHelpButton svg {
-  width: 16px;
-  height: 16px;
+  width: 15px;
+  height: 15px;
 }
 
 .inlineHelpPopover {
@@ -1592,11 +1592,6 @@ select option {
 
 .spendSummary .inlineHelp {
   margin-left: 0;
-}
-
-.spendSummary .inlineHelpButton {
-  width: 22px;
-  height: 22px;
 }
 
 .spendSummary .inlineHelpButton svg {

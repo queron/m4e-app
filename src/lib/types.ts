@@ -324,6 +324,7 @@ export type MatchupAnalysis = {
   schemeWatchlist?: SchemeWatchlist;
   recommendedSchemePairs?: SchemePairRecommendation[];
   matchupBrief: MatchupBrief;
+  matchupWarnings: MatchupWarning[];
   vulnerabilityFlags: Record<string, VulnerabilityFlag[]>;
   playerCrew: {
     master?: ModelCard;
@@ -416,6 +417,16 @@ export type MatchupBrief = {
   answerWith: string[];
   priorityHires: string[];
   matchupRisks: string[];
+};
+
+export type MatchupWarning = {
+  id: string;
+  label: string;
+  severity: "High" | "Medium" | "Low";
+  affectedEngine: string;
+  summary: string;
+  evidence: string[];
+  recommendation: string;
 };
 
 export type SchemeWatchlistItem = {

@@ -28,6 +28,7 @@ import { buildRoleVersatility, confidenceFromScore, duplicateGuidance, efficienc
 import { buildTerrainMobilityProfile, modelTerrainTools } from "./terrain-mobility";
 import { buildTempoProfile, modelTempoTags } from "./tempo-profile";
 import { buildResourceProfile, modelResourceTags } from "./resource-profile";
+import { buildMatchupWarnings } from "./matchup-warnings";
 import {
   COUNTER_TAGS,
   buildOpponentPressureContext,
@@ -76,6 +77,15 @@ export function analyzeMatchup(input: PlannerInput): MatchupAnalysis {
   const optimalPath = buildPath("optimal", playerMaster, scoredAll, ownedIds, input.pointLimit, modelLimit, strategy, schemePool);
   const priorityPath = availablePath.models.length > 0 ? availablePath : optimalPath;
   const vulnerabilityFlags = buildVulnerabilityFlagIndex(scoredAll);
+  const matchupWarnings = buildMatchupWarnings({
+    playerMaster,
+    playerCrewCard,
+    recommendations: priorityPath.models,
+    opponentMaster,
+    opponentCrewCard,
+    opponentModels: opponentCrew.length > 0 ? opponentCrew : likelyOpponentModels.map((recommendation) => recommendation.model),
+    inferredOpponent: opponentCrew.length === 0
+  });
 
   return {
     generatedAt: new Date().toISOString(),
@@ -98,6 +108,7 @@ export function analyzeMatchup(input: PlannerInput): MatchupAnalysis {
       schemePool,
       priorityPath: availablePath.models.length > 0 ? availablePath : optimalPath
     }),
+    matchupWarnings,
     vulnerabilityFlags,
     playerCrew: {
       master: playerMaster,

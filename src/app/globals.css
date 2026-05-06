@@ -1872,8 +1872,8 @@ select option {
   margin: 0 0 18px;
 }
 
-.spendSummary span,
-.spendSummary strong {
+.spendSummary > span,
+.spendSummary > strong {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -1892,6 +1892,28 @@ select option {
 
 .spendSummary .inlineHelp {
   margin-left: 0;
+}
+
+.spendSummary .inlineHelpButton {
+  width: 1em;
+  height: 1em;
+  border-color: transparent;
+  border-radius: 0;
+  background: transparent;
+  padding: 0;
+  color: inherit;
+}
+
+.spendSummary .inlineHelpButton:hover,
+.spendSummary .inlineHelpButton[aria-expanded="true"] {
+  border-color: transparent;
+  background: transparent;
+  color: var(--parchment);
+}
+
+.spendSummary .inlineHelpButton:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--accent), white 12%);
+  outline-offset: 2px;
 }
 
 .spendSummary .inlineHelpButton svg {

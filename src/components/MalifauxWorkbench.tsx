@@ -1808,7 +1808,11 @@ export default function MalifauxWorkbench() {
             </>
           ) : null}
           {activeResultTab === "schemes" && analysis.schemeWatchlist ? (
-            <SchemeWatchlistPanel watchlist={analysis.schemeWatchlist} pairings={analysis.recommendedSchemePairs ?? []} />
+            <SchemeWatchlistPanel
+              pairings={analysis.recommendedSchemePairs ?? []}
+              recommendations={selectedPath?.models ?? []}
+              watchlist={analysis.schemeWatchlist}
+            />
           ) : null}
           {activeResultTab === "draft" ? (
             <div className="draftResults">
@@ -3205,10 +3209,12 @@ function CrewAnalysisCard({
 
 function SchemeWatchlistPanel({
   watchlist,
-  pairings
+  pairings,
+  recommendations
 }: {
   watchlist: NonNullable<MatchupAnalysis["schemeWatchlist"]>;
   pairings: NonNullable<MatchupAnalysis["recommendedSchemePairs"]>;
+  recommendations: ModelRecommendation[];
 }) {
   return (
     <section className="schemeWatchlist panel">
@@ -3221,7 +3227,41 @@ function SchemeWatchlistPanel({
         <SchemeWatchlistColumn title="Watch opponent for" items={watchlist.opponentThreats} />
       </div>
       <SchemePairingIdeas pairings={pairings} />
+      <VersatileSchemePicks recommendations={recommendations} />
     </section>
+  );
+}
+
+function VersatileSchemePicks({ recommendations }: { recommendations: ModelRecommendation[] }) {
+  const picks = recommendations
+    .filter((recommendation) => recommendation.versatility && recommendation.versatility.jobs.length >= 2)
+    .sort((left, right) =>
+      versatilityRank(right.versatility?.band) - versatilityRank(left.versatility?.band) ||
+      (right.versatility?.jobs.length ?? 0) - (left.versatility?.jobs.length ?? 0) ||
+      right.score - left.score
+    )
+    .slice(0, 4);
+
+  if (picks.length === 0) return null;
+
+  return (
+    <div className="schemePairings">
+      <h3>Versatile Picks for This Pool</h3>
+      <div className="schemePairingGrid">
+        {picks.map((recommendation) => (
+          <article key={recommendation.model.id}>
+            <strong>{recommendation.model.name}</strong>
+            <span>{recommendation.versatility?.band} role flexibility</span>
+            <p>Jobs: {recommendation.versatility?.jobs.map(versatilityJobLabel).join(", ")}</p>
+            {recommendation.versatility?.schemeRelevance.length ? (
+              <small>Scheme fit: {recommendation.versatility.schemeRelevance.slice(0, 3).join(", ")}</small>
+            ) : (
+              <small>General flexibility from detected model roles.</small>
+            )}
+          </article>
+        ))}
+      </div>
+    </div>
   );
 }
 
@@ -3828,6 +3868,7 @@ export function RecommendationPanel({
                   <RecSection title="Key Tech" items={recommendation.relevantTech} />
                   <RecSection title="Targets" items={recommendation.priorityTargets} />
                   <RecSection title="Synergy" items={recommendation.alliedSynergies} />
+                  <RecSection title="Role Flexibility" items={roleVersatilityNotes(recommendation)} />
                   <RecSection title="Score Trace" items={recommendation.trace} />
                   <RecSection title="Notes" items={recommendation.curatedNotes} />
                 </>
@@ -4322,6 +4363,12 @@ function sortRecommendations(recommendations: ModelRecommendation[], sortMode: R
 function recommendationChips(recommendation: ModelRecommendation): Array<{ label: string; title: string }> {
   return [
     { label: tacticalRoleLabel(recommendation.role), title: "Recommended table role." },
+    ...(recommendation.versatility && recommendation.versatility.band !== "Low"
+      ? [{
+          label: `Flex: ${recommendation.versatility.band}`,
+          title: `Role flexibility across ${recommendation.versatility.jobs.map(versatilityJobLabel).join(", ")}.`
+        }]
+      : []),
     {
       label: `Strategy fit: ${fitBand(recommendation.scoreBreakdown.compositionMatchup)}`,
       title: "How strongly this pick addresses the selected strategy and matchup demands."
@@ -4906,6 +4953,29 @@ function modelUseNotes(recommendation: ModelRecommendation, strategyName: string
     ...strategyReasons(recommendation.why, strategyName),
     `Use ${recommendation.model.name} as ${articleFor(recommendation.role)} ${recommendation.role}.`
   ]).filter((item) => !collapsedLines.has(item)).slice(0, 4);
+}
+
+function roleVersatilityNotes(recommendation: ModelRecommendation): string[] {
+  if (!recommendation.versatility) return [];
+  return uniqueItems([
+    `${recommendation.versatility.band} role flexibility across ${recommendation.versatility.jobs.map(versatilityJobLabel).join(", ")}.`,
+    recommendation.secondaryRoles?.length ? `Secondary roles: ${recommendation.secondaryRoles.join(", ")}.` : "",
+    ...recommendation.versatility.evidence,
+    recommendation.versatility.schemeRelevance.length
+      ? `Relevant schemes: ${recommendation.versatility.schemeRelevance.slice(0, 4).join(", ")}.`
+      : "No selected scheme-pool overlap detected; treat this as general role flexibility."
+  ]).slice(0, 6);
+}
+
+function versatilityJobLabel(job: string): string {
+  return job.replace(/([A-Z])/g, " $1").toLowerCase();
+}
+
+function versatilityRank(band?: "High" | "Medium" | "Low"): number {
+  if (band === "High") return 3;
+  if (band === "Medium") return 2;
+  if (band === "Low") return 1;
+  return 0;
 }
 
 function uniqueItems(items: string[]): string[] {

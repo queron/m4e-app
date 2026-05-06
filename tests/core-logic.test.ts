@@ -114,6 +114,31 @@ describe("recommendation scoring", () => {
     expect(evaluation.whyHelps.length).toBeGreaterThan(0);
   });
 
+  it("adds role versatility to recommendations", () => {
+    const pandora = masterByName("Pandora, Tyrant-Torn");
+    const opponent = masterByName("The Dreamer, Insomniac");
+
+    const analysis = analyzeMatchup({
+      playerFaction: pandora.faction,
+      playerMasterId: pandora.id,
+      opponentFaction: opponent.faction,
+      opponentMasterId: opponent.id,
+      ownedModelIds: [],
+      opponentModelIds: [],
+      pointLimit: 50,
+      modelLimit: 99,
+      strategyPoolId: "gg-zero",
+      strategyId: "plant-explosives",
+      schemePoolId: "gg-zero"
+    });
+    const flexiblePick = analysis.paths.optimal.models.find((recommendation) =>
+      (recommendation.versatility?.jobs.length ?? 0) >= 2
+    );
+
+    expect(flexiblePick?.versatility?.band).toMatch(/High|Medium/);
+    expect(flexiblePick?.versatility?.evidence.length).toBeGreaterThan(0);
+  });
+
   it("flags low-Wp risk into Pandora-style pressure", () => {
     const player = masterByName("Toni Ironsides, Union President");
     const opponent = masterByName("Pandora, Tyrant-Torn");

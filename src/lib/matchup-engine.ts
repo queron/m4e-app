@@ -24,7 +24,7 @@ import type {
 import { actionToText, cleanText, containsTag } from "./strategy-tags";
 import { buildSchemePairRecommendations, buildSchemeWatchlist } from "./scheme-recommendations";
 import { clamp, curatedNotesFor, formatTags, strategyNotesFor, uniqueSentences } from "./explanation-text";
-import { confidenceFromScore, duplicateGuidance, efficiencyBonus, inferRole } from "./scoring";
+import { buildRoleVersatility, confidenceFromScore, duplicateGuidance, efficiencyBonus, inferRole, secondaryRolesForVersatility } from "./scoring";
 import {
   COUNTER_TAGS,
   buildOpponentPressureContext,
@@ -69,8 +69,8 @@ export function analyzeMatchup(input: PlannerInput): MatchupAnalysis {
     input.pointLimit,
     strategy
   );
-  const availablePath = buildPath("available", playerMaster, scoredAvailable, ownedIds, input.pointLimit, modelLimit, strategy, !hasOwnedPool);
-  const optimalPath = buildPath("optimal", playerMaster, scoredAll, ownedIds, input.pointLimit, modelLimit, strategy);
+  const availablePath = buildPath("available", playerMaster, scoredAvailable, ownedIds, input.pointLimit, modelLimit, strategy, schemePool, !hasOwnedPool);
+  const optimalPath = buildPath("optimal", playerMaster, scoredAll, ownedIds, input.pointLimit, modelLimit, strategy, schemePool);
   const vulnerabilityFlags = buildVulnerabilityFlagIndex(scoredAll);
 
   return {
@@ -326,13 +326,14 @@ function buildPath(
   pointLimit: number,
   modelLimit: number,
   strategy?: Strategy,
+  schemePool?: SchemePool,
   treatAllAsAvailable = false
 ): RecommendationPath {
   const selected = buildCrewByScore(master, scored, pointLimit, modelLimit);
   const recommendations = selected
     .map((model) => scored.find((item) => item.model.id === model.id))
     .filter(Boolean)
-    .map((item) => toRecommendation(item as ScoredModel, master, ownedIds, treatAllAsAvailable));
+    .map((item) => toRecommendation(item as ScoredModel, master, ownedIds, treatAllAsAvailable, schemePool));
   const totalCost = recommendations.reduce((sum, recommendation) => sum + recommendation.hireCost, 0);
 
   return {
@@ -747,9 +748,17 @@ function uniqueModels(models: Array<ModelCard | undefined>): ModelCard[] {
   });
 }
 
-function toRecommendation(scored: ScoredModel, master: ModelCard | undefined, ownedIds: Set<string>, treatAsOwned = false): ModelRecommendation {
+function toRecommendation(
+  scored: ScoredModel,
+  master: ModelCard | undefined,
+  ownedIds: Set<string>,
+  treatAsOwned = false,
+  schemePool?: SchemePool
+): ModelRecommendation {
   const hireDetails = getHireDetails(master, scored.model);
   const roundedScore = Math.round(scored.score);
+  const versatility = buildRoleVersatility(scored.model, schemePool);
+  const secondaryRoles = secondaryRolesForVersatility(scored.role, versatility);
 
   return {
     model: scored.model,
@@ -769,6 +778,8 @@ function toRecommendation(scored: ScoredModel, master: ModelCard | undefined, ow
     curatedNotes: curatedNotesFor(scored.model, master).slice(0, 3),
     score: roundedScore,
     role: scored.role,
+    secondaryRoles: secondaryRoles.length > 0 ? secondaryRoles : undefined,
+    versatility,
     scoreBreakdown: {
       masterAbilities: Math.round(scored.scoreBreakdown.masterAbilities),
       crewSynergy: Math.round(scored.scoreBreakdown.crewSynergy),

@@ -1734,6 +1734,7 @@ export default function MalifauxWorkbench() {
           />
           <MatchupDriversPanel brief={analysis.matchupBrief} path={selectedPath} strategy={analysis.match.strategy} />
           <TerrainMobilityPanel profile={analysis.playerCrew.terrainMobilityProfile} />
+          <ResourceIntensityPanel profile={analysis.playerCrew.resourceProfile} />
           <StrategyImpactPanel
             opponentCrew={analysis.opponentCrew.expectedModels.length > 0 ? analysis.opponentCrew.expectedModels : analysis.opponentCrew.likelyModels.map((recommendation) => recommendation.model)}
             path={selectedPath}
@@ -3795,6 +3796,30 @@ function TempoProfilePanel({ profile }: { profile: RecommendationPath["tempoProf
   );
 }
 
+function ResourceIntensityPanel({ profile }: { profile: MatchupAnalysis["playerCrew"]["resourceProfile"] }) {
+  return (
+    <section className="panel resourceIntensityPanel">
+      <div className="panelHeader">
+        <h2>Resource Intensity</h2>
+        <span>{profile.overall}</span>
+      </div>
+      {profile.dataLimited ? <p className="panelHint">Data-limited read: parsed card text has thin resource pressure evidence.</p> : null}
+      <div className="resourceDimensionGrid">
+        {profile.dimensions.map((dimension) => (
+          <article key={dimension.id}>
+            <div>
+              <span>{dimension.label}</span>
+              <strong>{dimension.rating}</strong>
+            </div>
+            <p>{dimension.evidence[0]}</p>
+            <small>{dimension.mitigation}</small>
+          </article>
+        ))}
+      </div>
+    </section>
+  );
+}
+
 function StrategyImpactPanel({
   opponentCrew,
   path,
@@ -4155,6 +4180,7 @@ export function RecommendationPanel({
                   <RecSection title="Targets" items={recommendation.priorityTargets} />
                   <RecSection title="Synergy" items={recommendation.alliedSynergies} />
                   <RecSection title="Tempo" items={tempoNotes(recommendation)} />
+                  <RecSection title="Resource Fit" items={resourceNotes(recommendation)} />
                   <RecSection title="Terrain & Mobility" items={terrainMobilityNotes(recommendation)} />
                   <RecSection title="Role Flexibility" items={roleVersatilityNotes(recommendation)} />
                   <RecSection title="Score Trace" items={recommendation.trace} />
@@ -4662,6 +4688,10 @@ function recommendationChips(recommendation: ModelRecommendation): Array<{ label
       label: tag,
       title: `${recommendation.model.name} early-turn tempo signal: ${tag}.`
     })),
+    ...recommendation.resourceTags.slice(0, 1).map((tag) => ({
+      label: tag,
+      title: `${recommendation.model.name} may mitigate crew resource pressure.`
+    })),
     {
       label: `Strategy fit: ${fitBand(recommendation.scoreBreakdown.compositionMatchup)}`,
       title: "How strongly this pick addresses the selected strategy and matchup demands."
@@ -4713,6 +4743,12 @@ function tempoNotes(recommendation: ModelRecommendation): string[] {
   }
 
   return notes;
+}
+
+function resourceNotes(recommendation: ModelRecommendation): string[] {
+  return recommendation.resourceTags.length > 0
+    ? recommendation.resourceTags.map((tag) => `${tag}: detected mitigation for hand, stone, setup, or independent scoring pressure.`)
+    : ["No specific resource mitigation detected from parsed tags or rules text."];
 }
 
 function recommendationDrivers(recommendation: ModelRecommendation, strategy?: Strategy): MatchupDriver[] {

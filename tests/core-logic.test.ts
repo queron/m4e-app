@@ -6,6 +6,7 @@ import { analyzeMatchup, evaluateModelMatchup } from "@/lib/matchup-engine";
 import { STRATEGY_POOLS } from "@/lib/strategy-pools";
 import { buildTempoProfile, modelTempoTags } from "@/lib/tempo-profile";
 import { proxyAvailabilityForCatalog, proxyTargetIdsForKeys } from "@/lib/proxy-data";
+import { buildResourceProfile, modelResourceTags } from "@/lib/resource-profile";
 import { SCHEME_POOLS, getReachableSchemes, getSchemeBranches, validateSchemeGraph } from "@/lib/scheme-pools";
 import type { ModelCard, ModelRecommendation, TacticalTag } from "@/lib/types";
 
@@ -70,6 +71,7 @@ function tempoRecommendation(model: ModelCard): ModelRecommendation {
     alliedSynergies: [],
     terrainTools: [],
     tempoTags: modelTempoTags(model),
+    resourceTags: modelResourceTags(model),
     vulnerabilityFlags: []
   };
 }
@@ -260,6 +262,45 @@ describe("recommendation scoring", () => {
     expect(analysis.playerCrew.terrainMobilityProfile.mobilityBand).toMatch(/High|Medium|Low/);
     expect(analysis.playerCrew.terrainMobilityProfile.recommendedTablePlan.length).toBeGreaterThan(0);
     expect(analysis.paths.optimal.models.every((recommendation) => Array.isArray(recommendation.terrainTools))).toBe(true);
+  });
+
+  it("adds resource intensity to crew analysis", () => {
+    const pandora = masterByName("Pandora, Tyrant-Torn");
+    const opponent = masterByName("The Dreamer, Insomniac");
+
+    const analysis = analyzeMatchup({
+      playerFaction: pandora.faction,
+      playerMasterId: pandora.id,
+      opponentFaction: opponent.faction,
+      opponentMasterId: opponent.id,
+      ownedModelIds: [],
+      opponentModelIds: [],
+      pointLimit: 50,
+      modelLimit: 99,
+      strategyPoolId: "gg-zero",
+      strategyId: "plant-explosives",
+      schemePoolId: "gg-zero"
+    });
+
+    expect(analysis.playerCrew.resourceProfile.overall).toMatch(/Low|Medium|High/);
+    expect(analysis.playerCrew.resourceProfile.dimensions).toHaveLength(4);
+    expect(analysis.paths.optimal.models.every((recommendation) => Array.isArray(recommendation.resourceTags))).toBe(true);
+  });
+
+  it("rates high and low resource profiles from parsed text", () => {
+    const hungryMaster = tempoFixture(
+      "Hungry Master",
+      ["cardPressure", "soulstone", "marker", "summon"],
+      5,
+      "Discard a card. Draw a card. Drain a soulstone. Declare a trigger with a mask. Place a marker and summon a model with a token."
+    );
+    const simpleModel = tempoFixture("Simple Runner", ["mobility", "scheme"], 6, "Walk and interact.");
+
+    const highProfile = buildResourceProfile(hungryMaster, undefined, [tempoRecommendation(hungryMaster)]);
+    const lowProfile = buildResourceProfile(simpleModel, undefined, []);
+
+    expect(highProfile.overall).toBe("High");
+    expect(lowProfile.overall).toMatch(/Low|Medium/);
   });
 
   it("adds Turn 2 tempo profiles and model tempo tags", () => {

@@ -27,6 +27,7 @@ import { clamp, curatedNotesFor, formatTags, strategyNotesFor, uniqueSentences }
 import { buildRoleVersatility, confidenceFromScore, duplicateGuidance, efficiencyBonus, inferRole, secondaryRolesForVersatility } from "./scoring";
 import { buildTerrainMobilityProfile, modelTerrainTools } from "./terrain-mobility";
 import { buildTempoProfile, modelTempoTags } from "./tempo-profile";
+import { buildResourceProfile, modelResourceTags } from "./resource-profile";
 import {
   COUNTER_TAGS,
   buildOpponentPressureContext,
@@ -106,7 +107,8 @@ export function analyzeMatchup(input: PlannerInput): MatchupAnalysis {
       strengths: describeStrengths(playerMaster, playerCrewCard, strategy),
       vulnerabilities: describeVulnerabilities(playerMaster, playerCrewCard, opponentCrew, strategy),
       playstyle: describePlaystyle(playerMaster, playerCrewCard, strategy),
-      terrainMobilityProfile: buildTerrainMobilityProfile(priorityPath.models, strategy, schemePool)
+      terrainMobilityProfile: buildTerrainMobilityProfile(priorityPath.models, strategy, schemePool),
+      resourceProfile: buildResourceProfile(playerMaster, playerCrewCard, priorityPath.models)
     },
     opponentCrew: {
       master: opponentMaster,
@@ -796,6 +798,7 @@ function toRecommendation(
     alliedSynergies: scored.alliedSynergies,
     terrainTools: modelTerrainTools(scored.model),
     tempoTags: modelTempoTags(scored.model),
+    resourceTags: modelResourceTags(scored.model),
     vulnerabilityFlags: scored.vulnerabilityFlags
   };
 }

@@ -24,6 +24,7 @@ export type SharedSetup = Partial<{
   opponentFaction: string;
   opponentMasterId: string;
   ownedModelIds: string[];
+  ownedProxyKeys: string[];
   opponentModelIds: string[];
   pointLimit: number;
   strategyPoolId: string;
@@ -40,6 +41,7 @@ export type DraftSummaryContext = {
 };
 
 export const COLLECTION_STORAGE_KEY = "m4e.collection.v1";
+export const PROXY_COLLECTION_STORAGE_KEY = "m4e.collection.proxies.v1";
 export const DRAFT_STORAGE_KEY = "m4e.drafts.v1";
 export const SHARE_PARAM = "setup";
 const MAX_CLIENT_ID_ARRAY_LENGTH = 500;
@@ -51,6 +53,24 @@ export function readStoredIds(key: string, catalog?: CardCatalog): string[] {
   try {
     const parsed = JSON.parse(localStorage.getItem(key) ?? "[]");
     return readModelIdArray(parsed, catalog).ids;
+  } catch {
+    return [];
+  }
+}
+
+export function readStoredStringList(key: string, allowed?: Set<string>): string[] {
+  if (typeof window === "undefined") return [];
+  try {
+    const parsed = JSON.parse(localStorage.getItem(key) ?? "[]");
+    if (!Array.isArray(parsed)) return [];
+    const seen = new Set<string>();
+    return parsed.flatMap((item) => {
+      if (typeof item !== "string") return [];
+      const value = item.trim();
+      if (!value || seen.has(value) || (allowed && !allowed.has(value))) return [];
+      seen.add(value);
+      return [value];
+    });
   } catch {
     return [];
   }
@@ -115,8 +135,10 @@ function validateSharedSetup(value: unknown, catalog: CardCatalog): { setup: Sha
   }
 
   const ownedModelIds = readModelIdArray(value.ownedModelIds, catalog);
+  const ownedProxyKeys = readStringArray(value.ownedProxyKeys);
   const opponentModelIds = readModelIdArray(value.opponentModelIds, catalog);
   setup.ownedModelIds = ownedModelIds.ids;
+  setup.ownedProxyKeys = ownedProxyKeys;
   setup.opponentModelIds = opponentModelIds.ids;
   warnings.push(...ownedModelIds.warnings.map((warning) => `Owned models: ${warning}`));
   warnings.push(...opponentModelIds.warnings.map((warning) => `Opponent models: ${warning}`));
@@ -189,6 +211,18 @@ function readModelIdArray(value: unknown, catalog?: CardCatalog): { ids: string[
   }
 
   return { ids, warnings };
+}
+
+function readStringArray(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  const seen = new Set<string>();
+  return value.slice(0, MAX_CLIENT_ID_ARRAY_LENGTH).flatMap((item) => {
+    if (typeof item !== "string") return [];
+    const id = item.trim();
+    if (!id || seen.has(id)) return [];
+    seen.add(id);
+    return [id];
+  });
 }
 
 function readKnownString(value: unknown, allowed: Set<string>, label: string, warnings: string[]): string | undefined {

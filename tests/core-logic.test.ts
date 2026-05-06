@@ -5,6 +5,7 @@ import { getMandatoryCrewEntries } from "@/lib/mandatory-crew";
 import { analyzeMatchup, evaluateModelMatchup } from "@/lib/matchup-engine";
 import { STRATEGY_POOLS } from "@/lib/strategy-pools";
 import { buildTempoProfile, modelTempoTags } from "@/lib/tempo-profile";
+import { proxyAvailabilityForCatalog, proxyTargetIdsForKeys } from "@/lib/proxy-data";
 import type { ModelCard, ModelRecommendation, TacticalTag } from "@/lib/types";
 
 const catalog = getCatalog();
@@ -122,6 +123,31 @@ describe("mandatory crew rules", () => {
 
     expect(troubleshooterTotems).toContain("M&Su, Mouse");
     expect(unionPresidentTotems).toContain("M&Su, Fitzsimmons");
+  });
+});
+
+describe("legacy proxy data", () => {
+  it("maps legacy proxy ownership to the current legal model id", () => {
+    const availabilities = proxyAvailabilityForCatalog(catalog);
+    const rottenBelle = availabilities.find((entry) => entry.proxyName === "Rotten Belle");
+    const deadDoxy = modelByName("Dead Doxy");
+
+    expect(rottenBelle).toMatchObject({
+      modelId: deadDoxy.id,
+      targetName: "Dead Doxy"
+    });
+    expect(proxyTargetIdsForKeys(availabilities, [rottenBelle?.key ?? ""])).toEqual([deadDoxy.id]);
+  });
+
+  it("deduplicates multiple proxies for the same current model", () => {
+    const availabilities = proxyAvailabilityForCatalog(catalog);
+    const bayouProxyKeys = availabilities
+      .filter((entry) => entry.targetName === "Bayou Gremlin")
+      .map((entry) => entry.key);
+    const bayouGremlin = modelByName("Bayou Gremlin");
+
+    expect(bayouProxyKeys.length).toBeGreaterThanOrEqual(2);
+    expect(proxyTargetIdsForKeys(availabilities, bayouProxyKeys)).toEqual([bayouGremlin.id]);
   });
 });
 

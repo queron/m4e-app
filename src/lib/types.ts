@@ -373,6 +373,26 @@ export type TempoProfile = {
   risks: string[];
 };
 
+export type ProxyMapping = {
+  legacyName: string;
+  legacyFaction?: string;
+  mayProxyForName: string;
+  mayProxyForFaction?: string;
+  baseSize?: string;
+  source: "M4E Model Changes & Proxies";
+  notes?: string;
+};
+
+export type ProxyAvailability = {
+  key: string;
+  modelId: string;
+  proxyName: string;
+  targetName: string;
+  baseSize?: string;
+  source: string;
+  notes?: string;
+};
+
 export type MatchupBrief = {
   watchFor: string[];
   answerWith: string[];

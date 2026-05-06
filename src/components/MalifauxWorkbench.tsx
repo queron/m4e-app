@@ -1341,10 +1341,10 @@ export default function MalifauxWorkbench() {
       ) : null}
 
       <nav className="setupStepper" aria-label="Counter-pick setup sequence">
-        <span className="active" aria-current="step">1. Match Context</span>
-        <span>2. Player Collection</span>
-        <span>3. Opponent Intel</span>
-        <span>4. Analyze</span>
+        <span className="active" aria-current="step"><span className="stepperNumber">1</span> Match Context</span>
+        <span><span className="stepperNumber">2</span> Player Collection</span>
+        <span><span className="stepperNumber">3</span> Opponent Intel</span>
+        <span><span className="stepperNumber">4</span> Analyze</span>
       </nav>
 
       <section className="panel matchPanel" id="match-context">

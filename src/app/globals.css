@@ -609,7 +609,11 @@ select option {
   backdrop-filter: blur(12px);
 }
 
-.setupStepper span {
+.setupStepper > span {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
   border: 1px solid rgba(176, 138, 60, 0.28);
   border-radius: 999px;
   background: rgba(17, 14, 11, 0.68);
@@ -617,8 +621,23 @@ select option {
   text-align: center;
 }
 
-.setupStepper span.active,
-.setupStepper span[aria-current="step"] {
+.stepperNumber {
+  display: inline-grid;
+  place-items: center;
+  flex: 0 0 auto;
+  width: 22px;
+  height: 22px;
+  border: 1px solid rgba(196, 154, 70, 0.62);
+  border-radius: 50%;
+  background: rgba(196, 154, 70, 0.14);
+  color: var(--parchment);
+  font-size: 0.72rem;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.setupStepper > span.active,
+.setupStepper > span[aria-current="step"] {
   border-color: rgba(196, 154, 70, 0.58);
   color: var(--parchment);
   background: rgba(196, 154, 70, 0.12);

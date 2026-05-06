@@ -3,7 +3,9 @@ import { getCatalog, getHireDetails } from "@/lib/card-data";
 import { buildCrewByScore, validateCrew } from "@/lib/crew-validation";
 import { getMandatoryCrewEntries } from "@/lib/mandatory-crew";
 import { analyzeMatchup, evaluateModelMatchup } from "@/lib/matchup-engine";
-import type { ModelCard } from "@/lib/types";
+import { STRATEGY_POOLS } from "@/lib/strategy-pools";
+import { buildTempoProfile, modelTempoTags } from "@/lib/tempo-profile";
+import type { ModelCard, ModelRecommendation, TacticalTag } from "@/lib/types";
 
 const catalog = getCatalog();
 
@@ -17,6 +19,57 @@ function masterByName(name: string): ModelCard {
   const master = catalog.masters.find((candidate) => candidate.name === name);
   if (!master) throw new Error(`Missing master fixture: ${name}`);
   return master;
+}
+
+function tempoFixture(name: string, tacticalTags: TacticalTag[], speed: number, textIndex = "", cost = 6): ModelCard {
+  return {
+    id: name.toLowerCase().replace(/\s+/g, "-"),
+    cardType: "unit",
+    name,
+    faction: "Test",
+    sourceFile: "test",
+    keywords: [],
+    traits: [],
+    strategicKeywords: [],
+    cost,
+    isFree: false,
+    isMaster: false,
+    isTotem: false,
+    isUnique: false,
+    maxCopies: 3,
+    leaderModelCount: 1,
+    statBlock: { defense: 5, speed, willpower: 5, size: 2 },
+    abilities: [],
+    actions: [],
+    rulesText: textIndex,
+    textIndex,
+    tacticalTags
+  };
+}
+
+function tempoRecommendation(model: ModelCard): ModelRecommendation {
+  return {
+    model,
+    owned: true,
+    hireCost: model.cost,
+    printedCost: model.cost,
+    hireTax: 0,
+    hireKind: "keyword",
+    hireReason: "Test hire",
+    confidence: "Medium",
+    trace: [],
+    curatedNotes: [],
+    score: 10,
+    role: "test",
+    scoreBreakdown: { masterAbilities: 0, crewSynergy: 0, compositionMatchup: 0 },
+    why: [],
+    relevantTech: [],
+    priorityTargets: [],
+    alliedSynergies: [],
+    terrainTools: [],
+    tempoTags: modelTempoTags(model),
+    vulnerabilityFlags: []
+  };
 }
 
 describe("crew legality", () => {
@@ -161,6 +214,35 @@ describe("recommendation scoring", () => {
     expect(analysis.playerCrew.terrainMobilityProfile.mobilityBand).toMatch(/High|Medium|Low/);
     expect(analysis.playerCrew.terrainMobilityProfile.recommendedTablePlan.length).toBeGreaterThan(0);
     expect(analysis.paths.optimal.models.every((recommendation) => Array.isArray(recommendation.terrainTools))).toBe(true);
+  });
+
+  it("adds Turn 2 tempo profiles and model tempo tags", () => {
+    const boundaryDispute = STRATEGY_POOLS[0].strategies.find((strategy) => strategy.id === "boundary-dispute");
+    const recommendations = [
+      tempoRecommendation(tempoFixture("Fast Schemer", ["scheme", "mobility"], 6, "Leap into position.")),
+      tempoRecommendation(tempoFixture("Mobile Marker", ["placement", "marker"], 5, "Place this model within 3\".")),
+      tempoRecommendation(tempoFixture("Center Anchor", ["armor", "control"], 4, "Armor and Staggered pressure."))
+    ];
+
+    const profile = buildTempoProfile(recommendations, boundaryDispute);
+
+    expect(profile.turnTwoReadiness.find((readiness) => readiness.job === "score")?.band).toMatch(/Adequate|Strong/);
+    expect(profile.turnTwoReadiness.find((readiness) => readiness.job === "contest")?.evidence.join(" ")).toContain("center-weighted");
+    expect(recommendations.flatMap((recommendation) => recommendation.tempoTags)).toEqual(expect.arrayContaining(["T2 scorer", "Early contest"]));
+  });
+
+  it("flags setup-heavy tempo without selected strategy", () => {
+    const recommendations = [
+      tempoRecommendation(tempoFixture("Ritual Support", ["summon", "healing"], 4, "Summon from a corpse marker.")),
+      tempoRecommendation(tempoFixture("Marker Engine", ["cardPressure"], 4, "Friendly model gains a condition from this marker.")),
+      tempoRecommendation(tempoFixture("Late Battery", ["healing"], 4, "Support a friendly model after setup."))
+    ];
+
+    const profile = buildTempoProfile(recommendations);
+
+    expect(profile.overall).toBe("Setup-heavy");
+    expect(profile.risks.join(" ")).toContain("avoid spending the first two turns only preparing");
+    expect(profile.turnOnePlan.join(" ")).not.toContain("undefined");
   });
 
   it("flags low-Wp risk into Pandora-style pressure", () => {

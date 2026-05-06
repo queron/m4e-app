@@ -90,6 +90,10 @@ type MatchupProfileRow = {
   opponentScore: number;
   interpretation: string;
 };
+type EdgeCaseNotice = {
+  title: string;
+  body: string;
+};
 type MatrixCell = {
   playerMaster: ModelCard;
   opponentMaster: ModelCard;
@@ -432,6 +436,35 @@ function buildMatchupProfileRows(analysis: MatchupAnalysis, path: Recommendation
       interpretation: profileInterpretation(dimension.label, playerBand, opponentBand)
     };
   });
+}
+
+function buildEdgeCaseNotices(analysis: MatchupAnalysis): EdgeCaseNotice[] {
+  const notices: EdgeCaseNotice[] = [];
+  const playerMaster = analysis.playerCrew.master;
+  const opponentMaster = analysis.opponentCrew.master;
+
+  if (playerMaster && opponentMaster) {
+    if (playerMaster.id === opponentMaster.id) {
+      notices.push({
+        title: "Mirror matchup selected",
+        body: "This read is driven by crew selection, table plan, terrain, and player execution more than master profile."
+      });
+    } else if (titleGroupKey(playerMaster) === titleGroupKey(opponentMaster)) {
+      notices.push({
+        title: "Same master family selected",
+        body: "Title, crew card, and hire choices may matter more than faction or master identity in this comparison."
+      });
+    }
+  }
+
+  if (!analysis.match.strategy && analysis.opponentCrew.expectedModels.length === 0) {
+    notices.push({
+      title: "Limited context",
+      body: "Add a selected strategy or known opposing models to improve specificity; crew-level differences may change the read."
+    });
+  }
+
+  return notices;
 }
 
 function profileDimensionScore(sources: Array<ModelCard | CrewCard>, tags: TacticalTag[]): number {
@@ -850,6 +883,7 @@ export default function MalifauxWorkbench() {
       })
     : null;
   const matchupProfile = analysis && selectedPath ? buildMatchupProfileRows(analysis, selectedPath) : [];
+  const edgeCaseNotices = analysis ? buildEdgeCaseNotices(analysis) : [];
   const playerRequiredModels = useMemo(
     () => (catalog && playerMaster ? getMandatoryModelsForMaster(playerMaster, catalog.models) : []),
     [catalog, playerMaster]
@@ -1083,6 +1117,7 @@ export default function MalifauxWorkbench() {
     return buildAnalysisShareSummary({
       analysis,
       confidence: resultsConfidence,
+      edgeCaseNotices,
       path: selectedPath,
       pathKind,
       strategyPoolName: strategyPool.name
@@ -1375,6 +1410,7 @@ export default function MalifauxWorkbench() {
               strategyPoolName={strategyPool.name}
             />
           ) : null}
+          {edgeCaseNotices.length > 0 ? <EdgeCaseNoticesPanel notices={edgeCaseNotices} /> : null}
           {gameFeel ? <GameFeelPanel gameFeel={gameFeel} /> : null}
           <MatchupBriefPanel brief={analysis.matchupBrief} />
           <NextStepsPanel
@@ -2947,6 +2983,19 @@ function ResultsContextBar({
   );
 }
 
+function EdgeCaseNoticesPanel({ notices }: { notices: EdgeCaseNotice[] }) {
+  return (
+    <section className="edgeCaseNotices" aria-label="Analysis caveats">
+      {notices.map((notice) => (
+        <article key={notice.title}>
+          <strong>{notice.title}</strong>
+          <p>{notice.body}</p>
+        </article>
+      ))}
+    </section>
+  );
+}
+
 function GameFeelPanel({ gameFeel }: { gameFeel: GameFeelRead }) {
   return (
     <section className={`gameFeelPanel gameFeel-${gameFeel.tone}`} aria-label="Casual game feel">
@@ -4093,12 +4142,14 @@ function buildNextSteps({
 function buildAnalysisShareSummary({
   analysis,
   confidence,
+  edgeCaseNotices = [],
   path,
   pathKind,
   strategyPoolName
 }: {
   analysis: MatchupAnalysis;
   confidence: ResultsConfidence;
+  edgeCaseNotices?: EdgeCaseNotice[];
   path: RecommendationPath;
   pathKind: PathKind;
   strategyPoolName: string;
@@ -4119,6 +4170,7 @@ function buildAnalysisShareSummary({
     `${playerMasterName} into ${opponentMasterName} on ${strategyName} (${strategyPoolName}, ${analysis.match.pointLimit}ss)`,
     `Path: ${pathKind === "available" ? "Available" : "Optimal"}`,
     `Read: ${read}`,
+    ...edgeCaseNotices.flatMap((notice) => [`${notice.title}: ${notice.body}`]),
     "Top reasons:",
     ...reasons.map((reason, index) => `${index + 1}. ${reason}`),
     `Suggested focus: ${focus}`,

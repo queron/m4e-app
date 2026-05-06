@@ -1369,8 +1369,10 @@ export default function MalifauxWorkbench() {
         <p className="matchContextLead">Recommendations use this strategy context before applying crew-specific evidence.</p>
         <div className="matchGrid">
           <label>
-            Strategy Pool
-            <InlineHelp label="Strategy help" text={glossaryText("strategy")} />
+            <span className="fieldLabel">
+              Strategy Pool
+              <InlineHelp label="Strategy help" text={glossaryText("strategy")} />
+            </span>
             <select
               value={strategyPoolId}
               onChange={(event) => {
@@ -1388,8 +1390,10 @@ export default function MalifauxWorkbench() {
             </select>
           </label>
           <label>
-            Strategy
-            <InlineHelp label="Strategy help" text={glossaryText("strategy")} />
+            <span className="fieldLabel">
+              Strategy
+              <InlineHelp label="Strategy help" text={glossaryText("strategy")} />
+            </span>
             <select value={strategyId} onChange={(event) => setStrategyId(event.target.value)}>
               <option value="">Pick a strategy</option>
               {strategyPool.strategies.map((poolStrategy) => (
@@ -1400,8 +1404,10 @@ export default function MalifauxWorkbench() {
             </select>
           </label>
           <label>
-            Scheme Pool
-            <InlineHelp label="Scheme help" text={glossaryText("scheme")} />
+            <span className="fieldLabel">
+              Scheme Pool
+              <InlineHelp label="Scheme help" text={glossaryText("scheme")} />
+            </span>
             <select value={schemePoolId} onChange={(event) => setSchemePoolId(event.target.value)}>
               {SCHEME_POOLS.map((pool) => (
                 <option key={pool.id} value={pool.id}>
@@ -1411,8 +1417,10 @@ export default function MalifauxWorkbench() {
             </select>
           </label>
           <label>
-            Intent
-            <InlineHelp label="Crew help" text={glossaryText("crew")} />
+            <span className="fieldLabel">
+              Intent
+              <InlineHelp label="Crew help" text={glossaryText("crew")} />
+            </span>
             <select value={matchIntent} onChange={(event) => setMatchIntent(event.target.value as MatchIntentSelection)}>
               <option value="">Pick an intent</option>
               {MATCH_INTENTS.map((intent) => (
@@ -1424,8 +1432,10 @@ export default function MalifauxWorkbench() {
           </label>
           <CrewModifierDropdown selectedIds={crewModifierIds} onToggle={toggleCrewModifier} />
           <label>
-            Soulstones
-            <InlineHelp label="Soulstones help" text={glossaryText("soulstones")} />
+            <span className="fieldLabel">
+              Soulstones
+              <InlineHelp label="Soulstones help" text={glossaryText("soulstones")} />
+            </span>
             <input value={pointLimit} min={1} max={150} type="number" onChange={(event) => setPointLimit(Number(event.target.value))} />
           </label>
         </div>

@@ -68,6 +68,7 @@ import {
 type PathKind = "available" | "optimal";
 type ActiveResultTab = "picks" | "matchup" | "schemes" | "draft";
 type MatchIntent = "core" | "tournament" | "casual" | "learning" | "narrative";
+type MatchIntentSelection = MatchIntent | "";
 type CrewModifierId = "needMobility" | "needConditionRemoval" | "expectSummons" | "needMarkerPlan";
 type MatchupDriver = {
   id: string;
@@ -113,7 +114,6 @@ type MatrixCell = {
 };
 
 const DEFAULT_POINT_LIMIT = 50;
-const DEFAULT_MATCH_INTENT: MatchIntent = "core";
 const INTERNAL_MODEL_LIMIT = 99;
 type ModelSortMode = "name" | "costAsc" | "costDesc" | "role";
 type RoleFilter = "all" | "beater" | "scheme" | "support" | "anchor" | "control";
@@ -166,8 +166,16 @@ const MATCH_INTENTS: Array<{ value: MatchIntent; label: string; summary: string;
   }
 ];
 
-function intentProfile(intent: MatchIntent) {
-  return MATCH_INTENTS.find((candidate) => candidate.value === intent) ?? MATCH_INTENTS[0];
+const EMPTY_INTENT_PROFILE = {
+  value: "" as const,
+  label: "No intent selected",
+  summary: "Pick an intent to tune the recommendation language and game-feel framing.",
+  recommendationLead: "Choose an intent to tune how the recommendation path is framed."
+};
+
+function intentProfile(intent: MatchIntentSelection) {
+  if (!intent) return EMPTY_INTENT_PROFILE;
+  return MATCH_INTENTS.find((candidate) => candidate.value === intent) ?? EMPTY_INTENT_PROFILE;
 }
 
 const CREW_MODIFIERS: Array<{ id: CrewModifierId; label: string; summary: string; tags: TacticalTag[] }> = [
@@ -301,7 +309,7 @@ function buildGameFeelRead({
 }: {
   analysis: MatchupAnalysis;
   confidence: ResultsConfidence;
-  intent: MatchIntent;
+  intent: MatchIntentSelection;
   path: RecommendationPath;
 }): GameFeelRead | null {
   const casualIntent = intent === "casual" || intent === "learning" || intent === "narrative";
@@ -417,7 +425,7 @@ function buildBeginnerSuitability({
 }: {
   analysis: MatchupAnalysis;
   confidence: ResultsConfidence;
-  intent: MatchIntent;
+  intent: MatchIntentSelection;
   path: RecommendationPath;
 }): BeginnerSuitabilityRead | null {
   if (intent !== "learning" && intent !== "casual") return null;
@@ -626,7 +634,7 @@ export default function MalifauxWorkbench() {
   const [strategyPoolId, setStrategyPoolId] = useState(DEFAULT_STRATEGY_POOL_ID);
   const [strategyId, setStrategyId] = useState("");
   const [schemePoolId, setSchemePoolId] = useState(DEFAULT_SCHEME_POOL_ID);
-  const [matchIntent, setMatchIntent] = useState<MatchIntent>(DEFAULT_MATCH_INTENT);
+  const [matchIntent, setMatchIntent] = useState<MatchIntentSelection>("");
   const [crewModifierIds, setCrewModifierIds] = useState<CrewModifierId[]>([]);
   const [matrixOpen, setMatrixOpen] = useState(false);
   const [matrixPlayerMasterIds, setMatrixPlayerMasterIds] = useState<string[]>([]);
@@ -1404,7 +1412,8 @@ export default function MalifauxWorkbench() {
           <label>
             Intent
             <InlineHelp label="Crew help" text={glossaryText("crew")} />
-            <select value={matchIntent} onChange={(event) => setMatchIntent(event.target.value as MatchIntent)}>
+            <select value={matchIntent} onChange={(event) => setMatchIntent(event.target.value as MatchIntentSelection)}>
+              <option value="">Pick an intent</option>
               {MATCH_INTENTS.map((intent) => (
                 <option key={intent.value} value={intent.value}>
                   {intent.label}
@@ -3429,7 +3438,7 @@ export function RecommendationPanel({
   onOpenModel
 }: {
   crewModifierIds: CrewModifierId[];
-  intent: MatchIntent;
+  intent: MatchIntentSelection;
   pathKind: PathKind;
   setPathKind: (value: PathKind) => void;
   selectedPath?: RecommendationPath;

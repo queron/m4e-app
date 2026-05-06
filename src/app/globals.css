@@ -24,6 +24,8 @@
   --radius-lg: 14px;
   --radius-md: 10px;
   --radius-sm: 8px;
+  --sticky-chrome-offset: 128px;
+  --sticky-stepper-top: 72px;
 }
 
 * {
@@ -254,7 +256,7 @@ h1 {
 #opponent-intel,
 #analysis-results,
 #analyze {
-  scroll-margin-top: 84px;
+  scroll-margin-top: var(--sticky-chrome-offset);
 }
 
 h1 .rulesIcon {
@@ -592,13 +594,19 @@ select option {
 }
 
 .setupStepper {
+  position: sticky;
+  top: var(--sticky-stepper-top);
+  z-index: 35;
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 10px;
   margin: 0 0 14px;
+  padding: 8px 0;
+  background: linear-gradient(180deg, rgba(11, 10, 8, 0.96), rgba(11, 10, 8, 0.82));
   color: var(--muted);
   font-size: 0.78rem;
   font-weight: 700;
+  backdrop-filter: blur(12px);
 }
 
 .setupStepper span {
@@ -3661,6 +3669,11 @@ li + li {
 }
 
 @media (max-width: 720px) {
+  :root {
+    --sticky-chrome-offset: 172px;
+    --sticky-stepper-top: 116px;
+  }
+
   .shell {
     width: min(100vw - 20px, 1500px);
     padding-top: 16px;

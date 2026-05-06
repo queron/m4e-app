@@ -1241,12 +1241,18 @@ export default function MalifauxWorkbench() {
     <main className="shell">
       <header className="topbar">
         <div className="brandLockup">
-          <Image className="appLogo" src="/brand/m4e-logo-192.png" alt="" aria-hidden="true" width={56} height={56} priority />
+          <Image className="appLogo" src="/brand/m4e-logo-192.png" alt="" aria-hidden="true" width={40} height={40} priority />
           <div>
-          <p className="eyebrow">Malifaux 4E</p>
-            <h1>Crew Optimizer</h1>
+            <p className="eyebrow">Malifaux 4E</p>
+            <h1 className="appTitle">Crew Optimizer</h1>
           </div>
         </div>
+        <nav className="topNavLinks" aria-label="Primary app navigation">
+          <a href="#match-context">Context</a>
+          <a href="#player-collection">Collection</a>
+          <a href="#opponent-intel">Intel</a>
+          <a href="#analyze">Analyze</a>
+        </nav>
       </header>
 
       {error ? <div className="error">{error}</div> : null}
@@ -1277,7 +1283,7 @@ export default function MalifauxWorkbench() {
         <span>4. Analyze</span>
       </nav>
 
-      <section className="panel matchPanel">
+      <section className="panel matchPanel" id="match-context">
         <div className="panelHeader">
           <h2>
             <span className="stepBadge">1</span>
@@ -1395,6 +1401,7 @@ export default function MalifauxWorkbench() {
         <CrewPanel
           title="Player"
           displayTitle="Player Collection"
+          panelId="player-collection"
           stepNumber={2}
           factions={catalog.factions}
           faction={playerFaction}
@@ -1424,6 +1431,7 @@ export default function MalifauxWorkbench() {
         <CrewPanel
           title="Opponent"
           displayTitle="Opponent Intel"
+          panelId="opponent-intel"
           stepNumber={3}
           factions={catalog.factions}
           faction={opponentFaction}
@@ -1464,7 +1472,7 @@ export default function MalifauxWorkbench() {
           onClearAnalysis={clearAnalysisAndKeepSetup}
           resetKey={`${analysis.match.strategy?.id ?? strategyId}-${activeResultTab}-${setupCollapsed}`}
         >
-        <section className="analysisGrid">
+        <section className="analysisGrid" id="analysis-results">
           <div className="postAnalyzeSummary">
             <div>
               <h2>
@@ -1646,7 +1654,7 @@ export default function MalifauxWorkbench() {
         </section>
       )}
 
-      <aside className="stickyAnalyzeBar" aria-label="Analysis actions">
+      <aside className="stickyAnalyzeBar" id="analyze" aria-label="Analysis actions">
         <div>
           <strong><span className="stepBadge">4</span>{analyzeReadiness.status}</strong>
           <span>
@@ -2011,6 +2019,7 @@ function MatrixMasterPicker({
 export function CrewPanel(props: {
   title: string;
   displayTitle: string;
+  panelId?: string;
   stepNumber: number;
   factions: string[];
   faction: string;
@@ -2192,7 +2201,7 @@ export function CrewPanel(props: {
   }
 
   return (
-    <section className={`panel faction-${slugifyForMatch(props.faction)} ${props.collapsed ? "collapsedPanel" : ""}`}>
+    <section id={props.panelId} className={`panel faction-${slugifyForMatch(props.faction)} ${props.collapsed ? "collapsedPanel" : ""}`}>
       <div className="panelHeader">
         <h2>
           <span className="stepBadge">{props.stepNumber}</span>

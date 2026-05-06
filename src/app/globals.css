@@ -749,6 +749,30 @@ select option {
   outline-offset: 2px;
 }
 
+.edgeCaseNotices {
+  grid-column: 1 / -1;
+  display: grid;
+  gap: 8px;
+}
+
+.edgeCaseNotices article {
+  border: 1px solid rgba(184, 95, 76, 0.42);
+  border-left: 4px solid #b85f4c;
+  border-radius: var(--radius-md);
+  background: rgba(184, 95, 76, 0.1);
+  padding: 12px 14px;
+}
+
+.edgeCaseNotices strong {
+  color: var(--parchment);
+}
+
+.edgeCaseNotices p {
+  margin: 4px 0 0;
+  color: var(--parchment-2);
+  line-height: 1.45;
+}
+
 .gameFeelPanel {
   grid-column: 1 / -1;
   display: grid;

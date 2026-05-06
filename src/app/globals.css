@@ -2575,6 +2575,46 @@ select option {
   font-size: 1em;
 }
 
+.pill .inlineHelp,
+.ownedBadge .inlineHelp,
+.missingBadge .inlineHelp,
+.expectedBadge .inlineHelp {
+  margin-left: 4px;
+}
+
+.pill .inlineHelpButton,
+.ownedBadge .inlineHelpButton,
+.missingBadge .inlineHelpButton,
+.expectedBadge .inlineHelpButton {
+  width: 1em;
+  height: 1em;
+  border-color: transparent;
+  border-radius: 0;
+  background: transparent;
+  padding: 0;
+}
+
+.pill .inlineHelpButton:hover,
+.pill .inlineHelpButton[aria-expanded="true"],
+.ownedBadge .inlineHelpButton:hover,
+.ownedBadge .inlineHelpButton[aria-expanded="true"],
+.missingBadge .inlineHelpButton:hover,
+.missingBadge .inlineHelpButton[aria-expanded="true"],
+.expectedBadge .inlineHelpButton:hover,
+.expectedBadge .inlineHelpButton[aria-expanded="true"] {
+  border-color: transparent;
+  background: transparent;
+  color: var(--parchment);
+}
+
+.pill .inlineHelpButton:focus-visible,
+.ownedBadge .inlineHelpButton:focus-visible,
+.missingBadge .inlineHelpButton:focus-visible,
+.expectedBadge .inlineHelpButton:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--accent), white 12%);
+  outline-offset: 2px;
+}
+
 .pill {
   background: rgba(15, 12, 10, 0.5);
   color: var(--parchment-2);

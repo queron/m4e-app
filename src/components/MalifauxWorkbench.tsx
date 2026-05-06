@@ -1364,7 +1364,6 @@ export default function MalifauxWorkbench() {
             <RulesIcon iconKey="strategy" /> Match Context
             <InlineHelp label="Match setup help" text={analyzeReadiness.detail} />
           </h2>
-          <span>{strategyLabel} | {strategyPool.name} | {pointLimit}ss</span>
         </div>
         <p className="matchContextLead">Recommendations use this strategy context before applying crew-specific evidence.</p>
         <div className="matchGrid">
@@ -1439,10 +1438,31 @@ export default function MalifauxWorkbench() {
             <input value={pointLimit} min={1} max={150} type="number" onChange={(event) => setPointLimit(Number(event.target.value))} />
           </label>
         </div>
-        <p className="matchSummary">{strategy?.summary ?? "Pick a strategy to add scenario-specific scoring context."}</p>
-        <p className="intentSummary">
-          <strong>{selectedIntent.label}:</strong> {selectedIntent.summary}
-        </p>
+        <section className="matchContextSummary" aria-label="Match Summary">
+          <h3>Match Summary</h3>
+          <div>
+            <article>
+              <strong>Strategy plan</strong>
+              <p>{strategy?.summary ?? "Pick a strategy to add scenario-specific scoring context."}</p>
+            </article>
+            <article>
+              <strong>Intent framing</strong>
+              <p>{selectedIntent.summary}</p>
+            </article>
+            <article className="schemeSummary">
+              <strong>Schemes in pool</strong>
+              {schemePool.schemes.length > 0 ? (
+                <ul>
+                  {schemePool.schemes.map((scheme) => (
+                    <li key={scheme.id}>{scheme.name}</li>
+                  ))}
+                </ul>
+              ) : (
+                <p>No scheme list is available for this pool yet.</p>
+              )}
+            </article>
+          </div>
+        </section>
         {schemePool.incomplete ? (
           <div className="warning">Scheme data for {schemePool.name} is incomplete, so scheme pairings are intentionally limited.</div>
         ) : null}

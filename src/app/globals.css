@@ -846,6 +846,46 @@ select option {
   border-left-color: #9b7bd7;
 }
 
+.beginnerSuitabilityPanel {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: minmax(180px, 0.28fr) minmax(0, 0.72fr);
+  gap: 8px 18px;
+  border: 1px solid rgba(142, 154, 114, 0.34);
+  border-left: 4px solid #8e9a72;
+  border-radius: var(--radius-md);
+  background: rgba(47, 90, 69, 0.14);
+  padding: 14px;
+}
+
+.beginnerSuitabilityPanel > div {
+  display: grid;
+  gap: 5px;
+}
+
+.beginnerSuitabilityPanel span {
+  color: var(--accent);
+  font-family: Inter, Arial, sans-serif;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.beginnerSuitabilityPanel strong {
+  color: var(--parchment);
+}
+
+.beginnerSuitabilityPanel p {
+  margin: 0;
+  color: var(--parchment-2);
+  line-height: 1.45;
+}
+
+.beginnerSuitabilityPanel p + p {
+  grid-column: 2;
+}
+
 .matchupProfilePanel {
   grid-column: 1 / -1;
 }
@@ -3521,6 +3561,7 @@ li + li {
   .matrixSetup,
   .formGrid,
   .gameFeelPanel,
+  .beginnerSuitabilityPanel,
   .matchupProfileRow,
   .listControls,
   .briefGrid,
@@ -3534,6 +3575,10 @@ li + li {
   }
 
   .gameFeelPanel ul {
+    grid-column: 1;
+  }
+
+  .beginnerSuitabilityPanel p + p {
     grid-column: 1;
   }
 

@@ -538,6 +538,7 @@ select option {
   display: inline-flex;
   align-items: center;
   min-height: 26px;
+  margin: 0;
 }
 
 .schemeSummaryButton {

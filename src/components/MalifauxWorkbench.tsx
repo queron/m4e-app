@@ -39,7 +39,7 @@ import {
 import type { CardCatalog, CatalogSummary, CrewCard, MatchupAnalysis, MatchupWarning, ModelCard, ModelMatchupEvaluation, ModelRecommendation, ProxyAvailability, RecommendationPath, SynergyGroup, TacticalTag, VulnerabilityFlag } from "@/lib/types";
 import masterPlaystyleNotes from "@/data/master_playstyle_notes.json";
 import { DEFAULT_SCHEME_POOL, DEFAULT_SCHEME_POOL_ID, SCHEME_POOLS, getSchemeBranches, hasSchemeGraph } from "@/lib/scheme-pools";
-import type { SchemePool } from "@/lib/scheme-pools";
+import type { Scheme, SchemePool } from "@/lib/scheme-pools";
 import { DEFAULT_STRATEGY_POOL, DEFAULT_STRATEGY_POOL_ID, STRATEGY_POOLS } from "@/lib/strategy-pools";
 import { glossaryText } from "@/lib/glossary";
 import { findSyntheticRuleForMaster, getMandatoryCrewEntries, getTitleTotemRules } from "@/lib/mandatory-crew";
@@ -731,12 +731,14 @@ export default function MalifauxWorkbench() {
   const [statusMessage, setStatusMessage] = useState("");
   const [copyFallbackText, setCopyFallbackText] = useState("");
   const [matchupCardOpen, setMatchupCardOpen] = useState(false);
+  const [selectedScheme, setSelectedScheme] = useState<Scheme | null>(null);
   const [selectedModel, setSelectedModel] = useState<ModelCard | null>(null);
   const [selectedModelDetailLoading, setSelectedModelDetailLoading] = useState(false);
   const [selectedModelDetailError, setSelectedModelDetailError] = useState("");
   const [selectedModelEvaluation, setSelectedModelEvaluation] = useState<ModelMatchupEvaluation | null>(null);
   const [selectedModelEvaluationLoading, setSelectedModelEvaluationLoading] = useState(false);
   const [selectedModelEvaluationError, setSelectedModelEvaluationError] = useState("");
+  const schemeOpenerRef = useRef<HTMLElement | null>(null);
   const modelOpenerRef = useRef<HTMLElement | null>(null);
   const selectedModelRequestRef = useRef(0);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
@@ -945,6 +947,16 @@ export default function MalifauxWorkbench() {
     setSelectedModelDetailLoading(false);
     setSelectedModelDetailError("");
     requestAnimationFrame(() => modelOpenerRef.current?.focus());
+  }
+
+  function openSchemeDetails(scheme: Scheme) {
+    schemeOpenerRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    setSelectedScheme(scheme);
+  }
+
+  function closeSchemeDetails() {
+    setSelectedScheme(null);
+    requestAnimationFrame(() => schemeOpenerRef.current?.focus());
   }
 
   const playerMasters = useMemo(
@@ -1584,7 +1596,11 @@ export default function MalifauxWorkbench() {
               {schemePool.schemes.length > 0 ? (
                 <ul>
                   {schemePool.schemes.map((scheme) => (
-                    <li key={scheme.id}>{scheme.name}</li>
+                    <li key={scheme.id}>
+                      <button className="schemeSummaryButton" type="button" onClick={() => openSchemeDetails(scheme)}>
+                        {scheme.name}
+                      </button>
+                    </li>
                   ))}
                 </ul>
               ) : (
@@ -1919,6 +1935,13 @@ export default function MalifauxWorkbench() {
           proxyOptions={proxyOptionsByModelId[selectedModel.id] ?? []}
           vulnerabilityFlags={selectedModelVulnerabilityFlags}
           onClose={closeSelectedModel}
+        />
+      ) : null}
+      {selectedScheme ? (
+        <SchemeDetailDialog
+          pool={schemePool}
+          scheme={selectedScheme}
+          onClose={closeSchemeDetails}
         />
       ) : null}
       {matchupCardOpen && matchupCardData ? (
@@ -5370,6 +5393,136 @@ function tacticalTagLabel(tag: TacticalTag): string {
     soulstone: "Soulstone use"
   };
   return labels[tag] ?? tacticalRoleLabel(tag.replace(/([A-Z])/g, " $1").toLowerCase());
+}
+
+function SchemeDetailDialog({
+  pool,
+  scheme,
+  onClose
+}: {
+  pool: SchemePool;
+  scheme: Scheme;
+  onClose: () => void;
+}) {
+  const dialogRef = useRef<HTMLElement | null>(null);
+  const closeButtonRef = useRef<HTMLButtonElement | null>(null);
+  const schemeById = new Map(pool.schemes.map((poolScheme) => [poolScheme.id, poolScheme]));
+  const nextSchemes = (scheme.nextAvailable ?? []).map((id) => schemeById.get(id)).filter(Boolean) as Scheme[];
+  const abandonSchemes = (scheme.abandonNextAvailable ?? []).map((id) => schemeById.get(id)).filter(Boolean) as Scheme[];
+  const hasBranchDetails = nextSchemes.length > 0 || abandonSchemes.length > 0;
+  const poolSource = pool.source ? `${pool.name} - ${pool.source}` : pool.name;
+
+  useEffect(() => {
+    closeButtonRef.current?.focus();
+  }, []);
+
+  useEffect(() => {
+    function closeOnEscape(event: KeyboardEvent) {
+      if (event.key === "Escape") onClose();
+    }
+
+    window.addEventListener("keydown", closeOnEscape);
+    return () => window.removeEventListener("keydown", closeOnEscape);
+  }, [onClose]);
+
+  function trapFocus(event: ReactKeyboardEvent<HTMLElement>) {
+    if (event.key !== "Tab") return;
+    const focusable = dialogRef.current
+      ? Array.from(
+          dialogRef.current.querySelectorAll<HTMLElement>(
+            'a[href], button:not([disabled]), textarea:not([disabled]), input:not([disabled]), select:not([disabled]), details summary, [tabindex]:not([tabindex="-1"])'
+          )
+        ).filter((element) => !element.hasAttribute("disabled") && element.tabIndex !== -1)
+      : [];
+
+    if (focusable.length === 0) {
+      event.preventDefault();
+      return;
+    }
+
+    const first = focusable[0];
+    const last = focusable[focusable.length - 1];
+    const active = document.activeElement;
+
+    if (event.shiftKey && active === first) {
+      event.preventDefault();
+      last.focus();
+    } else if (!event.shiftKey && active === last) {
+      event.preventDefault();
+      first.focus();
+    }
+  }
+
+  return (
+    <div className="modalBackdrop" role="presentation" onMouseDown={onClose}>
+      <section
+        ref={dialogRef}
+        className="statCardModal schemeDetailModal"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="scheme-detail-title"
+        onKeyDown={trapFocus}
+        onMouseDown={(event) => event.stopPropagation()}
+      >
+        <div className="statCardTopline">
+          <span>Scheme details</span>
+          <span className="modalHint">Esc closes</span>
+          <button ref={closeButtonRef} className="iconButton" type="button" onClick={onClose} aria-label="Close scheme details">
+            <X aria-hidden="true" />
+          </button>
+        </div>
+        <article className="schemeDetailCard">
+          <header className="statCardHeader">
+            <div>
+              <h2 id="scheme-detail-title">{scheme.name}</h2>
+              <p>{poolSource}</p>
+            </div>
+            {scheme.tier ? <span className="schemeTierBadge">Tier {scheme.tier}</span> : null}
+          </header>
+
+          <section className="schemeDetailSection">
+            <h3>Tactical summary</h3>
+            <p>{scheme.summary || "No additional scheme details are available for this pool yet."}</p>
+          </section>
+
+          <section className="schemeDetailSection">
+            <h3>Crew asks</h3>
+            <div className="chipWrap">
+              {scheme.tags.map((tag) => (
+                <RulesChip key={tag} label={tacticalTagLabel(tag)} iconKey={iconForKeyword(tag)} />
+              ))}
+            </div>
+          </section>
+
+          {hasBranchDetails ? (
+            <section className="schemeDetailSection">
+              <h3>Scheme paths</h3>
+              <SchemeRelatedList label="Next" schemes={nextSchemes} />
+              <SchemeRelatedList label="Abandon" schemes={abandonSchemes} />
+            </section>
+          ) : null}
+        </article>
+      </section>
+    </div>
+  );
+}
+
+function SchemeRelatedList({ label, schemes }: { label: string; schemes: Scheme[] }) {
+  if (schemes.length === 0) return null;
+
+  return (
+    <div className="schemeRelatedList">
+      <strong>{label}</strong>
+      <ul>
+        {schemes.map((scheme) => (
+          <li key={scheme.id}>
+            <span>{scheme.name}</span>
+            <small>{scheme.summary}</small>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
 }
 
 function modelUseNotes(recommendation: ModelRecommendation, strategyName: string | undefined, plan: ReturnType<typeof recommendationPlan>): string[] {

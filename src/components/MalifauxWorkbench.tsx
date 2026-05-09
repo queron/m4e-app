@@ -36,7 +36,7 @@ import {
   Wrench,
   X
 } from "lucide-react";
-import type { CardCatalog, CatalogSummary, CrewCard, MatchupAnalysis, MatchupWarning, ModelCard, ModelMatchupEvaluation, ModelRecommendation, ProxyAvailability, RecommendationPath, SynergyGroup, TacticalTag, VulnerabilityFlag } from "@/lib/types";
+import type { CardCatalog, CatalogSummary, CriticalThreat, CrewCard, GlobalEffectSummary, MatchupAnalysis, MatchupWarning, ModelCard, ModelMatchupEvaluation, ModelRecommendation, ProxyAvailability, ReachProfile, RecommendationPath, SynergyGroup, TacticalTag, VulnerabilityFlag } from "@/lib/types";
 import masterPlaystyleNotes from "@/data/master_playstyle_notes.json";
 import { DEFAULT_SCHEME_POOL, DEFAULT_SCHEME_POOL_ID, SCHEME_POOLS, getSchemeBranches, hasSchemeGraph } from "@/lib/scheme-pools";
 import type { Scheme, SchemePool } from "@/lib/scheme-pools";
@@ -69,6 +69,7 @@ import {
   type SavedDraft
 } from "@/lib/client-persistence";
 import { proxyAvailabilityByModelId, proxyAvailabilityForCatalog, proxyDataWarnings, proxySearchText, proxyTargetIdsForKeys } from "@/lib/proxy-data";
+import { buildGlobalEffects, buildReachProfile, summonSupportNotes } from "@/lib/crew-insights";
 
 type PathKind = "available" | "optimal";
 type ActiveResultTab = "picks" | "matchup" | "schemes" | "draft";
@@ -76,6 +77,8 @@ type SetupStepId = "match-context" | "player-collection" | "opponent-intel" | "a
 type MatchIntent = "core" | "tournament" | "casual" | "learning" | "narrative";
 type MatchIntentSelection = MatchIntent | "";
 type CrewModifierId = "needMobility" | "needConditionRemoval" | "expectSummons" | "needMarkerPlan";
+type TerrainContext = "standard" | "dense" | "vertical" | "open";
+type UtilityDialog = "raise" | null;
 type MatchupDriver = {
   id: string;
   label: string;
@@ -117,6 +120,10 @@ type MatrixCell = {
   read: "Favourable" | "Balanced" | "Risky" | "Unknown";
   confidence: ResultsConfidence["label"];
   reason: string;
+  score: number;
+  dominantReason: string;
+  axisBreakdown: Array<{ label: string; value: number; note: string }>;
+  evidenceLevel: string;
 };
 
 const DEFAULT_POINT_LIMIT = 50;
@@ -664,9 +671,18 @@ function findCrewCardForSelectedMaster(master: ModelCard | undefined, catalog: C
   if (!master || !catalog) return undefined;
   const normalizedMaster = slugifyForMatch(master.name);
   const masterFamily = slugifyForMatch(master.name.split(",")[0] ?? master.name);
+  const masterKeywords = master.strategicKeywords.map(slugifyForMatch);
   return catalog.crewCards.find((crewCard) => {
     const source = slugifyForMatch(crewCard.sourceFile);
-    return source.includes(normalizedMaster) || source.includes(masterFamily);
+    const keywordHint = slugifyForMatch(crewCard.keywordHint);
+    const masterHint = slugifyForMatch(crewCard.masterHint);
+    return (
+      source.includes(normalizedMaster) ||
+      source.includes(masterFamily) ||
+      masterHint.includes(normalizedMaster) ||
+      masterHint.includes(masterFamily) ||
+      masterKeywords.some((keyword) => keyword && (source.includes(keyword) || keywordHint.includes(keyword)))
+    );
   });
 }
 
@@ -717,6 +733,7 @@ export default function MalifauxWorkbench() {
   const [schemePoolId, setSchemePoolId] = useState(DEFAULT_SCHEME_POOL_ID);
   const [matchIntent, setMatchIntent] = useState<MatchIntentSelection>("");
   const [crewModifierIds, setCrewModifierIds] = useState<CrewModifierId[]>([]);
+  const [terrainContext, setTerrainContext] = useState<TerrainContext>("standard");
   const [matrixOpen, setMatrixOpen] = useState(false);
   const [matrixPlayerMasterIds, setMatrixPlayerMasterIds] = useState<string[]>([]);
   const [matrixOpponentMasterIds, setMatrixOpponentMasterIds] = useState<string[]>([]);
@@ -732,6 +749,8 @@ export default function MalifauxWorkbench() {
   const [copyFallbackText, setCopyFallbackText] = useState("");
   const [matchupCardOpen, setMatchupCardOpen] = useState(false);
   const [selectedScheme, setSelectedScheme] = useState<Scheme | null>(null);
+  const [selectedStrategyDetails, setSelectedStrategyDetails] = useState<Strategy | null>(null);
+  const [utilityDialog, setUtilityDialog] = useState<UtilityDialog>(null);
   const [selectedModel, setSelectedModel] = useState<ModelCard | null>(null);
   const [selectedModelDetailLoading, setSelectedModelDetailLoading] = useState(false);
   const [selectedModelDetailError, setSelectedModelDetailError] = useState("");
@@ -956,6 +975,16 @@ export default function MalifauxWorkbench() {
 
   function closeSchemeDetails() {
     setSelectedScheme(null);
+    requestAnimationFrame(() => schemeOpenerRef.current?.focus());
+  }
+
+  function openStrategyDetails(currentStrategy: Strategy) {
+    schemeOpenerRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    setSelectedStrategyDetails(currentStrategy);
+  }
+
+  function closeStrategyDetails() {
+    setSelectedStrategyDetails(null);
     requestAnimationFrame(() => schemeOpenerRef.current?.focus());
   }
 
@@ -1279,6 +1308,17 @@ export default function MalifauxWorkbench() {
     setStatusMessage("Collection selections cleared.");
   }
 
+  async function copyKeywordReference() {
+    const text = buildKeywordReferenceText({
+      master: playerMaster,
+      crewCard: playerCrewCard,
+      recommendations: selectedPath?.models ?? [],
+      schemePool,
+      strategy
+    });
+    await copyText(text, "Keyword reference copied.");
+  }
+
   function runToolAction(action: () => void | Promise<void>) {
     setToolsOpen(false);
     void action();
@@ -1444,6 +1484,14 @@ export default function MalifauxWorkbench() {
                   <LinkIcon aria-hidden="true" size={16} />
                   Copy share link
                 </button>
+                <button type="button" role="menuitem" onClick={() => runToolAction(copyKeywordReference)}>
+                  <Library aria-hidden="true" size={16} />
+                  Copy keyword reference
+                </button>
+                <button type="button" role="menuitem" onClick={() => runToolAction(() => setUtilityDialog("raise"))}>
+                  <Gem aria-hidden="true" size={16} />
+                  Raise odds helper
+                </button>
                 <button type="button" role="menuitem" onClick={() => runToolAction(printPlan)}>
                   <Printer aria-hidden="true" size={16} />
                   Print view
@@ -1574,6 +1622,18 @@ export default function MalifauxWorkbench() {
           <CrewModifierDropdown selectedIds={crewModifierIds} onToggle={toggleCrewModifier} />
           <label>
             <span className="fieldLabel">
+              Terrain
+              <InlineHelp label="Terrain help" text="Optional table context used to qualify mobility and threat reads. It is not a board-geometry simulator." />
+            </span>
+            <select value={terrainContext} onChange={(event) => setTerrainContext(event.target.value as TerrainContext)}>
+              <option value="standard">Standard table</option>
+              <option value="dense">Dense terrain</option>
+              <option value="vertical">Vertical lanes</option>
+              <option value="open">Open lanes</option>
+            </select>
+          </label>
+          <label>
+            <span className="fieldLabel">
               Soulstones
               <InlineHelp label="Soulstones help" text={glossaryText("soulstones")} />
             </span>
@@ -1585,7 +1645,13 @@ export default function MalifauxWorkbench() {
           <div>
             <article>
               <strong>Strategy plan</strong>
-              <p>{strategy?.summary ?? "Pick a strategy to add scenario-specific scoring context."}</p>
+              {strategy ? (
+                <button className="summaryTextButton" type="button" onClick={() => openStrategyDetails(strategy)}>
+                  {strategy.summary}
+                </button>
+              ) : (
+                <p>Pick a strategy to add scenario-specific scoring context.</p>
+              )}
             </article>
             <article>
               <strong>Intent framing</strong>
@@ -1741,7 +1807,10 @@ export default function MalifauxWorkbench() {
           {edgeCaseNotices.length > 0 ? <EdgeCaseNoticesPanel notices={edgeCaseNotices} /> : null}
           {gameFeel ? <GameFeelPanel gameFeel={gameFeel} /> : null}
           {beginnerSuitability ? <BeginnerSuitabilityPanel suitability={beginnerSuitability} /> : null}
+          <CrewIdentityPanel analysis={analysis} path={selectedPath} />
+          <GlobalEffectsPanel effects={analysis.globalEffects.length ? analysis.globalEffects : buildGlobalEffects(analysis.playerCrew.master, analysis.playerCrew.crewCard)} />
           <MatchupBriefPanel brief={analysis.matchupBrief} />
+          <CriticalThreatsPanel threats={analysis.criticalThreats} />
           <NextStepsPanel
             brief={analysis.matchupBrief}
             opponentPressure={analysis.opponentCrew.pressurePoints}
@@ -1749,7 +1818,7 @@ export default function MalifauxWorkbench() {
             strategy={analysis.match.strategy}
           />
           <MatchupDriversPanel brief={analysis.matchupBrief} path={selectedPath} strategy={analysis.match.strategy} />
-          <TerrainMobilityPanel profile={analysis.playerCrew.terrainMobilityProfile} />
+          <TerrainMobilityPanel context={terrainContext} profile={analysis.playerCrew.terrainMobilityProfile} />
           <ResourceIntensityPanel profile={analysis.playerCrew.resourceProfile} />
           <StrategyImpactPanel
             opponentCrew={analysis.opponentCrew.expectedModels.length > 0 ? analysis.opponentCrew.expectedModels : analysis.opponentCrew.likelyModels.map((recommendation) => recommendation.model)}
@@ -1757,6 +1826,7 @@ export default function MalifauxWorkbench() {
             strategy={analysis.match.strategy}
           />
           <CrewAdjustmentPanel collectionModels={collectionModels} modifierIds={crewModifierIds} />
+          <ActivationChecklistPanel items={analysis.activationChecklist} />
           <div className="resultTabs" role="tablist" aria-label="Analysis views">
             <button
               className={activeResultTab === "picks" ? "active" : ""}
@@ -1833,7 +1903,16 @@ export default function MalifauxWorkbench() {
                 inferredOpponent={analysis.opponentCrew.expectedModels.length === 0}
                 rows={matchupProfile}
               />
+              <HardMatchupPanel warnings={analysis.matchupWarnings} />
               <MatchupWarningsPanel warnings={analysis.matchupWarnings} />
+              <SynergyMapPanel path={selectedPath} />
+              <SummonSupportPanel
+                sources={[
+                  analysis.playerCrew.master,
+                  analysis.playerCrew.crewCard,
+                  ...(selectedPath?.models.map((recommendation) => recommendation.model) ?? [])
+                ].filter(Boolean) as Array<ModelCard | CrewCard>}
+              />
               <MasterProfilePair
                 playerProfile={buildMasterProfile(analysis.playerCrew.master, analysis.playerCrew.crewCard)}
                 opponentProfile={buildMasterProfile(analysis.opponentCrew.master, analysis.opponentCrew.crewCard)}
@@ -1944,6 +2023,15 @@ export default function MalifauxWorkbench() {
           onClose={closeSchemeDetails}
         />
       ) : null}
+      {selectedStrategyDetails ? (
+        <StrategyDetailDialog
+          poolName={strategyPool.name}
+          source={strategyPool.source}
+          strategy={selectedStrategyDetails}
+          onClose={closeStrategyDetails}
+        />
+      ) : null}
+      {utilityDialog === "raise" ? <RaiseOddsDialog onClose={() => setUtilityDialog(null)} /> : null}
       {matchupCardOpen && matchupCardData ? (
         <MatchupCardModal
           card={matchupCardData}
@@ -2223,9 +2311,10 @@ function MatrixModePanel({
                           <td key={opponent.id}>
                             {cell ? (
                               <button className={`matrixCell matrix-${cell.read.toLowerCase()}`} type="button" onClick={() => onOpenCell(cell)}>
-                                <strong>{cell.read}</strong>
-                                <span>{cell.confidence} confidence</span>
-                                <small>{cell.reason}</small>
+                                <strong>{cell.read} {cell.score > 0 ? `+${cell.score}` : cell.score}</strong>
+                                <span>{cell.confidence} confidence - {cell.evidenceLevel}</span>
+                                <small>{cell.dominantReason}</small>
+                                <small>{cell.axisBreakdown.slice(0, 2).map((axis) => `${axis.label} ${axis.value > 0 ? "+" : ""}${axis.value}`).join(" | ")}</small>
                               </button>
                             ) : (
                               <span className="matrixUnknown">Unknown</span>
@@ -3676,6 +3765,138 @@ function BeginnerSuitabilityPanel({ suitability }: { suitability: BeginnerSuitab
   );
 }
 
+function CrewIdentityPanel({ analysis, path }: { analysis: MatchupAnalysis; path?: RecommendationPath }) {
+  const enginePieces = path?.models.slice(0, 4).map((recommendation) => `${recommendation.model.name}: ${recommendation.role}`) ?? [];
+  const threats = analysis.criticalThreats.slice(0, 3).map((threat) => `${threat.source}: ${threat.category}`);
+  const gaps = uniqueItems([
+    ...analysis.playerCrew.vulnerabilities,
+    ...analysis.matchupBrief.matchupRisks
+  ]).slice(0, 4);
+
+  return (
+    <section className="panel crewIdentityPanel" aria-label="Crew identity overview">
+      <div className="panelHeader">
+        <h2>Crew Identity</h2>
+        <span>Plan before details</span>
+      </div>
+      <div className="briefGrid">
+        <BriefColumn title="Identity" items={[analysis.playerCrew.playstyle]} />
+        <BriefColumn title="Engine Pieces" items={enginePieces.length ? enginePieces : ["Run analysis with more selected models to identify engine pieces."]} />
+        <BriefColumn title="Respect From Opponent" items={threats.length ? threats : ["No critical opponent threat isolated yet."]} />
+        <BriefColumn title="Known Gaps" items={gaps.length ? gaps : ["No major gaps detected from current inputs."]} />
+      </div>
+    </section>
+  );
+}
+
+function GlobalEffectsPanel({ effects }: { effects: GlobalEffectSummary[] }) {
+  return (
+    <section className="panel globalEffectsPanel" aria-label="Active global effects">
+      <div className="panelHeader">
+        <h2>Active Crew Effects</h2>
+        <span>{effects.length ? `${effects.length} tracked` : "None detected"}</span>
+      </div>
+      {effects.length ? (
+        <div className="effectGrid">
+          {effects.map((effect) => (
+            <article key={`${effect.category}-${effect.source}`}>
+              <strong>{effect.category}: {effect.source}</strong>
+              <p>{effect.summary}</p>
+              {effect.evidence[0] ? <small>{effect.evidence[0]}</small> : null}
+            </article>
+          ))}
+        </div>
+      ) : (
+        <p className="panelHint">No title, crew-card, or persistent modifier effects are active from the current setup.</p>
+      )}
+    </section>
+  );
+}
+
+function CriticalThreatsPanel({ threats }: { threats: CriticalThreat[] }) {
+  return (
+    <section className="panel criticalThreatsPanel" aria-label="Critical opposing threats">
+      <div className="panelHeader">
+        <h2>Critical Threats</h2>
+        <span>{threats.length ? `${threats.length} watchouts` : "No hard threat detected"}</span>
+      </div>
+      {threats.length ? (
+        <div className="threatGrid">
+          {threats.map((threat) => (
+            <article className={`threatCard threat-${threat.severity.toLowerCase()}`} key={`${threat.source}-${threat.category}`}>
+              <div>
+                <strong>{threat.source}</strong>
+                <span>{threat.severity} - {threat.category}</span>
+              </div>
+              <p>{threat.why}</p>
+              <small>Answer: {threat.answer}</small>
+            </article>
+          ))}
+        </div>
+      ) : (
+        <p className="panelHint">Add expected opponent models to sharpen threat warnings beyond the selected master.</p>
+      )}
+    </section>
+  );
+}
+
+function HardMatchupPanel({ warnings }: { warnings: MatchupWarning[] }) {
+  const hardWarnings = warnings.filter((warning) => warning.severity !== "Low");
+  return (
+    <section className="panel hardMatchupPanel" aria-label="Hard matchup mechanics">
+      <div className="panelHeader">
+        <h2>Hard Matchup Checks</h2>
+        <span>{hardWarnings.length ? `${hardWarnings.length} pressure point${hardWarnings.length === 1 ? "" : "s"}` : "No hard counter found"}</span>
+      </div>
+      {hardWarnings.length ? (
+        <div className="briefGrid">
+          {hardWarnings.map((warning) => (
+            <BriefColumn
+              key={warning.id}
+              title={warning.label}
+              items={[
+                `Your dependency: ${warning.affectedEngine}.`,
+                `Opponent signal: ${warning.summary}`,
+                `Adjustment: ${warning.recommendation}`
+              ]}
+            />
+          ))}
+        </div>
+      ) : (
+        <p className="panelHint">No high-confidence dependency/counter pair detected. Treat this as absence of signal, not matchup safety.</p>
+      )}
+    </section>
+  );
+}
+
+function SynergyMapPanel({ path }: { path?: RecommendationPath }) {
+  const groups = path?.synergyGroups ?? [];
+  return (
+    <section className="panel synergyMapPanel" aria-label="Synergy map">
+      <div className="panelHeader">
+        <h2>Synergy Map</h2>
+        <span>{groups.length ? "Functional packages" : "No package detected"}</span>
+      </div>
+      {groups.length ? (
+        <div className="synergyMapGrid">
+          {groups.map((group) => (
+            <article key={group.name}>
+              <strong>{group.name}</strong>
+              <p>{group.job}</p>
+              <div className="synergyModels">
+                {group.models.map((model) => <span className="recChip" key={model.id}>{model.name}</span>)}
+              </div>
+              <small>{group.rationale}</small>
+            </article>
+          ))}
+        </div>
+      ) : (
+        <p className="panelHint">No tight functional package was identified from the current recommendation path.</p>
+      )}
+    </section>
+  );
+}
+
 function MatchupProfilePanel({ inferredOpponent, rows }: { inferredOpponent: boolean; rows: MatchupProfileRow[] }) {
   return (
     <section className="panel matchupProfilePanel" aria-label="Matchup profile">
@@ -3794,9 +4015,10 @@ function MatchupDriversPanel({
   );
 }
 
-function TerrainMobilityPanel({ profile }: { profile: MatchupAnalysis["playerCrew"]["terrainMobilityProfile"] }) {
+function TerrainMobilityPanel({ context, profile }: { context: TerrainContext; profile: MatchupAnalysis["playerCrew"]["terrainMobilityProfile"] }) {
   const tools = profile.terrainTools.length > 0 ? profile.terrainTools : ["No explicit terrain tools detected"];
   const risks = profile.terrainRisks.length > 0 ? profile.terrainRisks : ["No major terrain mobility risks detected from the current recommendations."];
+  const contextNote = terrainContextNote(context);
 
   return (
     <section className="panel terrainMobilityPanel">
@@ -3820,6 +4042,7 @@ function TerrainMobilityPanel({ profile }: { profile: MatchupAnalysis["playerCre
         ))}
       </div>
       <p className="panelHint">{profile.recommendedTablePlan}</p>
+      <p className="panelHint">{contextNote}</p>
       <div className="briefGrid">
         <BriefColumn title="Tools" items={tools} />
         <BriefColumn title="Risks" items={risks} />
@@ -3964,6 +4187,46 @@ function CrewAdjustmentPanel({
         <BriefColumn title="Detected Signals" items={detectedStrengths} />
         <BriefColumn title="Manual Focus" items={modifierNotes} />
       </div>
+    </section>
+  );
+}
+
+function ActivationChecklistPanel({ items }: { items: string[] }) {
+  return (
+    <section className="panel activationChecklistPanel" aria-label="Optional activation checklist">
+      <div className="panelHeader">
+        <h2>Activation Checklist</h2>
+        <span>Optional reminders</span>
+      </div>
+      {items.length ? (
+        <ul className="checklistList">
+          {items.map((item) => (
+            <li key={item}>
+              <Check aria-hidden="true" size={15} />
+              <span>{item}</span>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p className="panelHint">No crew-specific activation reminders detected from the current setup.</p>
+      )}
+    </section>
+  );
+}
+
+function SummonSupportPanel({ sources }: { sources: Array<ModelCard | CrewCard> }) {
+  const notes = summonSupportNotes(sources);
+  return (
+    <section className="panel summonSupportPanel" aria-label="Summon and replace support">
+      <div className="panelHeader">
+        <h2>Summon / STN Support</h2>
+        <span>Evidence-based only</span>
+      </div>
+      <ul>
+        {notes.map((note) => (
+          <li key={note}>{note}</li>
+        ))}
+      </ul>
     </section>
   );
 }
@@ -5216,13 +5479,50 @@ function buildMatrixCell(playerMaster: ModelCard, opponentMaster: ModelCard, str
   const opponentProfile = buildMasterProfile(opponentMaster, opponentCrewCard);
   const primaryStrategyTags = strategy ? (STRATEGY_TO_TACTICAL_TAGS[strategy.tags[0]] ?? []) : [];
   const playerStrategyFit = strategyFitTags(playerMaster, strategy).length + playerProfile.pressureVectors.filter((tag) => primaryStrategyTags.includes(tag)).length;
+  const opponentStrategyFit = strategyFitTags(opponentMaster, strategy).length + opponentProfile.pressureVectors.filter((tag) => primaryStrategyTags.includes(tag)).length;
   const opponentPressure = new Set([...opponentMaster.tacticalTags, ...opponentProfile.pressureVectors]);
   const playerTools = new Set([...playerMaster.tacticalTags, ...playerProfile.pressureVectors]);
+  const playerDisruption = playerProfile.pressureVectors.filter((tag) => ["control", "marker", "stunned", "slow", "staggered", "cardPressure"].includes(tag)).length;
+  const opponentDisruption = opponentProfile.pressureVectors.filter((tag) => ["control", "marker", "stunned", "slow", "staggered", "cardPressure"].includes(tag)).length;
+  const playerThreat = playerProfile.pressureVectors.filter((tag) => ["damage", "burst", "ranged", "melee", "mobility"].includes(tag)).length;
+  const opponentThreat = opponentProfile.pressureVectors.filter((tag) => ["damage", "burst", "ranged", "melee", "mobility"].includes(tag)).length;
   const riskyPressure = (opponentPressure.has("control") || opponentPressure.has("summon") || opponentPressure.has("cardPressure")) &&
     !(playerTools.has("mobility") || playerTools.has("damage") || playerTools.has("control"));
+  const axisBreakdown = [
+    {
+      label: "Strategy",
+      value: playerStrategyFit - opponentStrategyFit,
+      note: strategy ? `${strategy.name} tag fit` : "No selected strategy"
+    },
+    {
+      label: "Threat",
+      value: playerThreat - opponentThreat,
+      note: "Damage, reach, and mobility pressure"
+    },
+    {
+      label: "Disruption",
+      value: playerDisruption - opponentDisruption,
+      note: "Control, marker, and resource pressure"
+    },
+    {
+      label: "Engine",
+      value: playerCrewCard ? (opponentCrewCard ? 0 : 1) : opponentCrewCard ? -1 : 0,
+      note: "Crew-card evidence"
+    }
+  ];
+  const score = axisBreakdown.reduce((sum, axis) => sum + axis.value, 0) - (riskyPressure ? 2 : 0);
+  const dominantAxis = [...axisBreakdown].sort((left, right) => Math.abs(right.value) - Math.abs(left.value))[0];
   const confidence: ResultsConfidence["label"] = playerProfile.pressureVectors.length > 0 && opponentProfile.pressureVectors.length > 0
     ? "Medium"
     : "Low";
+  const evidenceLevel = confidence === "Low" ? "sparse master evidence" : playerCrewCard && opponentCrewCard ? "master + crew-card read" : "master-led read";
+  const dominantReason = riskyPressure
+    ? "Opponent pressure may outpace visible answers."
+    : dominantAxis && dominantAxis.value !== 0
+      ? `${dominantAxis.label}: ${dominantAxis.note} leans ${dominantAxis.value > 0 ? "player" : "opponent"}.`
+      : strategy
+        ? `No decisive high-level edge on ${strategy.name}.`
+        : "Select a strategy to sharpen the matrix read.";
 
   if (confidence === "Low") {
     return {
@@ -5230,7 +5530,11 @@ function buildMatrixCell(playerMaster: ModelCard, opponentMaster: ModelCard, str
       opponentMaster,
       read: "Unknown",
       confidence,
-      reason: "Sparse master evidence."
+      reason: "Sparse master evidence.",
+      score,
+      dominantReason,
+      axisBreakdown,
+      evidenceLevel
     };
   }
 
@@ -5240,26 +5544,38 @@ function buildMatrixCell(playerMaster: ModelCard, opponentMaster: ModelCard, str
       opponentMaster,
       read: "Risky",
       confidence,
-      reason: "Opponent pressure may outpace visible answers."
+      reason: "Opponent pressure may outpace visible answers.",
+      score,
+      dominantReason,
+      axisBreakdown,
+      evidenceLevel
     };
   }
 
-  if (playerStrategyFit >= 2) {
+  if (score >= 2 || playerStrategyFit >= 2) {
     return {
       playerMaster,
       opponentMaster,
       read: "Favourable",
       confidence,
-      reason: `Visible tools support ${strategy?.name ?? "the selected matchup context"}.`
+      reason: `Visible tools support ${strategy?.name ?? "the selected matchup context"}.`,
+      score,
+      dominantReason,
+      axisBreakdown,
+      evidenceLevel
     };
   }
 
   return {
     playerMaster,
     opponentMaster,
-    read: "Balanced",
+    read: score <= -2 ? "Risky" : "Balanced",
     confidence,
-    reason: "No decisive high-level edge detected."
+    reason: "No decisive high-level edge detected.",
+    score,
+    dominantReason,
+    axisBreakdown,
+    evidenceLevel
   };
 }
 
@@ -5486,6 +5802,16 @@ function SchemeDetailDialog({
           </section>
 
           <section className="schemeDetailSection">
+            <h3>Scheme instructions</h3>
+            <ul className="detailBullets">
+              {(scheme.instructions ?? schemeInstructionFallback(scheme)).map((instruction) => (
+                <li key={instruction}>{instruction}</li>
+              ))}
+            </ul>
+            {!scheme.instructions ? <p className="sourceNote">Exact source text is not embedded in this build; verify wording against the current Wyrd packet before tournament play.</p> : null}
+          </section>
+
+          <section className="schemeDetailSection">
             <h3>Crew asks</h3>
             <div className="chipWrap">
               {scheme.tags.map((tag) => (
@@ -5521,6 +5847,137 @@ function SchemeRelatedList({ label, schemes }: { label: string; schemes: Scheme[
           </li>
         ))}
       </ul>
+    </div>
+  );
+}
+
+function StrategyDetailDialog({
+  poolName,
+  source,
+  strategy,
+  onClose
+}: {
+  poolName: string;
+  source: string;
+  strategy: Strategy;
+  onClose: () => void;
+}) {
+  const dialogRef = useRef<HTMLElement | null>(null);
+  const closeButtonRef = useRef<HTMLButtonElement | null>(null);
+  const instructions = strategy.instructions ?? strategyInstructionFallback(strategy);
+
+  useEffect(() => {
+    closeButtonRef.current?.focus();
+  }, []);
+
+  useEffect(() => {
+    function closeOnEscape(event: KeyboardEvent) {
+      if (event.key === "Escape") onClose();
+    }
+
+    window.addEventListener("keydown", closeOnEscape);
+    return () => window.removeEventListener("keydown", closeOnEscape);
+  }, [onClose]);
+
+  return (
+    <div className="modalBackdrop" role="presentation" onMouseDown={onClose}>
+      <section
+        ref={dialogRef}
+        className="statCardModal schemeDetailModal"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="strategy-detail-title"
+        onMouseDown={(event) => event.stopPropagation()}
+      >
+        <div className="statCardTopline">
+          <span>Strategy details</span>
+          <span className="modalHint">Esc closes</span>
+          <button ref={closeButtonRef} className="iconButton" type="button" onClick={onClose} aria-label="Close strategy details">
+            <X aria-hidden="true" />
+          </button>
+        </div>
+        <article className="schemeDetailCard">
+          <header className="statCardHeader">
+            <div>
+              <h2 id="strategy-detail-title">{strategy.name}</h2>
+              <p>{poolName} - {source}</p>
+            </div>
+          </header>
+          <section className="schemeDetailSection">
+            <h3>Tactical summary</h3>
+            <p>{strategy.summary}</p>
+          </section>
+          <section className="schemeDetailSection">
+            <h3>Scenario instructions</h3>
+            <ul className="detailBullets">
+              {instructions.map((instruction) => <li key={instruction}>{instruction}</li>)}
+            </ul>
+            {!strategy.instructions ? <p className="sourceNote">Exact source text is not embedded in this build; verify wording against the current Wyrd packet before tournament play.</p> : null}
+          </section>
+          <section className="schemeDetailSection">
+            <h3>Crew asks</h3>
+            <div className="chipWrap">
+              {strategy.tags.map((tag) => (
+                <RulesChip key={tag} label={strategyTagLabel(tag)} iconKey={iconForKeyword(tag)} />
+              ))}
+            </div>
+          </section>
+        </article>
+      </section>
+    </div>
+  );
+}
+
+function RaiseOddsDialog({ onClose }: { onClose: () => void }) {
+  const [stat, setStat] = useState(5);
+  const [target, setTarget] = useState(12);
+  const [needsSuit, setNeedsSuit] = useState(false);
+  const [positiveFlip, setPositiveFlip] = useState(false);
+  const odds = raiseOdds({ stat, target, needsSuit, positiveFlip });
+
+  return (
+    <div className="modalBackdrop" role="presentation" onMouseDown={onClose}>
+      <section className="statCardModal utilityModal" role="dialog" aria-modal="true" aria-labelledby="raise-odds-title" onMouseDown={(event) => event.stopPropagation()}>
+        <div className="statCardTopline">
+          <span>Raise odds helper</span>
+          <span className="modalHint">Flip-only estimate</span>
+          <button className="iconButton" type="button" onClick={onClose} aria-label="Close raise odds helper">
+            <X aria-hidden="true" />
+          </button>
+        </div>
+        <article className="schemeDetailCard">
+          <header className="statCardHeader">
+            <div>
+              <h2 id="raise-odds-title">Raise Probability</h2>
+              <p>Estimate whether a raise/summon TN is realistic before spending resources.</p>
+            </div>
+            <span className="schemeTierBadge">{odds.band}</span>
+          </header>
+          <div className="utilityGrid">
+            <label>
+              Stat
+              <input type="number" min={0} max={10} value={stat} onChange={(event) => setStat(Number(event.target.value))} />
+            </label>
+            <label>
+              Target number
+              <input type="number" min={1} max={20} value={target} onChange={(event) => setTarget(Number(event.target.value))} />
+            </label>
+            <label className="checkboxLine">
+              <input type="checkbox" checked={needsSuit} onChange={(event) => setNeedsSuit(event.target.checked)} />
+              Needs declared suit
+            </label>
+            <label className="checkboxLine">
+              <input type="checkbox" checked={positiveFlip} onChange={(event) => setPositiveFlip(event.target.checked)} />
+              Positive flip
+            </label>
+          </div>
+          <section className="schemeDetailSection">
+            <h3>Read</h3>
+            <p><strong>{odds.percent}%</strong> flip-only estimate. {odds.summary}</p>
+            <p className="sourceNote">Assumes a fresh Malifaux fate deck shape with jokers. It does not account for hand, cheating, stones, auras, enemy disruption, or model-specific exceptions.</p>
+          </section>
+        </article>
+      </section>
     </div>
   );
 }
@@ -5688,6 +6145,8 @@ export function StatCardModal({
 
           <MatchupFitSection evaluation={evaluation} error={evaluationError} loading={evaluationLoading} model={model} />
 
+          <ReachProfileSection profile={buildReachProfile(model)} />
+
           {proxyOptions.length > 0 ? (
             <section className="statCardSection">
               <h3>Legacy Proxy Options</h3>
@@ -5819,6 +6278,21 @@ function MatchupFitSection({
         <FitList title="Strategy contribution" items={evaluation.strategyContribution} />
         {evaluation.duplicateValue ? <p className="duplicateValue"><strong>Duplicate value:</strong> {evaluation.duplicateValue}</p> : null}
       </div>
+    </section>
+  );
+}
+
+function ReachProfileSection({ profile }: { profile: ReachProfile }) {
+  return (
+    <section className="statCardSection reachProfileSection">
+      <h3>Reach Summary</h3>
+      <div className="reachGrid">
+        <div><strong>Engage</strong><span>{profile.engagement}</span></div>
+        <div><strong>Threat</strong><span>{profile.attackThreat}</span></div>
+        <div><strong>Control</strong><span>{profile.controlReach}</span></div>
+        <div><strong>Score</strong><span>{profile.scoringReach}</span></div>
+      </div>
+      <FitList title="Assumptions" items={profile.assumptions} />
     </section>
   );
 }
@@ -6030,6 +6504,120 @@ function strategyRewardText(strategy: Strategy): string {
   return strategy.summary.replace(/^Rewards\s+/i, "").replace(/\.$/, "").toLowerCase();
 }
 
+function strategyTagLabel(tag: StrategyTag): string {
+  return tag
+    .replace(/([A-Z])/g, " $1")
+    .replace(/^./, (value) => value.toUpperCase());
+}
+
+function terrainContextNote(context: TerrainContext): string {
+  if (context === "dense") return "Dense table note: downgrade exact threat lines and value placement, pushes, and independent scorers.";
+  if (context === "vertical") return "Vertical table note: mobility tools that ignore or exploit elevation should be treated as more valuable.";
+  if (context === "open") return "Open table note: ranged threat, long charges, and early projection are more reliable than on dense boards.";
+  return "Standard table note: terrain context is neutral; use model reach details for specific threat lanes.";
+}
+
+function schemeInstructionFallback(scheme: Scheme): string[] {
+  return uniqueItems([
+    `Plan around ${scheme.summary.toLowerCase()}`,
+    scheme.tags.includes("marker") ? "Track marker placement, removal, and end-of-turn board state carefully." : "",
+    scheme.tags.includes("mobility") || scheme.tags.includes("placement") ? "Keep at least one model able to reach awkward or late scoring positions." : "",
+    scheme.tags.includes("damage") || scheme.tags.includes("burst") ? "Confirm target selection and damage timing before committing the scoring model." : "",
+    scheme.tags.includes("control") ? "Protect the controlling model from displacement or condition removal." : ""
+  ]);
+}
+
+function strategyInstructionFallback(strategy: Strategy): string[] {
+  return uniqueItems([
+    `Primary demand: ${strategy.summary}`,
+    strategy.tags.includes("interact") ? "Preserve activations that can interact after reaching the scoring area." : "",
+    strategy.tags.includes("markers") ? "Track strategy marker placement, movement, and denial pieces explicitly." : "",
+    strategy.tags.includes("center") ? "Plan for durable center presence and late-turn contesting." : "",
+    strategy.tags.includes("enemyHalf") ? "Identify which models can safely project into the enemy half." : "",
+    strategy.tags.includes("killing") ? "Pair target priority with safe evidence/scoring recovery." : ""
+  ]);
+}
+
+function buildKeywordReferenceText({
+  master,
+  crewCard,
+  recommendations,
+  schemePool,
+  strategy
+}: {
+  master?: ModelCard;
+  crewCard?: CrewCard;
+  recommendations: ModelRecommendation[];
+  schemePool: SchemePool;
+  strategy?: Strategy;
+}): string {
+  const keyword = master?.strategicKeywords.slice(0, 2).join(", ") || "No keyword selected";
+  const models = recommendations.slice(0, 8).map((recommendation) =>
+    `- ${recommendation.model.name}: ${recommendation.role}; ${formatVisibleTags(topTacticalTags(recommendation.model.tacticalTags))}`
+  );
+  const crewEffects = buildGlobalEffects(master, crewCard).map((effect) => `- ${effect.category} ${effect.source}: ${effect.summary}`);
+  const scenario = [
+    strategy ? `Strategy: ${strategy.name} - ${strategy.summary}` : "Strategy: not selected",
+    `Scheme pool: ${schemePool.name}${schemePool.source ? ` (${schemePool.source})` : ""}`
+  ];
+
+  return [
+    "M4E Crew Keyword Reference",
+    `Master: ${master?.name ?? "Not selected"}`,
+    `Keyword: ${keyword}`,
+    "",
+    "Crew/table identity",
+    master ? `- ${master.name}: ${formatVisibleTags(topTacticalTags(master.tacticalTags))}` : "- Select a master to generate identity.",
+    ...crewEffects,
+    "",
+    "Scenario",
+    ...scenario.map((line) => `- ${line}`),
+    "",
+    "Relevant models",
+    ...(models.length ? models : ["- No recommendation path available yet."]),
+    "",
+    "Source note",
+    "- App-authored summary from local parsed card data; verify exact rules text against official Wyrd sources."
+  ].join("\n");
+}
+
+function raiseOdds({
+  needsSuit,
+  positiveFlip,
+  stat,
+  target
+}: {
+  needsSuit: boolean;
+  positiveFlip: boolean;
+  stat: number;
+  target: number;
+}) {
+  const deck = [
+    0,
+    ...Array.from({ length: 4 }).flatMap((_, suit) =>
+      Array.from({ length: 13 }, (_, index) => ({ value: index + 1, suit }))
+    ),
+    { value: 14, suit: 4 }
+  ];
+  const succeeds = (card: { value: number; suit: number } | number) => {
+    if (typeof card === "number") return false;
+    const total = stat + card.value;
+    const suitOk = !needsSuit || card.suit < 4;
+    return total >= target && suitOk;
+  };
+  const raw = deck.filter(succeeds).length / deck.length;
+  const chance = positiveFlip ? 1 - Math.pow(1 - raw, 2) : raw;
+  const percent = Math.round(chance * 100);
+  const band = percent >= 75 ? "High" : percent >= 45 ? "Medium" : "Low";
+  const summary = band === "High"
+    ? "This is a reliable flip before hand resources."
+    : band === "Medium"
+      ? "This is feasible but still wants hand/resource planning."
+      : "This is resource-hungry; confirm hand, stones, or alternate lines.";
+
+  return { percent, band, summary };
+}
+
 function strategyReasons(items: string[], strategyName?: string): string[] {
   if (!strategyName) return [];
   const strategyNeedle = strategyName.toLowerCase();
@@ -6140,7 +6728,15 @@ function searchQueries(query: string): string[] {
     rezzer: ["resurrectionists"],
     ressers: ["resurrectionists"],
     guild: ["the guild"],
-    explorer: ["explorer society", "explorer's society"]
+    explorer: ["explorer society", "explorer's society"],
+    "condition removal": ["remove condition", "remove a condition", "remove one condition", "heal"],
+    "marker removal": ["remove marker", "destroy marker", "enemy scheme marker"],
+    "marker denial": ["remove marker", "anti scheme", "enemy scheme marker"],
+    mobility: ["place", "push", "move up to", "leap", "teleport"],
+    armor: ["armor", "shielded", "reduce damage"],
+    healing: ["heal", "healing", "remove damage"],
+    summon: ["summon", "raise", "replace"],
+    "card draw": ["draw a card", "discard", "cheat fate", "look at cards"]
   };
 
   return [query, ...(aliases[query] ?? [])];

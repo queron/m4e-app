@@ -17,6 +17,8 @@ export type Strategy = {
   name: string;
   tags: StrategyTag[];
   summary: string;
+  instructions?: string[];
+  sourceVersion?: string;
 };
 
 export type StrategyPool = {

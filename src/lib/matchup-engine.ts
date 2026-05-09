@@ -30,6 +30,13 @@ import { buildTempoProfile, modelTempoTags } from "./tempo-profile";
 import { buildResourceProfile, modelResourceTags } from "./resource-profile";
 import { buildMatchupWarnings } from "./matchup-warnings";
 import {
+  activationChecklistForSource,
+  buildActivationChecklistForSources,
+  buildCriticalThreats,
+  buildGlobalEffects,
+  buildReachProfile
+} from "./crew-insights";
+import {
   COUNTER_TAGS,
   buildOpponentPressureContext,
   buildVulnerabilityFlagIndex,
@@ -60,9 +67,9 @@ export function analyzeMatchup(input: PlannerInput): MatchupAnalysis {
 
   const opponentCrew = [opponentMaster, ...opponentModels].filter(Boolean) as ModelCard[];
   const opponentPressure = buildOpponentPressureContext(opponentMaster, opponentCrewCard, opponentCrew);
-  const scoredAll = legalCandidates.map((model) => scoreModel(model, playerMaster, playerCrewCard, opponentMaster, opponentCrewCard, opponentCrew, opponentPressure, strategy));
+  const scoredAll = legalCandidates.map((model) => scoreModel(model, playerMaster, playerCrewCard, opponentMaster, opponentCrewCard, opponentCrew, opponentPressure, strategy, schemePool));
   const scoredAvailable = availableCandidates.map((model) =>
-    scoreModel(model, playerMaster, playerCrewCard, opponentMaster, opponentCrewCard, opponentCrew, opponentPressure, strategy)
+    scoreModel(model, playerMaster, playerCrewCard, opponentMaster, opponentCrewCard, opponentCrew, opponentPressure, strategy, schemePool)
   );
   const playerPlanSources = [playerMaster, playerCrewCard].filter(Boolean) as Array<ModelCard | CrewCard>;
   const knownOpponentIds = new Set(opponentModels.map((model) => model.id));
@@ -85,6 +92,19 @@ export function analyzeMatchup(input: PlannerInput): MatchupAnalysis {
     opponentCrewCard,
     opponentModels: opponentCrew.length > 0 ? opponentCrew : likelyOpponentModels.map((recommendation) => recommendation.model),
     inferredOpponent: opponentCrew.length === 0
+  });
+  const criticalThreats = buildCriticalThreats({
+    opponentMaster,
+    opponentCrewCard,
+    opponentModels: opponentCrew.length > 0 ? opponentCrew : likelyOpponentModels.map((recommendation) => recommendation.model),
+    inferred: opponentCrew.length === 0
+  });
+  const globalEffects = buildGlobalEffects(playerMaster, playerCrewCard);
+  const activationChecklist = buildActivationChecklistForSources({
+    master: playerMaster,
+    crewCard: playerCrewCard,
+    recommendations: priorityPath.models,
+    strategyName: strategy?.name
   });
 
   return {
@@ -109,6 +129,9 @@ export function analyzeMatchup(input: PlannerInput): MatchupAnalysis {
       priorityPath: availablePath.models.length > 0 ? availablePath : optimalPath
     }),
     matchupWarnings,
+    criticalThreats,
+    activationChecklist,
+    globalEffects,
     vulnerabilityFlags,
     playerCrew: {
       master: playerMaster,
@@ -455,13 +478,15 @@ function scoreModel(
   opponentCrewCard: CrewCard | undefined,
   opponentCrew: ModelCard[],
   opponentPressure: OpponentPressureContext,
-  strategy?: Strategy
+  strategy?: Strategy,
+  schemePool?: SchemePool
 ): ScoredModel {
   const masterAbilities = scoreAgainstMaster(model, opponentMaster, opponentCrewCard);
   const crewSynergy = scoreCrewSynergy(model, playerMaster, playerCrewCard);
   const compositionMatchup = scoreComposition(model, opponentCrew);
   const strategyFit = scoreStrategyFit(model, strategy);
-  const score = masterAbilities.score + crewSynergy.score + compositionMatchup.score + strategyFit.score + efficiencyBonus(model);
+  const schemeFit = scoreSchemePoolFit(model, schemePool);
+  const score = masterAbilities.score + crewSynergy.score + compositionMatchup.score + strategyFit.score + schemeFit.score + efficiencyBonus(model);
 
   return {
     model,
@@ -470,9 +495,9 @@ function scoreModel(
     scoreBreakdown: {
       masterAbilities: masterAbilities.score,
       crewSynergy: crewSynergy.score,
-      compositionMatchup: compositionMatchup.score + strategyFit.score
+      compositionMatchup: compositionMatchup.score + strategyFit.score + schemeFit.score
     },
-    why: uniqueSentences([...masterAbilities.reasons, ...crewSynergy.reasons, ...compositionMatchup.reasons, ...strategyFit.reasons]).slice(0, 4),
+    why: uniqueSentences([...masterAbilities.reasons, ...crewSynergy.reasons, ...compositionMatchup.reasons, ...strategyFit.reasons, ...schemeFit.reasons]).slice(0, 4),
     relevantTech: relevantTech(model, opponentCrew).slice(0, 6),
     priorityTargets: uniqueSentences(priorityTargets(model, opponentMaster, opponentCrew)).slice(0, 4),
     alliedSynergies: alliedSynergies(model, playerMaster, playerCrewCard).slice(0, 4),
@@ -605,6 +630,24 @@ function scoreStrategyFit(model: ModelCard, strategy?: Strategy) {
   reasons.push(...strategyNotesFor(strategy).slice(0, 1));
 
   return { score: clamp(score, 0, 18), reasons };
+}
+
+function scoreSchemePoolFit(model: ModelCard, schemePool?: SchemePool) {
+  if (!schemePool || schemePool.incomplete || schemePool.schemes.length === 0) return { score: 0, reasons: [] };
+  const modelTags = new Set(model.tacticalTags);
+  const schemeTagHits = schemePool.schemes.flatMap((scheme) =>
+    scheme.tags.filter((tag) => modelTags.has(tag)).map((tag) => ({ schemeName: scheme.name, tag }))
+  );
+  const uniqueTags = new Set(schemeTagHits.map((hit) => hit.tag));
+  const score = Math.min(12, uniqueTags.size * 3 + Math.min(3, schemeTagHits.length));
+  const topSchemes = Array.from(new Set(schemeTagHits.slice(0, 4).map((hit) => hit.schemeName)));
+
+  return {
+    score,
+    reasons: score > 0
+      ? [`${model.name} overlaps the scheme pool through ${formatTags(Array.from(uniqueTags).slice(0, 3))}; relevant schemes include ${topSchemes.join(", ")}.`]
+      : []
+  };
 }
 
 function relevantTech(model: ModelCard, opponentCrew: ModelCard[]): string[] {
@@ -792,6 +835,7 @@ function toRecommendation(
   const roundedScore = Math.round(scored.score);
   const versatility = buildRoleVersatility(scored.model, schemePool);
   const secondaryRoles = secondaryRolesForVersatility(scored.role, versatility);
+  const reachProfile = buildReachProfile(scored.model);
 
   return {
     model: scored.model,
@@ -825,6 +869,8 @@ function toRecommendation(
     terrainTools: modelTerrainTools(scored.model),
     tempoTags: modelTempoTags(scored.model),
     resourceTags: modelResourceTags(scored.model),
+    reachProfile,
+    activationChecklist: activationChecklistForSource(scored.model),
     vulnerabilityFlags: scored.vulnerabilityFlags
   };
 }

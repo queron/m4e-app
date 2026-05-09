@@ -258,6 +258,8 @@ export type ModelRecommendation = {
   terrainTools: string[];
   tempoTags: string[];
   resourceTags: string[];
+  reachProfile: ReachProfile;
+  activationChecklist: string[];
   vulnerabilityFlags: VulnerabilityFlag[];
 };
 
@@ -325,6 +327,9 @@ export type MatchupAnalysis = {
   recommendedSchemePairs?: SchemePairRecommendation[];
   matchupBrief: MatchupBrief;
   matchupWarnings: MatchupWarning[];
+  criticalThreats: CriticalThreat[];
+  activationChecklist: string[];
+  globalEffects: GlobalEffectSummary[];
   vulnerabilityFlags: Record<string, VulnerabilityFlag[]>;
   playerCrew: {
     master?: ModelCard;
@@ -351,6 +356,30 @@ export type MatchupAnalysis = {
     available: RecommendationPath;
     optimal: RecommendationPath;
   };
+};
+
+export type ReachProfile = {
+  engagement: string;
+  attackThreat: string;
+  controlReach: string;
+  scoringReach: string;
+  assumptions: string[];
+};
+
+export type CriticalThreat = {
+  source: string;
+  severity: "High" | "Medium" | "Watch";
+  category: string;
+  why: string;
+  answer: string;
+  evidence: string[];
+};
+
+export type GlobalEffectSummary = {
+  source: string;
+  category: "Title" | "Crew card" | "Upgrade" | "Modifier";
+  summary: string;
+  evidence: string[];
 };
 
 export type TerrainMobilityProfile = {

@@ -67,10 +67,19 @@ export function findCrewCardForMaster(master?: ModelCard): CrewCard | undefined 
   const catalog = getCatalog();
   const normalizedMaster = slugify(master.name);
   const masterFamily = slugify(master.name.split(",")[0] ?? master.name);
+  const masterKeywords = master.strategicKeywords.map(slugify);
 
   return catalog.crewCards.find((crewCard) => {
     const source = slugify(crewCard.sourceFile);
-    return source.includes(normalizedMaster) || source.includes(masterFamily);
+    const keywordHint = slugify(crewCard.keywordHint);
+    const masterHint = slugify(crewCard.masterHint);
+    return (
+      source.includes(normalizedMaster) ||
+      source.includes(masterFamily) ||
+      masterHint.includes(normalizedMaster) ||
+      masterHint.includes(masterFamily) ||
+      masterKeywords.some((keyword) => keyword && (source.includes(keyword) || keywordHint.includes(keyword)))
+    );
   });
 }
 

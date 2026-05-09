@@ -454,6 +454,11 @@ select option {
   color: var(--muted);
 }
 
+.matrixCell small + small {
+  color: var(--parchment-2);
+  font-size: 0.68rem;
+}
+
 .matrix-favourable {
   border-color: rgba(142, 154, 114, 0.62);
   background: rgba(47, 90, 69, 0.24);
@@ -522,6 +527,23 @@ select option {
   margin: 0;
   color: var(--parchment-2);
   line-height: 1.45;
+}
+
+.summaryTextButton {
+  border: 0;
+  background: transparent;
+  color: var(--parchment-2);
+  padding: 0;
+  line-height: 1.45;
+  text-align: left;
+  text-decoration: underline;
+  text-decoration-color: rgba(196, 154, 70, 0.45);
+  text-underline-offset: 3px;
+}
+
+.summaryTextButton:hover,
+.summaryTextButton:focus-visible {
+  color: var(--parchment);
 }
 
 .schemeSummary ul {
@@ -1004,6 +1026,12 @@ select option {
   background: linear-gradient(90deg, rgba(196, 154, 70, 0.09), transparent 62%), rgba(17, 14, 11, 0.86);
   padding: 16px 18px;
   box-shadow: 0 14px 38px rgba(0, 0, 0, 0.24);
+}
+
+.postAnalyzeSummary {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: start;
 }
 
 .strategyContext h2,
@@ -1803,8 +1831,12 @@ select option {
 }
 
 .postAnalyzeSummary .subtleButton {
-  align-self: center;
+  align-self: start;
   min-width: 120px;
+}
+
+.postAnalyzeSummary .resultActions {
+  align-self: start;
 }
 
 .analysisColumn {
@@ -4062,6 +4094,120 @@ li + li {
   line-height: 1.45;
 }
 
+.effectGrid,
+.threatGrid,
+.synergyMapGrid,
+.utilityGrid,
+.reachGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  gap: 10px;
+}
+
+.effectGrid article,
+.threatCard,
+.synergyMapGrid article,
+.reachGrid > div {
+  display: grid;
+  gap: 6px;
+  border: 1px solid var(--line-2);
+  border-radius: var(--radius-sm);
+  background: rgba(15, 12, 10, 0.42);
+  padding: 12px;
+}
+
+.effectGrid strong,
+.threatCard strong,
+.synergyMapGrid strong,
+.reachGrid strong {
+  color: var(--parchment);
+}
+
+.effectGrid p,
+.threatCard p,
+.synergyMapGrid p,
+.reachGrid span {
+  margin: 0;
+  color: var(--parchment-2);
+  line-height: 1.45;
+}
+
+.effectGrid small,
+.threatCard small,
+.synergyMapGrid small,
+.sourceNote {
+  color: var(--muted);
+  line-height: 1.4;
+}
+
+.threatCard > div {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.threatCard span {
+  color: var(--accent);
+  font-family: Inter, Arial, sans-serif;
+  font-size: 0.72rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.threat-high {
+  border-color: rgba(182, 91, 98, 0.58);
+  background: rgba(110, 31, 42, 0.24);
+}
+
+.threat-medium {
+  border-color: rgba(201, 106, 58, 0.5);
+}
+
+.detailBullets,
+.activationChecklistPanel ul,
+.summonSupportPanel ul {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding-left: 20px;
+  color: var(--parchment-2);
+  line-height: 1.45;
+}
+
+.checklistList {
+  padding: 0 !important;
+  list-style: none;
+}
+
+.checklistList li {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 8px;
+  align-items: start;
+}
+
+.checklistList svg {
+  color: #cfddb3;
+  margin-top: 2px;
+}
+
+.utilityModal {
+  width: min(680px, calc(100vw - 32px));
+}
+
+.checkboxLine {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.checkboxLine input {
+  width: auto;
+  min-height: auto;
+}
+
 .duplicateValue {
   margin: 0;
 }
@@ -4248,6 +4394,7 @@ li + li {
   .formGrid,
   .gameFeelPanel,
   .beginnerSuitabilityPanel,
+  .postAnalyzeSummary,
   .matchupProfileRow,
   .listControls,
   .briefGrid,

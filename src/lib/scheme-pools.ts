@@ -5,6 +5,8 @@ export type Scheme = {
   name: string;
   tags: TacticalTag[];
   summary: string;
+  instructions?: string[];
+  sourceVersion?: string;
   tier?: 1 | 2 | 3;
   nextAvailable?: string[];
   abandonNextAvailable?: string[];

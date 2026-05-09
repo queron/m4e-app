@@ -73,6 +73,14 @@ function tempoRecommendation(model: ModelCard): ModelRecommendation {
     terrainTools: [],
     tempoTags: modelTempoTags(model),
     resourceTags: modelResourceTags(model),
+    reachProfile: {
+      engagement: "test",
+      attackThreat: "test",
+      controlReach: "test",
+      scoringReach: "test",
+      assumptions: []
+    },
+    activationChecklist: [],
     vulnerabilityFlags: []
   };
 }
@@ -286,6 +294,29 @@ describe("recommendation scoring", () => {
     expect(analysis.playerCrew.resourceProfile.overall).toMatch(/Low|Medium|High/);
     expect(analysis.playerCrew.resourceProfile.dimensions).toHaveLength(4);
     expect(analysis.paths.optimal.models.every((recommendation) => Array.isArray(recommendation.resourceTags))).toBe(true);
+  });
+
+  it("adds reach, threat, global effect, and activation support to analysis", () => {
+    const pandora = masterByName("Pandora, Tyrant-Torn");
+    const ironsides = masterByName("Toni Ironsides, Union President");
+
+    const analysis = analyzeMatchup({
+      playerFaction: pandora.faction,
+      playerMasterId: pandora.id,
+      opponentFaction: ironsides.faction,
+      opponentMasterId: ironsides.id,
+      ownedModelIds: [],
+      opponentModelIds: [],
+      pointLimit: 50,
+      strategyPoolId: "gg-zero",
+      strategyId: "plant-explosives",
+      schemePoolId: "gg-zero"
+    });
+
+    expect(analysis.criticalThreats).toBeDefined();
+    expect(analysis.globalEffects).toBeDefined();
+    expect(Array.isArray(analysis.activationChecklist)).toBe(true);
+    expect(analysis.paths.optimal.models.every((recommendation) => recommendation.reachProfile.attackThreat.length > 0)).toBe(true);
   });
 
   it("adds crew-level matchup warnings for countered engines", () => {

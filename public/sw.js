@@ -2,7 +2,7 @@ importScripts("/sw-version.js");
 
 const CACHE_VERSION = self.M4E_CACHE_VERSION || "dev";
 const CACHE_NAME = `m4e-crew-optimizer-${CACHE_VERSION}`;
-const APP_SHELL = ["/", "/manifest.webmanifest", "/brand/m4e-logo-192.png", "/brand/m4e-logo-512.png"];
+const APP_SHELL = ["/", "/manifest.webmanifest", "/api/cards", "/brand/m4e-logo-192.png", "/brand/m4e-logo-512.png"];
 
 self.addEventListener("install", (event) => {
   event.waitUntil(caches.open(CACHE_NAME).then((cache) => cache.addAll(APP_SHELL)));
@@ -28,7 +28,7 @@ self.addEventListener("fetch", (event) => {
   const url = new URL(request.url);
   if (url.origin !== self.location.origin) return;
 
-  if (url.pathname === "/api/cards" || APP_SHELL.includes(url.pathname)) {
+  if (url.pathname.startsWith("/api/cards") || APP_SHELL.includes(url.pathname)) {
     event.respondWith(
       caches.open(CACHE_NAME).then(async (cache) => {
         const cached = await cache.match(request);

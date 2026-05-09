@@ -424,4 +424,23 @@ describe("recommendation scoring", () => {
 
     expect(selected.map((model) => model.id)).toEqual([sorrow.id]);
   });
+
+  it("buildCrewByScore ignores duplicate candidate models", () => {
+    const pandora = masterByName("Pandora, Tyrant-Torn");
+    const candy = modelByName("Candy");
+    const sorrow = modelByName("Sorrow");
+
+    const selected = buildCrewByScore(
+      pandora,
+      [
+        { model: candy, score: 100 },
+        { model: candy, score: 95 },
+        { model: sorrow, score: 90 }
+      ],
+      50,
+      99
+    );
+
+    expect(selected.map((model) => model.id)).toEqual([candy.id, sorrow.id]);
+  });
 });

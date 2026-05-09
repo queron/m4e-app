@@ -527,6 +527,7 @@ select option {
 .schemeSummary ul {
   display: flex;
   flex-wrap: wrap;
+  align-items: flex-start;
   gap: 6px;
   margin: 0;
   padding: 0;
@@ -534,13 +535,119 @@ select option {
 }
 
 .schemeSummary li {
+  display: inline-flex;
+  align-items: center;
+  min-height: 26px;
+}
+
+.schemeSummaryButton {
+  display: inline-flex;
+  align-items: center;
+  min-height: 26px;
   border: 1px solid var(--line-2);
   border-radius: 999px;
   background: rgba(17, 14, 11, 0.54);
   color: var(--muted);
   padding: 4px 8px;
+  font-family: Inter, Arial, sans-serif;
   font-size: 0.72rem;
   font-weight: 700;
+  line-height: 1.2;
+  text-align: left;
+}
+
+.schemeSummaryButton:hover,
+.schemeSummaryButton:focus-visible {
+  border-color: rgba(196, 154, 70, 0.72);
+  color: var(--parchment);
+}
+
+.schemeDetailModal {
+  width: min(720px, calc(100vw - 32px));
+}
+
+.schemeDetailCard {
+  display: grid;
+  gap: 16px;
+  margin: 12px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: #211a15;
+  padding: 20px;
+}
+
+.schemeTierBadge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  align-self: start;
+  min-width: 70px;
+  border: 1px solid rgba(196, 154, 70, 0.68);
+  border-radius: 999px;
+  background: rgba(15, 12, 10, 0.72);
+  color: var(--parchment);
+  padding: 7px 10px;
+  font-family: Inter, Arial, sans-serif;
+  font-size: 0.78rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.schemeDetailSection {
+  display: grid;
+  gap: 8px;
+}
+
+.schemeDetailSection h3 {
+  color: var(--accent);
+  font-family: Inter, Arial, sans-serif;
+  font-size: 0.82rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.schemeDetailSection p {
+  margin: 0;
+  color: var(--parchment-2);
+  line-height: 1.5;
+}
+
+.schemeRelatedList {
+  display: grid;
+  gap: 8px;
+}
+
+.schemeRelatedList > strong {
+  color: var(--parchment);
+  font-family: Inter, Arial, sans-serif;
+  font-size: 0.8rem;
+}
+
+.schemeRelatedList ul {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.schemeRelatedList li {
+  display: grid;
+  gap: 3px;
+  border: 1px solid var(--line-2);
+  border-radius: var(--radius-sm);
+  background: rgba(15, 12, 10, 0.46);
+  padding: 10px;
+}
+
+.schemeRelatedList span {
+  color: var(--parchment);
+  font-weight: 700;
+}
+
+.schemeRelatedList small {
+  color: var(--muted);
+  line-height: 1.35;
 }
 
 .actionBar {

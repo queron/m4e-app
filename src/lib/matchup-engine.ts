@@ -259,7 +259,7 @@ function buildMatchupBrief({
     ...knownThreats.flatMap((model) => model.tacticalTags)
   ])).slice(0, 5);
   const playerTags = Array.from(new Set([...(playerMaster?.tacticalTags ?? []), ...(playerCrewCard?.tacticalTags ?? [])])).slice(0, 5);
-  const topHires = priorityPath.models.slice(0, 3);
+  const topHires = uniqueRecommendationsByModel(priorityPath.models).slice(0, 3);
   const schemeNames = schemePool.incomplete ? [] : schemePool.schemes.slice(0, 3).map((scheme) => scheme.name);
 
   return {
@@ -351,7 +351,8 @@ function buildPath(
     .map((model) => scored.find((item) => item.model.id === model.id))
     .filter(Boolean)
     .map((item) => toRecommendation(item as ScoredModel, master, ownedIds, treatAllAsAvailable, schemePool));
-  const totalCost = recommendations.reduce((sum, recommendation) => sum + recommendation.hireCost, 0);
+  const uniqueRecommendations = uniqueRecommendationsByModel(recommendations);
+  const totalCost = uniqueRecommendations.reduce((sum, recommendation) => sum + recommendation.hireCost, 0);
 
   return {
     kind,
@@ -359,14 +360,28 @@ function buildPath(
     remainingPoints: pointLimit - totalCost,
     validation: validateCrew(
       master,
-      recommendations.map((recommendation) => recommendation.model),
+      uniqueRecommendations.map((recommendation) => recommendation.model),
       pointLimit,
       modelLimit
     ),
-    models: recommendations,
-    synergyGroups: buildSynergyGroups(master, recommendations, strategy),
-    tempoProfile: buildTempoProfile(recommendations, strategy)
+    models: uniqueRecommendations,
+    synergyGroups: buildSynergyGroups(master, uniqueRecommendations, strategy),
+    tempoProfile: buildTempoProfile(uniqueRecommendations, strategy)
   };
+}
+
+function uniqueRecommendationsByModel(recommendations: ModelRecommendation[]): ModelRecommendation[] {
+  const seen = new Set<string>();
+  const unique: ModelRecommendation[] = [];
+
+  for (const recommendation of recommendations) {
+    const key = recommendation.model.id;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    unique.push(recommendation);
+  }
+
+  return unique;
 }
 
 function buildSynergyGroups(master: ModelCard | undefined, recommendations: ModelRecommendation[], strategy?: Strategy): SynergyGroup[] {

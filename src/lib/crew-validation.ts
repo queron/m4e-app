@@ -70,15 +70,18 @@ export function buildCrewByScore(
   modelLimit: number
 ): ModelCard[] {
   const selected: ModelCard[] = [];
+  const selectedModelIds = new Set<string>();
   let spent = 0;
   const remainingSlots = Math.max(0, modelLimit - getMandatoryCrewModelCount(master));
 
   for (const scored of scoredModels.sort((a, b) => b.score - a.score || b.model.cost - a.model.cost)) {
     if (selected.length >= remainingSlots) break;
+    if (selectedModelIds.has(scored.model.id)) continue;
     const hireDetails = getHireDetails(master, scored.model);
     if (!hireDetails.legal || hireDetails.hireCost <= 0) continue;
     if (spent + hireDetails.hireCost > pointLimit) continue;
     selected.push(scored.model);
+    selectedModelIds.add(scored.model.id);
     spent += hireDetails.hireCost;
   }
 

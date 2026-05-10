@@ -83,6 +83,40 @@ for (const schemePoolId of quotedValues(strategySource, "schemePoolId")) {
   if (!schemePoolIds.has(schemePoolId)) issues.push(`Strategy pool references missing scheme pool: ${schemePoolId}.`);
 }
 
+const requiredStrategyInstructionIds = [
+  "plant-explosives-gg4",
+  "raid-the-vaults",
+  "cloak-and-dagger",
+  "stuff-the-ballots"
+];
+
+function objectBlockForId(source, id) {
+  const idIndex = source.indexOf(`id: "${id}"`);
+  if (idIndex < 0) return "";
+  const start = source.lastIndexOf("{", idIndex);
+  if (start < 0) return "";
+  let depth = 0;
+  for (let index = start; index < source.length; index += 1) {
+    const char = source[index];
+    if (char === "{") depth += 1;
+    if (char === "}") {
+      depth -= 1;
+      if (depth === 0) return source.slice(start, index + 1);
+    }
+  }
+  return "";
+}
+
+for (const strategyId of requiredStrategyInstructionIds) {
+  const strategyBlock = objectBlockForId(strategySource, strategyId);
+  if (!/instructions:\s*\[[\s\S]*?"[^"]+"/.test(strategyBlock)) {
+    issues.push(`Strategy ${strategyId} is missing instruction content.`);
+  }
+  if (!/sourceVersion:\s*"[^"]+"/.test(strategyBlock)) {
+    issues.push(`Strategy ${strategyId} is missing sourceVersion metadata.`);
+  }
+}
+
 if (issues.length > 0) {
   console.error(`Scheme pool validation failed with ${issues.length} issue(s):`);
   for (const issue of issues) console.error(`- ${issue}`);

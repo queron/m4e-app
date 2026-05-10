@@ -36,7 +36,7 @@ import {
   Wrench,
   X
 } from "lucide-react";
-import type { CardCatalog, CatalogSummary, CriticalThreat, CrewCard, GlobalEffectSummary, MatchupAnalysis, MatchupWarning, ModelCard, ModelMatchupEvaluation, ModelRecommendation, ProxyAvailability, ReachProfile, RecommendationPath, SynergyGroup, TacticalTag, VulnerabilityFlag } from "@/lib/types";
+import type { CardCatalog, CatalogSummary, CrewCard, GlobalEffectSummary, MatchupAnalysis, MatchupWarning, ModelCard, ModelMatchupEvaluation, ModelRecommendation, ProxyAvailability, ReachProfile, RecommendationPath, SynergyGroup, TacticalTag, VulnerabilityFlag } from "@/lib/types";
 import masterPlaystyleNotes from "@/data/master_playstyle_notes.json";
 import { DEFAULT_SCHEME_POOL, DEFAULT_SCHEME_POOL_ID, SCHEME_POOLS, getSchemeBranches, hasSchemeGraph } from "@/lib/scheme-pools";
 import type { Scheme, SchemePool } from "@/lib/scheme-pools";
@@ -72,7 +72,8 @@ import { proxyAvailabilityByModelId, proxyAvailabilityForCatalog, proxyDataWarni
 import { buildGlobalEffects, buildReachProfile, summonSupportNotes } from "@/lib/crew-insights";
 
 type PathKind = "available" | "optimal";
-type ActiveResultTab = "picks" | "matchup" | "schemes" | "draft";
+type ActiveResultTab = "picks" | "risks" | "matchup" | "schemes" | "draft";
+type ResultsDensity = "compact" | "detailed";
 type SetupStepId = "match-context" | "player-collection" | "opponent-intel" | "analyze";
 type MatchIntent = "core" | "tournament" | "casual" | "learning" | "narrative";
 type MatchIntentSelection = MatchIntent | "";
@@ -128,6 +129,7 @@ type MatrixCell = {
 
 const DEFAULT_POINT_LIMIT = 50;
 const INTERNAL_MODEL_LIMIT = 99;
+const RESULTS_DENSITY_STORAGE_KEY = "m4e.resultsDensity.v1";
 type ModelSortMode = "name" | "costAsc" | "costDesc" | "role";
 type RoleFilter = "all" | "beater" | "scheme" | "support" | "anchor" | "control";
 type RecommendationSortMode = "fit" | "cost" | "role" | "name" | "owned";
@@ -763,6 +765,7 @@ export default function MalifauxWorkbench() {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [setupCollapsed, setSetupCollapsed] = useState(false);
   const [activeResultTab, setActiveResultTab] = useState<ActiveResultTab>("picks");
+  const [resultsDensity, setResultsDensity] = useState<ResultsDensity>("compact");
   const [toolsOpen, setToolsOpen] = useState(false);
   const [error, setError] = useState("");
   const [isOffline, setIsOffline] = useState(false);
@@ -823,6 +826,15 @@ export default function MalifauxWorkbench() {
       document.removeEventListener("keydown", closeOnEscape);
     };
   }, [toolsOpen]);
+
+  useEffect(() => {
+    const stored = localStorage.getItem(RESULTS_DENSITY_STORAGE_KEY);
+    if (stored === "compact" || stored === "detailed") setResultsDensity(stored);
+  }, []);
+
+  useEffect(() => {
+    localStorage.setItem(RESULTS_DENSITY_STORAGE_KEY, resultsDensity);
+  }, [resultsDensity]);
 
   useEffect(() => {
     setIsOffline(!navigator.onLine);
@@ -1099,10 +1111,6 @@ export default function MalifauxWorkbench() {
     () => Array.from(new Set([...ownedModelIds, ...proxyTargetIdsForKeys(proxyAvailability, ownedProxyKeys)])),
     [ownedModelIds, ownedProxyKeys, proxyAvailability]
   );
-  const collectionModels = useMemo(
-    () => (catalog ? effectiveOwnedModelIds.map((id) => catalog.models.find((model) => model.id === id)).filter(Boolean) as ModelCard[] : []),
-    [catalog, effectiveOwnedModelIds]
-  );
   const canAnalyze = Boolean(playerMasterId && opponentMasterId);
   const analyzeButtonLabel = isAnalyzing ? "Analyzing..." : analysis ? "Analyze again" : "Analyze";
   const currentSetupStep = deriveCurrentSetupStep({
@@ -1124,14 +1132,12 @@ export default function MalifauxWorkbench() {
     hasOpponentMaster: Boolean(opponentMasterId),
     collectionCount: effectiveOwnedModelIds.length
   });
-  const resultsConfidence = analysis
-    ? buildResultsConfidence({
-        hasStrategy: Boolean(analysis.match.strategy),
-        opponentModelCount: analysis.opponentCrew.expectedModels.length,
-        playerModelCount: analyzedCollectionCount,
-        recommendationCount: selectedPath?.models.length ?? 0
-      })
-    : null;
+  const resultsConfidence = buildResultsConfidence({
+    hasStrategy: Boolean(analysis?.match.strategy),
+    opponentModelCount: analysis?.opponentCrew.expectedModels.length ?? 0,
+    playerModelCount: analyzedCollectionCount,
+    recommendationCount: selectedPath?.models.length ?? 0
+  });
   const matchupCardData = analysis && selectedPath && resultsConfidence
     ? buildMatchupCardData({
         analysis,
@@ -1220,6 +1226,16 @@ export default function MalifauxWorkbench() {
     setDraftPath(null);
     setSetupCollapsed(false);
     setStatusMessage("Analysis cleared. Setup selections are still available.");
+  }
+
+  function navigateResultSection(target: "overview" | ActiveResultTab) {
+    if (target !== "overview") setActiveResultTab(target);
+    window.setTimeout(() => {
+      const id = target === "overview" ? "analysis-overview" : `analysis-${target}`;
+      const section = document.getElementById(id);
+      section?.scrollIntoView({ behavior: "smooth", block: "start" });
+      section?.focus({ preventScroll: true });
+    }, 0);
   }
 
   function toggleCrewModifier(id: CrewModifierId) {
@@ -1795,38 +1811,35 @@ export default function MalifauxWorkbench() {
               <button className="subtleButton" type="button" onClick={printPlan}>Print / Export</button>
             </div>
           </div>
-          {resultsConfidence ? (
-            <ResultsContextBar
-              cardCount={catalog?.models.length ?? 0}
-              confidence={resultsConfidence}
-              pointLimit={analysis.match.pointLimit}
-              strategy={analysis.match.strategy}
-              strategyPoolName={strategyPool.name}
-            />
-          ) : null}
-          {edgeCaseNotices.length > 0 ? <EdgeCaseNoticesPanel notices={edgeCaseNotices} /> : null}
-          {gameFeel ? <GameFeelPanel gameFeel={gameFeel} /> : null}
-          {beginnerSuitability ? <BeginnerSuitabilityPanel suitability={beginnerSuitability} /> : null}
-          <CrewIdentityPanel analysis={analysis} path={selectedPath} />
-          <GlobalEffectsPanel effects={analysis.globalEffects.length ? analysis.globalEffects : buildGlobalEffects(analysis.playerCrew.master, analysis.playerCrew.crewCard)} />
-          <MatchupBriefPanel brief={analysis.matchupBrief} />
-          <CriticalThreatsPanel threats={analysis.criticalThreats} />
-          <NextStepsPanel
-            brief={analysis.matchupBrief}
-            opponentPressure={analysis.opponentCrew.pressurePoints}
+          <MatchupDashboard
+            analysis={analysis}
+            confidence={resultsConfidence}
+            effects={analysis.globalEffects.length ? analysis.globalEffects : buildGlobalEffects(analysis.playerCrew.master, analysis.playerCrew.crewCard)}
             path={selectedPath}
-            strategy={analysis.match.strategy}
+            strategyPoolName={strategyPool.name}
+            onNavigate={navigateResultSection}
           />
-          <MatchupDriversPanel brief={analysis.matchupBrief} path={selectedPath} strategy={analysis.match.strategy} />
-          <TerrainMobilityPanel context={terrainContext} profile={analysis.playerCrew.terrainMobilityProfile} />
-          <ResourceIntensityPanel profile={analysis.playerCrew.resourceProfile} />
-          <StrategyImpactPanel
-            opponentCrew={analysis.opponentCrew.expectedModels.length > 0 ? analysis.opponentCrew.expectedModels : analysis.opponentCrew.likelyModels.map((recommendation) => recommendation.model)}
+          {resultsDensity === "detailed" && edgeCaseNotices.length > 0 ? <EdgeCaseNoticesPanel notices={edgeCaseNotices} /> : null}
+          {resultsDensity === "detailed" && gameFeel ? <GameFeelPanel gameFeel={gameFeel} /> : null}
+          {resultsDensity === "detailed" && beginnerSuitability ? <BeginnerSuitabilityPanel suitability={beginnerSuitability} /> : null}
+          <TopRecommendationsPanel
             path={selectedPath}
-            strategy={analysis.match.strategy}
+            pathKind={pathKind}
+            priorityHires={analysis.matchupBrief.priorityHires}
+            proxyOwnedByModelId={proxyOwnedByModelId}
+            onBuildDraft={(path) => {
+              setDraftPath(path);
+              setActiveResultTab("draft");
+            }}
+            onOpenModel={openModel}
+            onShowRecommendations={() => navigateResultSection("picks")}
           />
-          <CrewAdjustmentPanel collectionModels={collectionModels} modifierIds={crewModifierIds} />
-          <ActivationChecklistPanel items={analysis.activationChecklist} />
+          <ResultSectionNav
+            activeTab={activeResultTab}
+            density={resultsDensity}
+            onDensityChange={setResultsDensity}
+            onNavigate={navigateResultSection}
+          />
           <div className="resultTabs" role="tablist" aria-label="Analysis views">
             <button
               className={activeResultTab === "picks" ? "active" : ""}
@@ -1836,6 +1849,15 @@ export default function MalifauxWorkbench() {
               onClick={() => setActiveResultTab("picks")}
             >
               Pick Models
+            </button>
+            <button
+              className={activeResultTab === "risks" ? "active" : ""}
+              type="button"
+              role="tab"
+              aria-selected={activeResultTab === "risks"}
+              onClick={() => setActiveResultTab("risks")}
+            >
+              Risks
             </button>
             <button
               className={activeResultTab === "matchup" ? "active" : ""}
@@ -1867,7 +1889,7 @@ export default function MalifauxWorkbench() {
           </div>
           {activeResultTab === "picks" ? (
             <>
-              <div className="analysisColumn">
+              <div className="analysisColumn" id="analysis-picks" tabIndex={-1}>
                 <RecommendationPanel
                   pathKind={pathKind}
                   setPathKind={setPathKind}
@@ -1876,6 +1898,7 @@ export default function MalifauxWorkbench() {
                   intent={matchIntent}
                   crewModifierIds={crewModifierIds}
                   directOwnedIds={ownedModelIds}
+                  density={resultsDensity}
                   strategy={analysis.match.strategy}
                   proxyOwnedByModelId={proxyOwnedByModelId}
                   matchupWarnings={analysis.matchupWarnings}
@@ -1897,15 +1920,31 @@ export default function MalifauxWorkbench() {
               </div>
             </>
           ) : null}
+          {activeResultTab === "risks" ? (
+            <RiskCenter
+              analysis={analysis}
+              path={selectedPath}
+              confidence={resultsConfidence}
+              onOpenModel={openModel}
+            />
+          ) : null}
           {activeResultTab === "matchup" ? (
-            <>
+            <div className="analysisTabGrid" id="analysis-matchup" tabIndex={-1}>
               <MatchupProfilePanel
                 inferredOpponent={analysis.opponentCrew.expectedModels.length === 0}
                 rows={matchupProfile}
               />
-              <HardMatchupPanel warnings={analysis.matchupWarnings} />
-              <MatchupWarningsPanel warnings={analysis.matchupWarnings} />
-              <SynergyMapPanel path={selectedPath} />
+              {resultsDensity === "detailed" ? <HardMatchupPanel warnings={analysis.matchupWarnings} /> : null}
+              {resultsDensity === "detailed" ? <MatchupWarningsPanel warnings={analysis.matchupWarnings} /> : null}
+              <MatchupDriversPanel brief={analysis.matchupBrief} path={selectedPath} strategy={analysis.match.strategy} />
+              <TerrainMobilityPanel context={terrainContext} profile={analysis.playerCrew.terrainMobilityProfile} />
+              <ResourceIntensityPanel profile={analysis.playerCrew.resourceProfile} />
+              <StrategyImpactPanel
+                opponentCrew={analysis.opponentCrew.expectedModels.length > 0 ? analysis.opponentCrew.expectedModels : analysis.opponentCrew.likelyModels.map((recommendation) => recommendation.model)}
+                path={selectedPath}
+                strategy={analysis.match.strategy}
+              />
+              <GlobalEffectsPanel effects={analysis.globalEffects.length ? analysis.globalEffects : buildGlobalEffects(analysis.playerCrew.master, analysis.playerCrew.crewCard)} />
               <SummonSupportPanel
                 sources={[
                   analysis.playerCrew.master,
@@ -1942,18 +1981,20 @@ export default function MalifauxWorkbench() {
                   onOpenModel={openModel}
                 />
               </div>
-            </>
+            </div>
           ) : null}
           {activeResultTab === "schemes" && analysis.schemeWatchlist ? (
-            <SchemeWatchlistPanel
-              pairings={analysis.recommendedSchemePairs ?? []}
-              recommendations={selectedPath?.models ?? []}
-              schemePool={analysis.match.schemePool ?? schemePool}
-              watchlist={analysis.schemeWatchlist}
-            />
+            <div className="analysisTabGrid" id="analysis-schemes" tabIndex={-1}>
+              <SchemeWatchlistPanel
+                pairings={analysis.recommendedSchemePairs ?? []}
+                recommendations={selectedPath?.models ?? []}
+                schemePool={analysis.match.schemePool ?? schemePool}
+                watchlist={analysis.schemeWatchlist}
+              />
+            </div>
           ) : null}
           {activeResultTab === "draft" ? (
-            <div className="draftResults">
+            <div className="draftResults" id="analysis-draft" tabIndex={-1}>
               {draftPath ? (
                 <DraftCrewPanel
                   requiredModels={playerRequiredModels}
@@ -1972,6 +2013,7 @@ export default function MalifauxWorkbench() {
                 onRename={renameDraft}
                 onDelete={deleteDraft}
               />
+              <PlayAidPanel checklistItems={analysis.activationChecklist} />
             </div>
           ) : null}
         </section>
@@ -2272,20 +2314,25 @@ function MatrixModePanel({
   const cellByPair = new Map(cells.map((cell) => [`${cell.playerMaster.id}:${cell.opponentMaster.id}`, cell]));
 
   return (
-    <section className="panel matrixPanel">
+    <section className={`panel matrixPanel ${open ? "expanded" : "collapsed"}`}>
       <div className="panelHeader">
         <h2>Advanced: Matrix Mode</h2>
         <button className="subtleButton" type="button" onClick={() => setOpen(!open)}>
           {open ? "Hide matrix" : "Show matrix"}
         </button>
       </div>
-      <p className="panelHint">Compare selected player masters into selected opponent masters for {strategy?.name ?? "no selected strategy"}. Matrix Mode uses high-level signals and opens single-matchup setup for detail.</p>
+      <p className="panelHint">
+        {open
+          ? `Compare selected player masters into selected opponent masters for ${strategy?.name ?? "no selected strategy"}. Matrix Mode uses high-level signals and opens single-matchup setup for detail.`
+          : "Advanced matchup grid for comparing multiple masters. Keep collapsed unless you are exploring several pairings."}
+      </p>
       {open ? (
         <>
           <div className="matrixSetup">
             <MatrixMasterPicker title="Player masters" kind="player" masters={playerMasters} selectedIds={selectedPlayerIds} onToggle={onToggle} />
             <MatrixMasterPicker title="Opponent masters" kind="opponent" masters={opponentMasters} selectedIds={selectedOpponentIds} onToggle={onToggle} />
           </div>
+          {!strategy ? <div className="infoCallout">Select a strategy first to make matrix reads less generic.</div> : null}
           {cellCount > 25 ? (
             <div className="warning">Matrix Mode is limited to 25 pairings for readability. Select fewer masters before running.</div>
           ) : null}
@@ -3639,85 +3686,260 @@ function SchemePairingIdeas({ pairings }: { pairings: NonNullable<MatchupAnalysi
   );
 }
 
-function MatchupBriefPanel({ brief }: { brief: MatchupAnalysis["matchupBrief"] }) {
-  return (
-    <section className="panel matchupBrief">
-      <div className="panelHeader">
-        <h2>
-          <RulesIcon iconKey="strategy" /> Matchup Brief
-        </h2>
-        <span>Scan first</span>
-      </div>
-      <div className="briefGrid">
-        <BriefColumn title="Watch for" items={brief.watchFor} />
-        <BriefColumn title="Answer with" items={brief.answerWith} />
-        <BriefColumn title="Priority hires" items={brief.priorityHires} />
-        {brief.matchupRisks.length > 0 ? <BriefColumn title="Matchup risks" items={brief.matchupRisks} /> : null}
-      </div>
-    </section>
-  );
-}
-
-function NextStepsPanel({
-  brief,
-  opponentPressure,
-  path,
-  strategy
-}: {
-  brief: MatchupAnalysis["matchupBrief"];
-  opponentPressure: string[];
-  path?: RecommendationPath;
-  strategy?: Strategy;
-}) {
-  const steps = buildNextSteps({ brief, opponentPressure, path, strategy });
-
-  return (
-    <section className="panel nextStepsPanel">
-      <div className="panelHeader">
-        <h2>What to Do Next</h2>
-        <span>Prep checklist</span>
-      </div>
-      <div className="nextStepList">
-        {steps.map((step) => (
-          <article key={step.label}>
-            <strong>{step.label}</strong>
-            <p>{step.text}</p>
-          </article>
-        ))}
-      </div>
-    </section>
-  );
-}
-
-function ResultsContextBar({
-  cardCount,
+function MatchupDashboard({
+  analysis,
   confidence,
-  pointLimit,
-  strategy,
+  effects,
+  onNavigate,
+  path,
   strategyPoolName
 }: {
-  cardCount: number;
+  analysis: MatchupAnalysis;
   confidence: ResultsConfidence;
-  pointLimit: number;
-  strategy?: Strategy;
+  effects: GlobalEffectSummary[];
+  onNavigate: (target: "overview" | ActiveResultTab) => void;
+  path?: RecommendationPath;
   strategyPoolName: string;
 }) {
-  const dataContext = `Local card data (${cardCount} models) | ${strategyPoolName} | ${strategy?.name ?? "No strategy selected"} | ${pointLimit}ss`;
+  const riskCount = analysis.criticalThreats.length + analysis.matchupWarnings.filter((warning) => warning.severity !== "Low").length;
+  const topPick = path?.models[0];
+  const driverSummary = path ? summarizePathDrivers(path, analysis.match.strategy).slice(0, 2) : [];
+  const firstEffect = effects[0];
+  const dataContext = `${strategyPoolName} | ${analysis.match.strategy?.name ?? "No strategy"} | ${analysis.match.pointLimit}ss`;
 
   return (
-    <section className="resultsContextBar" aria-label="Analysis confidence and data context">
-      <span
-        className={`confidenceContext confidence-${confidence.label.toLowerCase()}`}
-        tabIndex={0}
-        title={`${glossaryText("confidence")} ${confidence.explanation}`}
-        aria-label={`Confidence ${confidence.label}. ${glossaryText("confidence")} ${confidence.explanation}`}
-      >
-        Confidence: {confidence.label}
-      </span>
-      <span title="The app uses the local card data included with this build, not a live meta feed.">
-        Data: {dataContext}
-      </span>
-      <span title={confidence.explanation}>Evidence: {confidence.evidence}</span>
+    <section className="panel matchupDashboard" id="analysis-overview" tabIndex={-1} aria-label="Matchup dashboard">
+      <div className="panelHeader">
+        <div>
+          <h2><RulesIcon iconKey="strategy" /> Matchup Dashboard</h2>
+          <small>Decision-first overview</small>
+        </div>
+        <span className={`confidenceBadge confidence-${confidence.label.toLowerCase()}`} title={confidence.explanation}>
+          {confidence.label} confidence
+        </span>
+      </div>
+      <div className="dashboardGrid">
+        <article className="dashboardHero">
+          <span>Primary recommendation</span>
+          <strong>{topPick ? `${topPick.model.name} (${topPick.role})` : "Add candidate models for a sharper pick"}</strong>
+          <p>{topPick?.why[0] ?? analysis.matchupBrief.priorityHires[0] ?? "The app needs more owned or expected models before it can isolate a primary model action."}</p>
+          <button className="subtleButton" type="button" onClick={() => onNavigate("picks")}>Review picks</button>
+        </article>
+        <article>
+          <span>Matchup pressure</span>
+          <strong>{analysis.matchupBrief.watchFor[0] ?? analysis.opponentCrew.plan}</strong>
+          <p>{analysis.matchupBrief.answerWith[0] ?? "Confirm opponent table jobs before overcommitting fragile pieces."}</p>
+          <button className="subtleButton" type="button" onClick={() => onNavigate("matchup")}>Open matchup</button>
+        </article>
+        <article className={riskCount > 0 ? "dashboardRisk" : ""}>
+          <span>Risk center</span>
+          <strong>{riskCount > 0 ? `${riskCount} risk signal${riskCount === 1 ? "" : "s"}` : "No hard risk isolated"}</strong>
+          <p>{analysis.matchupWarnings[0]?.recommendation ?? analysis.matchupBrief.matchupRisks[0] ?? "Treat low signal as incomplete data, not matchup safety."}</p>
+          <button className="subtleButton" type="button" onClick={() => onNavigate("risks")}>Review risks</button>
+        </article>
+        <article>
+          <span>Evidence context</span>
+          <strong>{confidence.evidence}</strong>
+          <p>{dataContext}{firstEffect ? ` | Active effect: ${firstEffect.source}` : ""}</p>
+        </article>
+      </div>
+      {driverSummary.length > 0 ? (
+        <div className="dashboardDriverStrip" aria-label="Top recommendation drivers">
+          {driverSummary.map((item) => <span key={item}>{item}</span>)}
+        </div>
+      ) : null}
+    </section>
+  );
+}
+
+function TopRecommendationsPanel({
+  onBuildDraft,
+  onOpenModel,
+  onShowRecommendations,
+  path,
+  pathKind,
+  priorityHires,
+  proxyOwnedByModelId
+}: {
+  onBuildDraft: (path: RecommendationPath) => void;
+  onOpenModel: (model: ModelCard) => void;
+  onShowRecommendations: () => void;
+  path?: RecommendationPath;
+  pathKind: PathKind;
+  priorityHires: string[];
+  proxyOwnedByModelId: Record<string, ProxyAvailability[]>;
+}) {
+  const picks = path?.models.slice(0, 3) ?? [];
+
+  return (
+    <section className="panel topRecommendationsPanel" aria-label="Top recommendations">
+      <div className="panelHeader">
+        <div>
+          <h2><Target aria-hidden="true" /> Recommended Model Actions</h2>
+          <small>{pathKind === "available" ? "Using available pool" : "Using optimal legal pool"}</small>
+        </div>
+        {path ? <span>{path.totalCost}ss hired / {path.remainingPoints}ss open</span> : null}
+      </div>
+      {picks.length > 0 ? (
+        <div className="topPickGrid">
+          {picks.map((recommendation, index) => {
+            const proxyOwned = !recommendation.owned ? proxyOwnedByModelId[recommendation.model.id]?.[0] : undefined;
+            return (
+              <article key={recommendation.model.id}>
+                <span>#{index + 1} {recommendation.role}</span>
+                <strong>
+                  <button className="modelNameButton" type="button" onClick={() => onOpenModel(recommendation.model)}>
+                    {recommendation.model.name}
+                  </button>
+                </strong>
+                <p>{recommendation.why[0] ?? recommendation.relevantTech[0] ?? "High fit into this selected matchup."}</p>
+                <small>{recommendation.owned ? "Owned" : proxyOwned ? `Owned via ${proxyOwned.proxyName}` : "Not owned"} | {formatRecommendationCost(recommendation)}</small>
+              </article>
+            );
+          })}
+        </div>
+      ) : (
+        <p className="panelHint">No recommendation path is available yet.</p>
+      )}
+      {priorityHires.length > 0 ? (
+        <div className="priorityHireStrip">
+          {priorityHires.slice(0, 3).map((hire) => <span key={hire}>{hire}</span>)}
+        </div>
+      ) : null}
+      <div className="actionBar compactActions">
+        <button className="subtleButton" type="button" onClick={onShowRecommendations}>See all recommendations</button>
+        <button className="planButton inlinePlanButton" type="button" disabled={!path} onClick={() => path && onBuildDraft(path)}>
+          Build draft from recommendations
+        </button>
+      </div>
+    </section>
+  );
+}
+
+function ResultSectionNav({
+  activeTab,
+  density,
+  onDensityChange,
+  onNavigate
+}: {
+  activeTab: ActiveResultTab;
+  density: ResultsDensity;
+  onDensityChange: (density: ResultsDensity) => void;
+  onNavigate: (target: "overview" | ActiveResultTab) => void;
+}) {
+  const items: Array<{ id: "overview" | ActiveResultTab; label: string }> = [
+    { id: "overview", label: "Overview" },
+    { id: "picks", label: "Picks" },
+    { id: "risks", label: "Risks" },
+    { id: "matchup", label: "Matchup" },
+    { id: "schemes", label: "Schemes" },
+    { id: "draft", label: "Draft" }
+  ];
+
+  return (
+    <nav className="resultSectionNav" aria-label="Result sections">
+      <div>
+        {items.map((item) => {
+          const active = item.id === "overview" ? false : activeTab === item.id;
+          return (
+            <button className={active ? "active" : ""} key={item.id} type="button" onClick={() => onNavigate(item.id)}>
+              {item.label}
+            </button>
+          );
+        })}
+      </div>
+      <div className="segment densityToggle" aria-label="Result density">
+        <button className={density === "compact" ? "active" : ""} type="button" onClick={() => onDensityChange("compact")}>Compact</button>
+        <button className={density === "detailed" ? "active" : ""} type="button" onClick={() => onDensityChange("detailed")}>Detailed</button>
+      </div>
+    </nav>
+  );
+}
+
+function RiskCenter({
+  analysis,
+  confidence,
+  onOpenModel,
+  path
+}: {
+  analysis: MatchupAnalysis;
+  confidence: ResultsConfidence;
+  onOpenModel: (model: ModelCard) => void;
+  path?: RecommendationPath;
+}) {
+  const pathRisks = path ? summarizePathRisks(path, analysis.matchupBrief) : [];
+  const recommendedAnswers = path?.models
+    .filter((recommendation) => recommendation.relevantTech.length > 0 || recommendation.vulnerabilityFlags.length === 0)
+    .slice(0, 4) ?? [];
+
+  return (
+    <section className="panel riskCenter" id="analysis-risks" tabIndex={-1} aria-label="Risk center">
+      <div className="panelHeader">
+        <div>
+          <h2><AlertTriangle aria-hidden="true" /> Risk Center</h2>
+          <small>Threats, warnings, and mitigation in one place</small>
+        </div>
+        <span>{confidence.label} confidence</span>
+      </div>
+      <div className="riskCenterGrid">
+        <article>
+          <h3>Critical Threats</h3>
+          {analysis.criticalThreats.length > 0 ? (
+            <ul>
+              {analysis.criticalThreats.map((threat) => (
+                <li key={`${threat.source}-${threat.category}`}>
+                  <strong>{threat.source}: {threat.category}</strong>
+                  <span>{threat.severity} - {threat.why}</span>
+                  <small>Answer: {threat.answer}</small>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p>No critical opposing threat isolated. Add expected opponent models to sharpen this read.</p>
+          )}
+        </article>
+        <article>
+          <h3>Matchup Warnings</h3>
+          {analysis.matchupWarnings.length > 0 ? (
+            <ul>
+              {analysis.matchupWarnings.map((warning) => (
+                <li key={warning.id}>
+                  <strong>{warning.label}</strong>
+                  <span>{warning.severity}: {warning.summary}</span>
+                  <small>{warning.recommendation}</small>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p>No explicit dependency/counter warning detected.</p>
+          )}
+        </article>
+        <article>
+          <h3>Draft Risks</h3>
+          <ul>
+            {pathRisks.map((risk) => (
+              <li key={risk}>
+                <span>{risk}</span>
+              </li>
+            ))}
+          </ul>
+        </article>
+        <article>
+          <h3>Practical Answers</h3>
+          {recommendedAnswers.length > 0 ? (
+            <div className="riskAnswerList">
+              {recommendedAnswers.map((recommendation) => (
+                <button className="subtleButton" key={recommendation.model.id} type="button" onClick={() => onOpenModel(recommendation.model)}>
+                  {recommendation.model.name}
+                  <small>{recommendation.relevantTech[0] ?? recommendation.role}</small>
+                </button>
+              ))}
+            </div>
+          ) : (
+            <p>No recommended answer model is available from this path.</p>
+          )}
+        </article>
+      </div>
     </section>
   );
 }
@@ -3765,30 +3987,6 @@ function BeginnerSuitabilityPanel({ suitability }: { suitability: BeginnerSuitab
   );
 }
 
-function CrewIdentityPanel({ analysis, path }: { analysis: MatchupAnalysis; path?: RecommendationPath }) {
-  const enginePieces = path?.models.slice(0, 4).map((recommendation) => `${recommendation.model.name}: ${recommendation.role}`) ?? [];
-  const threats = analysis.criticalThreats.slice(0, 3).map((threat) => `${threat.source}: ${threat.category}`);
-  const gaps = uniqueItems([
-    ...analysis.playerCrew.vulnerabilities,
-    ...analysis.matchupBrief.matchupRisks
-  ]).slice(0, 4);
-
-  return (
-    <section className="panel crewIdentityPanel" aria-label="Crew identity overview">
-      <div className="panelHeader">
-        <h2>Crew Identity</h2>
-        <span>Plan before details</span>
-      </div>
-      <div className="briefGrid">
-        <BriefColumn title="Identity" items={[analysis.playerCrew.playstyle]} />
-        <BriefColumn title="Engine Pieces" items={enginePieces.length ? enginePieces : ["Run analysis with more selected models to identify engine pieces."]} />
-        <BriefColumn title="Respect From Opponent" items={threats.length ? threats : ["No critical opponent threat isolated yet."]} />
-        <BriefColumn title="Known Gaps" items={gaps.length ? gaps : ["No major gaps detected from current inputs."]} />
-      </div>
-    </section>
-  );
-}
-
 function GlobalEffectsPanel({ effects }: { effects: GlobalEffectSummary[] }) {
   return (
     <section className="panel globalEffectsPanel" aria-label="Active global effects">
@@ -3808,33 +4006,6 @@ function GlobalEffectsPanel({ effects }: { effects: GlobalEffectSummary[] }) {
         </div>
       ) : (
         <p className="panelHint">No title, crew-card, or persistent modifier effects are active from the current setup.</p>
-      )}
-    </section>
-  );
-}
-
-function CriticalThreatsPanel({ threats }: { threats: CriticalThreat[] }) {
-  return (
-    <section className="panel criticalThreatsPanel" aria-label="Critical opposing threats">
-      <div className="panelHeader">
-        <h2>Critical Threats</h2>
-        <span>{threats.length ? `${threats.length} watchouts` : "No hard threat detected"}</span>
-      </div>
-      {threats.length ? (
-        <div className="threatGrid">
-          {threats.map((threat) => (
-            <article className={`threatCard threat-${threat.severity.toLowerCase()}`} key={`${threat.source}-${threat.category}`}>
-              <div>
-                <strong>{threat.source}</strong>
-                <span>{threat.severity} - {threat.category}</span>
-              </div>
-              <p>{threat.why}</p>
-              <small>Answer: {threat.answer}</small>
-            </article>
-          ))}
-        </div>
-      ) : (
-        <p className="panelHint">Add expected opponent models to sharpen threat warnings beyond the selected master.</p>
       )}
     </section>
   );
@@ -3864,34 +4035,6 @@ function HardMatchupPanel({ warnings }: { warnings: MatchupWarning[] }) {
         </div>
       ) : (
         <p className="panelHint">No high-confidence dependency/counter pair detected. Treat this as absence of signal, not matchup safety.</p>
-      )}
-    </section>
-  );
-}
-
-function SynergyMapPanel({ path }: { path?: RecommendationPath }) {
-  const groups = path?.synergyGroups ?? [];
-  return (
-    <section className="panel synergyMapPanel" aria-label="Synergy map">
-      <div className="panelHeader">
-        <h2>Synergy Map</h2>
-        <span>{groups.length ? "Functional packages" : "No package detected"}</span>
-      </div>
-      {groups.length ? (
-        <div className="synergyMapGrid">
-          {groups.map((group) => (
-            <article key={group.name}>
-              <strong>{group.name}</strong>
-              <p>{group.job}</p>
-              <div className="synergyModels">
-                {group.models.map((model) => <span className="recChip" key={model.id}>{model.name}</span>)}
-              </div>
-              <small>{group.rationale}</small>
-            </article>
-          ))}
-        </div>
-      ) : (
-        <p className="panelHint">No tight functional package was identified from the current recommendation path.</p>
       )}
     </section>
   );
@@ -4149,67 +4292,27 @@ function StrategyImpactPanel({
   );
 }
 
-function CrewAdjustmentPanel({
-  collectionModels,
-  modifierIds
-}: {
-  collectionModels: ModelCard[];
-  modifierIds: CrewModifierId[];
-}) {
-  const collectionTags = topTacticalTags(collectionModels.flatMap((model) => model.tacticalTags));
-  const collectionTagSet = new Set(collectionModels.flatMap((model) => model.tacticalTags));
-  const hasAnyTag = (tags: TacticalTag[]) => tags.some((tag) => collectionTagSet.has(tag));
-  const selectedModifiers = CREW_MODIFIERS.filter((modifier) => modifierIds.includes(modifier.id));
-  const detectedStrengths = collectionTags.length > 0
-    ? [
-        `Mobility ${hasAnyTag(["mobility", "placement"]) ? "present" : "not marked"} in collection signals.`,
-        `Condition answers ${hasAnyTag(["healing", "control", "cardPressure"]) ? "present" : "not marked"} in collection signals.`,
-        `Anti-summon pressure ${hasAnyTag(["burst", "damage", "scheme", "control"]) ? "present" : "not marked"} in collection signals.`,
-        `Marker plan ${hasAnyTag(["marker", "scheme", "placement"]) ? "present" : "not marked"} in collection signals.`
-      ]
-    : ["No optional collection models are marked, so analysis stays close to master and legal-pool assumptions."];
-  const modifierNotes = selectedModifiers.length > 0
-    ? selectedModifiers.map((modifier) => {
-        const alreadyCovered = modifier.tags.some((tag) => collectionTags.includes(tag));
-        return alreadyCovered
-          ? `${modifier.label}: your marked collection already shows ${formatVisibleTags(modifier.tags.filter((tag) => collectionTags.includes(tag)))} coverage.`
-          : `${modifier.label}: ${modifier.summary}`;
-      })
-    : ["No manual crew adjustment focus is selected."];
-
+function PlayAidPanel({ checklistItems }: { checklistItems: string[] }) {
   return (
-    <section className="panel crewAdjustmentPanel">
-      <div className="panelHeader">
-        <h2>Crew Adjustments</h2>
-        <span>{collectionModels.length} collection models marked</span>
-      </div>
-      <div className="crewAdjustmentGrid">
-        <BriefColumn title="Detected Signals" items={detectedStrengths} />
-        <BriefColumn title="Manual Focus" items={modifierNotes} />
-      </div>
-    </section>
-  );
-}
-
-function ActivationChecklistPanel({ items }: { items: string[] }) {
-  return (
-    <section className="panel activationChecklistPanel" aria-label="Optional activation checklist">
-      <div className="panelHeader">
-        <h2>Activation Checklist</h2>
-        <span>Optional reminders</span>
-      </div>
-      {items.length ? (
-        <ul className="checklistList">
-          {items.map((item) => (
-            <li key={item}>
-              <Check aria-hidden="true" size={15} />
-              <span>{item}</span>
-            </li>
-          ))}
-        </ul>
-      ) : (
-        <p className="panelHint">No crew-specific activation reminders detected from the current setup.</p>
-      )}
+    <section className="panel playAidPanel" aria-label="Optional play aid">
+      <details>
+        <summary>
+          <span>
+            <strong>Optional Play Aid</strong>
+            <small>{checklistItems.length ? `${checklistItems.length} activation reminder${checklistItems.length === 1 ? "" : "s"}` : "No reminders detected"}</small>
+          </span>
+          <ChevronDown aria-hidden="true" />
+        </summary>
+        {checklistItems.length ? (
+          <ol>
+            {checklistItems.map((item, index) => (
+              <li key={`${index}-${item}`}>{item}</li>
+            ))}
+          </ol>
+        ) : (
+          <p className="panelHint">No activation checklist entries were detected from the current master, crew card, or draft path.</p>
+        )}
+      </details>
     </section>
   );
 }
@@ -4300,6 +4403,7 @@ function ProfileList({ title, items }: { title: string; items: string[] }) {
 
 export function RecommendationPanel({
   crewModifierIds,
+  density,
   directOwnedIds,
   intent,
   pathKind,
@@ -4315,6 +4419,7 @@ export function RecommendationPanel({
   onOpenModel
 }: {
   crewModifierIds: CrewModifierId[];
+  density: ResultsDensity;
   directOwnedIds: string[];
   intent: MatchIntentSelection;
   pathKind: PathKind;
@@ -4397,7 +4502,7 @@ export function RecommendationPanel({
         <div className="infoCallout">No collection models were selected, so Available is using the full legal model pool.</div>
       ) : null}
       {modifierCopy ? <div className="infoCallout">{modifierCopy}</div> : null}
-      <TempoProfilePanel profile={selectedPath.tempoProfile} />
+      {density === "detailed" ? <TempoProfilePanel profile={selectedPath.tempoProfile} /> : null}
 
       <div className="recommendationList">
         {sortedRecommendations.map((recommendation) => {
@@ -4469,27 +4574,29 @@ export function RecommendationPanel({
                 <p><strong>Table job:</strong> {plan.tableJob}</p>
                 {plan.tradeoff ? <p><strong>Risk/tradeoff:</strong> {plan.tradeoff}</p> : null}
               </div>
-              <RecommendationDriverDisclosure modelName={recommendation.model.name} rows={driverRows} />
-              <div className="scoreGrid">
-                <ScoreContribution
-                  label="Master Counter"
-                  max={maxBreakdownScore}
-                  title="How directly this pick addresses the opposing master and master-specific pressure."
-                  value={recommendation.scoreBreakdown.masterAbilities}
-                />
-                <ScoreContribution
-                  label="Crew Synergy"
-                  max={maxBreakdownScore}
-                  title="How well this pick works with your leader, keyword, and available allied models."
-                  value={recommendation.scoreBreakdown.crewSynergy}
-                />
-                <ScoreContribution
-                  label="Strategy/Matchup Fit"
-                  max={maxBreakdownScore}
-                  title="How well this pick addresses the strategy, opponent composition, roles, and table demands."
-                  value={recommendation.scoreBreakdown.compositionMatchup}
-                />
-              </div>
+              {density === "detailed" ? <RecommendationDriverDisclosure modelName={recommendation.model.name} rows={driverRows} /> : null}
+              {density === "detailed" ? (
+                <div className="scoreGrid">
+                  <ScoreContribution
+                    label="Master Counter"
+                    max={maxBreakdownScore}
+                    title="How directly this pick addresses the opposing master and master-specific pressure."
+                    value={recommendation.scoreBreakdown.masterAbilities}
+                  />
+                  <ScoreContribution
+                    label="Crew Synergy"
+                    max={maxBreakdownScore}
+                    title="How well this pick works with your leader, keyword, and available allied models."
+                    value={recommendation.scoreBreakdown.crewSynergy}
+                  />
+                  <ScoreContribution
+                    label="Strategy/Matchup Fit"
+                    max={maxBreakdownScore}
+                    title="How well this pick addresses the strategy, opponent composition, roles, and table demands."
+                    value={recommendation.scoreBreakdown.compositionMatchup}
+                  />
+                </div>
+              ) : null}
               <button
                 className="detailsButton"
                 type="button"
@@ -4505,28 +4612,28 @@ export function RecommendationPanel({
                   <RecSection title="Key Tech" items={recommendation.relevantTech} />
                   <RecSection title="Targets" items={recommendation.priorityTargets} />
                   <RecSection title="Synergy" items={recommendation.alliedSynergies} />
-                  <RecSection title="Tempo" items={tempoNotes(recommendation)} />
-                  <RecSection title="Resource Fit" items={resourceNotes(recommendation)} />
-                  <RecSection title="Terrain & Mobility" items={terrainMobilityNotes(recommendation)} />
-                  <RecSection title="Role Flexibility" items={roleVersatilityNotes(recommendation)} />
-                  <RecSection title="Score Trace" items={recommendation.trace} />
-                  <RecSection title="Notes" items={recommendation.curatedNotes} />
+                  {density === "detailed" ? <RecSection title="Tempo" items={tempoNotes(recommendation)} /> : null}
+                  {density === "detailed" ? <RecSection title="Resource Fit" items={resourceNotes(recommendation)} /> : null}
+                  {density === "detailed" ? <RecSection title="Terrain & Mobility" items={terrainMobilityNotes(recommendation)} /> : null}
+                  {density === "detailed" ? <RecSection title="Role Flexibility" items={roleVersatilityNotes(recommendation)} /> : null}
+                  {density === "detailed" ? <RecSection title="Score Trace" items={recommendation.trace} /> : null}
+                  {density === "detailed" ? <RecSection title="Notes" items={recommendation.curatedNotes} /> : null}
                 </>
               ) : null}
             </article>
           );
         })}
       </div>
-      <SynergyGroupsPanel groups={selectedPath.synergyGroups} onOpenModel={onOpenModel} />
+      <CrewPackagesPanel groups={selectedPath.synergyGroups} onOpenModel={onOpenModel} />
     </section>
   );
 }
 
-function SynergyGroupsPanel({ groups, onOpenModel }: { groups: SynergyGroup[]; onOpenModel: (model: ModelCard) => void }) {
+function CrewPackagesPanel({ groups, onOpenModel }: { groups: SynergyGroup[]; onOpenModel: (model: ModelCard) => void }) {
   if (groups.length === 0) {
     return (
       <section className="synergyGroups">
-        <h3>Synergy Groups</h3>
+        <h3>Crew Packages</h3>
         <p>No clear package identified; use these picks independently.</p>
       </section>
     );
@@ -4534,7 +4641,7 @@ function SynergyGroupsPanel({ groups, onOpenModel }: { groups: SynergyGroup[]; o
 
   return (
     <section className="synergyGroups">
-      <h3>Synergy Groups</h3>
+      <h3>Crew Packages</h3>
       <div className="synergyGroupList">
         {groups.map((group) => (
           <article className="synergyGroup" key={group.name}>
@@ -5219,64 +5326,6 @@ function summarizePathRisks(path: RecommendationPath, brief: MatchupAnalysis["ma
   if (riskItems.length > 0) return riskItems;
   if (brief.matchupRisks.length > 0) return brief.matchupRisks.slice(0, 4);
   return ["No high-confidence risk driver surfaced from the current recommendation set."];
-}
-
-function buildNextSteps({
-  brief,
-  opponentPressure,
-  path,
-  strategy
-}: {
-  brief: MatchupAnalysis["matchupBrief"];
-  opponentPressure: string[];
-  path?: RecommendationPath;
-  strategy?: Strategy;
-}): Array<{ label: string; text: string }> {
-  const tags = new Set(strategy?.tags ?? []);
-  const roleCounts = new Map<string, number>();
-  for (const recommendation of path?.models ?? []) {
-    roleCounts.set(recommendation.role, (roleCounts.get(recommendation.role) ?? 0) + 1);
-  }
-  const topRole = [...roleCounts.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ?? "flexible tech piece";
-  const pressureText = [...opponentPressure, ...brief.watchFor].join(" ").toLowerCase();
-  const answer = brief.answerWith[0] ?? "models that directly cover the matchup gap";
-  const priorityHire = brief.priorityHires[0] ?? `a ${topRole}`;
-  const scoringStrategy = tags.has("spread") || tags.has("markers") || tags.has("scheme") || tags.has("interact") || tags.has("enemyHalf");
-  const pressureWarning = /summon|activation|extra/.test(pressureText)
-    ? "Watch for summon or activation pressure; favour picks that can remove extra bodies or keep scoring pace."
-    : /control|slow|stagger|stunned|denial/.test(pressureText)
-      ? "Watch for control pressure; favour models that still score while disrupted or that bring denial answers."
-      : "Watch the first two turns for the opponent's main pressure lane before committing fragile pieces.";
-
-  const steps = [
-    {
-      label: "Prioritise",
-      text: scoringStrategy
-        ? `Start by covering ${strategy?.name ?? "the strategy"} scoring: mobility, marker interaction, and models that can work in the right table zones.`
-        : `Start by adding ${priorityHire} before doubling down on redundant damage.`
-    },
-    {
-      label: "Avoid",
-      text: `Avoid taking extra copies of tools your crew already covers until you have checked whether ${answer.toLowerCase()} is handled.`
-    },
-    {
-      label: "Watch",
-      text: pressureWarning
-    },
-    {
-      label: "If unsure",
-      text: `Choose the highest-fit ${topRole} recommendation, then inspect its stat card to confirm its table job fits your plan.`
-    }
-  ];
-
-  if (!path || path.models.length === 0) {
-    steps[0] = {
-      label: "Prioritise",
-      text: "Start by selecting one or two candidate models, then rerun analysis to replace legal-pool assumptions with stronger evidence."
-    };
-  }
-
-  return steps;
 }
 
 function buildAnalysisShareSummary({

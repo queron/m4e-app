@@ -368,6 +368,25 @@ select option {
   margin-bottom: 22px;
 }
 
+.matrixPanel.collapsed {
+  padding: 16px 18px;
+  background:
+    linear-gradient(90deg, rgba(99, 196, 177, 0.055), transparent 58%),
+    rgba(17, 14, 11, 0.72);
+}
+
+.matrixPanel.collapsed .panelHeader {
+  margin-bottom: 4px;
+}
+
+.matrixPanel.collapsed h2 {
+  font-size: 1.05rem;
+}
+
+.matrixPanel.collapsed .panelHint {
+  margin-bottom: 0;
+}
+
 .matrixSetup {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -1050,6 +1069,164 @@ select option {
   color: var(--parchment-2);
 }
 
+.matchupDashboard,
+.topRecommendationsPanel,
+.riskCenter,
+.resultSectionNav,
+.analysisTabGrid {
+  grid-column: 1 / -1;
+}
+
+.matchupDashboard,
+.topRecommendationsPanel {
+  height: auto;
+}
+
+.dashboardGrid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.25fr) repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.dashboardGrid article,
+.topPickGrid article,
+.riskCenterGrid article {
+  border: 1px solid rgba(196, 154, 70, 0.24);
+  border-radius: var(--radius-md);
+  background: rgba(15, 12, 10, 0.46);
+  padding: 14px;
+}
+
+.dashboardGrid article {
+  display: grid;
+  gap: 9px;
+  align-content: start;
+}
+
+.dashboardGrid span,
+.topPickGrid span,
+.riskCenterGrid h3 {
+  color: var(--accent);
+  font-family: Inter, Arial, sans-serif;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.dashboardGrid strong,
+.topPickGrid strong {
+  color: var(--parchment);
+  line-height: 1.28;
+}
+
+.dashboardGrid p,
+.topPickGrid p,
+.riskCenterGrid p {
+  margin: 0;
+  color: var(--parchment-2);
+  line-height: 1.45;
+}
+
+.dashboardHero {
+  border-color: rgba(99, 196, 177, 0.42) !important;
+  background: linear-gradient(135deg, rgba(99, 196, 177, 0.12), rgba(15, 12, 10, 0.5)) !important;
+}
+
+.dashboardRisk {
+  border-color: rgba(210, 95, 75, 0.42) !important;
+}
+
+.dashboardDriverStrip,
+.priorityHireStrip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.dashboardDriverStrip span,
+.priorityHireStrip span {
+  border: 1px solid var(--line-2);
+  border-radius: 999px;
+  color: var(--parchment-2);
+  background: rgba(17, 14, 11, 0.62);
+  padding: 6px 10px;
+  font-family: Inter, Arial, sans-serif;
+  font-size: 0.74rem;
+  font-weight: 700;
+}
+
+.topPickGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.topPickGrid article {
+  display: grid;
+  gap: 8px;
+}
+
+.topPickGrid small {
+  color: var(--muted);
+  font-family: Inter, Arial, sans-serif;
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+.inlinePlanButton {
+  width: fit-content;
+  min-width: 220px;
+  margin: 0;
+  padding: 0 14px;
+}
+
+.resultSectionNav {
+  position: sticky;
+  z-index: 9;
+  top: 88px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border: 1px solid rgba(176, 138, 60, 0.3);
+  border-radius: var(--radius-md);
+  background: rgba(17, 14, 11, 0.94);
+  box-shadow: 0 14px 30px rgba(0, 0, 0, 0.28);
+  padding: 8px;
+}
+
+.resultSectionNav > div:first-child {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.resultSectionNav button {
+  min-height: 34px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  padding: 0 10px;
+  font-family: Inter, Arial, sans-serif;
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
+.resultSectionNav button:hover,
+.resultSectionNav button.active {
+  border-color: rgba(99, 196, 177, 0.38);
+  color: var(--parchment);
+  background: rgba(99, 196, 177, 0.09);
+}
+
+.densityToggle {
+  flex: 0 0 auto;
+}
+
 .resultsContextBar {
   grid-column: 1 / -1;
   display: flex;
@@ -1677,8 +1854,8 @@ select option {
 .resultTabs {
   grid-column: 1 / -1;
   display: inline-grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  width: min(820px, 100%);
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  width: min(980px, 100%);
   border: 1px solid var(--line);
   border-radius: 999px;
   overflow: hidden;
@@ -1704,6 +1881,23 @@ select option {
 .resultTabs button.active {
   background: linear-gradient(180deg, rgba(196, 154, 70, 0.32), rgba(196, 154, 70, 0.16));
   color: var(--parchment);
+}
+
+.analysisTabGrid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 22px;
+  align-items: start;
+}
+
+.analysisTabGrid > .panel,
+.analysisTabGrid > .schemeWatchlist {
+  min-height: 100%;
+}
+
+.analysisTabGrid .analysisColumn {
+  grid-row: auto;
+  grid-template-rows: none;
 }
 
 .schemeWatchlist {
@@ -1852,6 +2046,72 @@ select option {
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   gap: 22px;
   align-items: start;
+}
+
+.playAidPanel {
+  grid-column: 1 / -1;
+  padding: 0;
+}
+
+.playAidPanel details {
+  position: relative;
+  padding: 0;
+}
+
+.playAidPanel summary {
+  display: flex;
+  min-height: 58px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  cursor: pointer;
+  padding: 0 18px;
+  list-style: none;
+}
+
+.playAidPanel summary::-webkit-details-marker {
+  display: none;
+}
+
+.playAidPanel summary span {
+  display: grid;
+  gap: 3px;
+}
+
+.playAidPanel summary strong {
+  color: var(--parchment);
+  font-family: Fraunces, Georgia, serif;
+  font-size: 1rem;
+}
+
+.playAidPanel summary small {
+  color: var(--muted);
+  font-family: Inter, Arial, sans-serif;
+  font-size: 0.76rem;
+  font-weight: 700;
+}
+
+.playAidPanel summary svg {
+  width: 18px;
+  height: 18px;
+  color: var(--accent);
+  transition: transform 0.16s ease;
+}
+
+.playAidPanel details[open] summary svg {
+  transform: rotate(180deg);
+}
+
+.playAidPanel ol {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0 22px 18px 42px;
+}
+
+.playAidPanel li {
+  color: var(--parchment-2);
+  line-height: 1.45;
 }
 
 .analysisPanel,
@@ -3391,6 +3651,66 @@ li + li {
   white-space: nowrap;
 }
 
+.riskCenterGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.riskCenterGrid article {
+  display: grid;
+  gap: 10px;
+  align-content: start;
+}
+
+.riskCenterGrid h3 {
+  margin: 0;
+}
+
+.riskCenterGrid ul {
+  display: grid;
+  gap: 9px;
+  margin: 0;
+  padding-left: 0;
+  list-style: none;
+}
+
+.riskCenterGrid li {
+  display: grid;
+  gap: 3px;
+  border-left: 3px solid var(--accent);
+  padding-left: 10px;
+}
+
+.riskCenterGrid li strong {
+  color: var(--parchment);
+  font-family: Inter, Arial, sans-serif;
+  font-size: 0.82rem;
+}
+
+.riskCenterGrid li span,
+.riskCenterGrid li small {
+  color: var(--parchment-2);
+  line-height: 1.4;
+}
+
+.riskAnswerList {
+  display: grid;
+  gap: 8px;
+}
+
+.riskAnswerList button {
+  display: grid;
+  justify-items: start;
+  gap: 3px;
+  min-height: 44px;
+}
+
+.riskAnswerList small {
+  color: var(--muted);
+  font-size: 0.72rem;
+}
+
 .limitedEvidence {
   padding: 0 12px 12px;
 }
@@ -4335,6 +4655,13 @@ li + li {
     grid-template-columns: 1fr;
   }
 
+  .dashboardGrid,
+  .topPickGrid,
+  .riskCenterGrid,
+  .analysisTabGrid {
+    grid-template-columns: 1fr;
+  }
+
   .schemeWatchlistGrid {
     grid-template-columns: 1fr;
   }
@@ -4547,6 +4874,25 @@ li + li {
     flex: 0 0 auto;
     min-height: 44px;
     white-space: nowrap;
+  }
+
+  .resultSectionNav {
+    position: static;
+    display: grid;
+  }
+
+  .resultSectionNav > div:first-child {
+    overflow-x: auto;
+    flex-wrap: nowrap;
+    padding-bottom: 2px;
+  }
+
+  .densityToggle {
+    width: 100%;
+  }
+
+  .inlinePlanButton {
+    width: 100%;
   }
 }
 
